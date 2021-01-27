@@ -1,0 +1,265 @@
+from __future__ import print_function
+from __future__ import division
+
+import torch
+import torch.nn as nn
+from flamingChoripan.tinyFlame.models import Linear, MLP, count_parameters, CausalConv1DLinear
+from .pytorch_multihead_clone import MultiheadAttention
+import numpy as np
+
+'''
+class LayerNorm_proxy(nn.Module):
+	"Construct a layernorm module (See citation for details)."
+	def __init__(self, normalized_shape, eps=1e-5, **kwargs):
+		super().__init__()
+		self.bnorm = nn.LayerNorm(normalized_shape=normalized_shape, eps=eps)
+
+	def forward(self, x, mask):
+		x = x.masked_fill(~mask, 0)
+		#x = x.transpose(-2,-1)
+		x = self.bnorm(x)
+		#x = x.transpose(-2,-1)
+		x = x.masked_fill(~mask, 0)
+		return x
+
+'''
+
+def generate_square_subsequent_mask(sz):
+	mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
+	mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+	return mask
+
+class SelfAttentionStack(nn.Module):
+	def __init__(self, input_dims, output_dims, layers, max_curve_length,
+		**kwargs):
+		super().__init__()
+		# ATRIBUTES
+		setattr(self, 'input_dims', input_dims)
+		setattr(self, 'output_dims', output_dims)
+		setattr(self, 'layers', layers)
+		setattr(self, 'max_curve_length', max_curve_length)
+		setattr(self, 'dropout_p', 0.0)
+		for name, val in kwargs.items():
+			setattr(self, name, val)
+		### CHECKS
+		assert self.layers>=1
+
+		### MODULES
+		self.self_attn_stack = nn.ModuleList()
+		attn_input_dims = self.input_dims
+		for k in range(layers):
+			self_attn = SelfAttention(attn_input_dims, self.output_dims, self.max_curve_length, **kwargs)
+			self.self_attn_stack.append(self_attn)
+			attn_input_dims = self_attn.get_output_dims()
+
+		self.dropout = nn.Dropout(self.dropout_p)
+
+	def extra_repr(self):
+		txt = '\n'.join([f'\t({k}): {self_attn.__repr__()}' for k,self_attn in enumerate(self.self_attn_stack)])
+		txt = f'\n{txt}\n'
+		return txt
+
+	def __repr__(self):
+		txt = f'SelfAttentionStack({self.extra_repr()})'
+		txt += f'({count_parameters(self):,}[p])'
+		return txt
+
+	def get_output_dims(self):
+		return self.self_attn_stack[-1].get_output_dims()
+
+	def forward(self, x, curve_length_mask,
+		**kwargs):
+		assert len(x.size())==3
+
+		for k,self_attn in enumerate(self.self_attn_stack):
+			x = self.dropout(x) if k>0 else x
+			x, extra_info = self_attn(x, curve_length_mask, **kwargs)
+		return x, extra_info
+
+class SelfAttention(nn.Module):
+	def __init__(self, input_dims, output_dims, max_curve_length,
+		**kwargs):
+		super().__init__()
+		# ATRIBUTES
+		setattr(self, 'input_dims', input_dims)
+		setattr(self, 'output_dims', output_dims)
+		setattr(self, 'max_curve_length', max_curve_length)
+		setattr(self, 'attn_heads', 1)
+		setattr(self, 'context_mlp_activation', 'relu')
+		setattr(self, 'context_mlp_layers', 1)
+		setattr(self, 'attn_bias', True)
+		setattr(self, 'uses_residual', True) # False, True
+		setattr(self, 'dropout', 0.0)
+		setattr(self, 'dropout_res', 0.0)
+		setattr(self, 'dropout_along_time_attention', 0.0)
+		setattr(self, 'te_features', 0)
+		setattr(self, 'uses_error_set_function', False)
+		for name, val in kwargs.items():
+			setattr(self, name, val)
+		### CHECKS
+		assert self.input_dims%self.attn_heads==0
+		self.units_per_head = self.input_dims//self.attn_heads
+		self.uses_te = self.te_features>0
+
+		### MODULES
+		attn_kwargs ={
+			'dropout':self.dropout_along_time_attention,
+			'bias':self.attn_bias,
+		}
+		self.attention_context = MultiheadAttention(self.input_dims, self.attn_heads, **attn_kwargs)
+		#self.attention_context2 = MultiheadAttention(self.input_dims, self.attn_heads, **attn_kwargs)
+		self.register_buffer('src_mask', generate_square_subsequent_mask(self.max_curve_length))
+
+		hidden_units = [self.input_dims]*self.context_mlp_layers
+		mlp_kwargs = {
+			'activation':self.context_mlp_activation,
+			'last_activation':'linear', # as in transformer
+			'dropout':self.dropout,
+		}
+		self.context_mlp = MLP(self.input_dims, self.input_dims, hidden_units, **mlp_kwargs)
+		self.causal_cnn = CausalConv1DLinear(self.input_dims, self.input_dims, 5, activation='relu', cnn_stacks=2)
+		print('causal_cnn:',self.causal_cnn)
+		#print('context_mlp:',self.context_mlp)
+
+		if self.uses_te:
+			linear_kwargs = {
+				'activation':'linear',
+				'in_dropout':0,
+				'out_dropout':0,
+				#'out_dropout':self.dropout, # too much dropout?
+			}
+			#self.te_projection = Linear(self.te_features, self.input_dims, split_out=4, **linear_kwargs)
+			self.te_projection = Linear(self.te_features+self.input_dims, self.input_dims, split_out=2, **linear_kwargs)
+			#print(self.te_projection)
+
+		if self.uses_error_set_function:
+			mlp_kwargs = {
+				'activation':self.context_mlp_activation,
+				'last_activation':'linear', # as in seft
+				'dropout':0,
+				#'dropout':self.dropout,
+			}
+			h_out_dims = self.input_dims//self.attn_heads
+			hg_layers = 0
+			hidden_units = [h_out_dims]*hg_layers
+			self.h_function = MLP(self.input_dims, h_out_dims, [], **mlp_kwargs)
+			mlp_kwargs = {
+				'activation':self.context_mlp_activation,
+				'last_activation':'linear', # as in seft
+				'dropout':0,
+				#'dropout':self.dropout,
+			}
+			self.g_function = MLP(h_out_dims, self.input_dims, hidden_units, **mlp_kwargs)
+			print('h_function:',self.h_function)
+			print('g_function:',self.g_function)
+			#self.qg_merge = Linear(self.input_dims*2, self.input_dims)
+			#self.register_buffer('min_error', torch.full((), np.infty))
+			#self.register_buffer('max_error', torch.full((), -np.infty))
+
+		# REGULARIZATION
+		#self.attn_BN = LayerNorm_proxy(normalized_shape=(self.input_dims))
+		#self.MLP_BN = LayerNorm_proxy(normalized_shape=(self.input_dims))
+		self.residual_dropout_f = nn.Dropout(self.dropout_res)
+
+	def extra_repr(self):
+		txt = f'input_dims={self.input_dims}, output_dims={self.output_dims}, attn_heads={self.attn_heads}, units_per_head={self.units_per_head}'
+		txt += f', attn_bias={self.attn_bias}, uses_residual={self.uses_residual}'
+		txt += f', dropout={self.dropout}, dropout_res={self.dropout_res}, dropout_along_time_attention={self.dropout_along_time_attention}'
+		txt += f', context_mlp_layers={self.context_mlp_layers}, context_mlp_activation={self.context_mlp_activation}, te_features={self.te_features}'
+		txt += f', uses_error_set_function={self.uses_error_set_function}'
+		return txt
+
+	def __repr__(self):
+		txt = f'SelfAttention({self.extra_repr()})'
+		txt += f'({count_parameters(self):,}[p])'
+		return txt
+
+	def get_output_dims(self):
+		return self.output_dims
+
+	def forwardddd(self, x, curve_length_mask,
+		**kwargs):
+		assert len(x.size())==3
+		queries = x
+		keys = x
+		values = x
+		return self.forward_qkv(queries, keys, values, curve_length_mask, **kwargs)
+
+	def forward(self, x, curve_length_mask,
+		**kwargs):
+		'''
+		x: (b,t,q)
+		queries: (b,t,q)
+		keys: (b,t,k)
+		values: (b,t,v)
+		curve_length_mask: (b,t)
+		'''
+		assert len(x.size())==3
+		contexts_holder = x
+		#te_b = self.te_projection(kwargs.get('te'))
+		te_b = self.te_projection(torch.cat([x, kwargs.get('te')], dim=-1))
+		#x = x*te_b[0]+te_b[1] # FILM
+		x = (x+te_b[0])*torch.sigmoid(te_b[1]) # FILM
+		#x = x+te_b[1]
+		x = self.causal_cnn(x)
+		#x = x*te_b[2]+te_b[3] # FILM
+		queries = x
+		keys = x
+		values = x
+		assert len(queries.size())==3
+		assert len(keys.size())==3
+		assert len(values.size())==3
+		assert len(curve_length_mask.size())==2
+		b,t,f = queries.size()
+		#print('queries',queries.shape,queries.device,'keys',keys.shape,keys.device,'values',values.shape,values.device)
+
+		'''
+		if self.uses_te:
+			te_b = self.te_projection(kwargs.get('te'))
+			values = values*te_b[0]+te_b[1]
+			queries = queries*te_b[2]+te_b[3]
+			keys = keys*te_b[4]+te_b[5]
+		
+
+		if self.uses_error_set_function:
+			error = (kwargs.get('error')+1e-10)#.masked_fill(~curve_length_mask, np.infty)[...,None]
+			assert torch.all(error>0)
+			error_weights = 1/torch.log(error[:,None,:].expand(-1,t,-1))+self.src_mask
+			error_weights = torch.softmax(error_weights, dim=-1) # (b,q,t)
+			h_output = torch.bmm(error_weights, self.h_function(values)) # (b,q,f)
+			error_set_function = self.g_function(h_output)
+			keys = keys*torch.sigmoid(error_set_function) # gate
+		'''
+
+		queries = queries.permute(1,0,2)
+		keys = keys.permute(1,0,2)
+		values = values.permute(1,0,2)
+		#print('queries',queries.shape,queries.device,'keys',keys.shape,keys.device,'values',values.shape,values.device)
+
+		attn_kwargs = {
+			'key_padding_mask':~curve_length_mask,
+			'attn_mask':self.src_mask,
+			'need_weights':True,
+		}
+		contexts, aligments,_ = self.attention_context(queries, keys, values, **attn_kwargs)
+		#contexts = torch.relu(contexts)
+		#contexts, aligments,_ = self.attention_context2(contexts, contexts, contexts, **attn_kwargs)
+		contexts = contexts.permute(1,0,2) # (t,b,c) > (b,t,c)
+		aligments = aligments.permute(0,2,3,1) # (b,h,qt,t) > (b,qt,t,h)
+		if self.uses_residual:
+			contexts = contexts_holder+self.residual_dropout_f(contexts) # RESIDUAL
+			#contexts = contexts+self.residual_dropout_f(contexts_holder) # RESIDUAL
+		#contexts = torch.relu(contexts)
+
+		contexts_holder = contexts
+		contexts = self.context_mlp(contexts) # mlp
+		if self.uses_residual:
+			contexts = contexts_holder+self.residual_dropout_f(contexts) # RESIDUAL
+			#contexts = contexts+self.residual_dropout_f(contexts_holder) # RESIDUAL
+		#contexts = torch.relu(contexts)
+
+		contexts = contexts.masked_fill(~curve_length_mask[...,None], 0) # clean results according to mask
+		extra_info = {
+			'aligments':aligments,
+		}
+		return contexts, extra_info
