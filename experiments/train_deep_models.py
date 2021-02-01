@@ -12,6 +12,7 @@ if __name__== '__main__':
 	from flamingchoripan.prints import print_big_bar
 
 	parser = argparse.ArgumentParser('usage description')
+	parser.add_argument('-method',  type=str, default='', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu_index')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
 	parser.add_argument('-email',  type=bool, default=False, help='send_email')
@@ -35,21 +36,13 @@ if __name__== '__main__':
 	import numpy as np
 	from flamingchoripan.files import load_pickle, save_pickle
 	from flamingchoripan.files import get_dict_from_filedir
-	from lchandler import C_ as C_
 
-	def load_lcdataset(filename):
-		assert filename.split('.')[-1]==C_.EXT_SPLIT_LIGHTCURVE
-		return load_pickle(filename)
-
-	filedir = '../../surveys-save/alerceZTFv7.1/survey=alerceZTFv7.1°bands=gr°mode=onlySNe°method=mcmc.splcds'
-
-	filedict = get_dict_from_filedir(filedir)
+	filedir = f'../../surveys-save/alerceZTFv7.1/survey=alerceZTFv7.1°bands=gr°mode=onlySNe°method={method}.splcds'
+	filedict = load_pickle(filedir)
 	root_folder = filedict['*rootdir*']
 	cfilename = filedict['*cfilename*']
 	survey = filedict['survey']
 	lcdataset = load_lcdataset(filedir)
-	print(lcdataset['raw'].keys())
-	print(lcdataset['raw'].get_random_lcobj(False).keys())
 	print(lcdataset)
 
 	###################################################################################################################################################
@@ -77,9 +70,8 @@ if __name__== '__main__':
 		'target_is_onehot':False,
 	}
 	#pre_loss = LCCompleteLoss('wmse', lcdataset['raw'].band_names)
-	#pre_loss = LCCrossEntropy('wxentropy', **loss_kwargs)
+	#pre_loss = LCXEntropy('wxentropy', **loss_kwargs)
 	pre_loss = LCCompleteLoss('wmse-wxentropy', lcdataset['raw'].band_names, **loss_kwargs)
-
 	pre_metrics = [
 		LCXEntropyMetric('wxentropy', **loss_kwargs),
 		LCAccuracy('b-accuracy', balanced=True, **loss_kwargs),
@@ -117,14 +109,14 @@ if __name__== '__main__':
 		print('r_train_dataset:', r_train_dataset)
 		print('r_val_dataset:', r_val_dataset)
 		
-		s_train_dataset.generate_daugm_samples(1)
+		s_train_dataset.precompute_samples(1)
 		s_val_dataset.generate_daugm_samples(1)
 		r_train_dataset.generate_daugm_samples(100)
 		r_val_dataset.generate_daugm_samples(100)
 		
 		### DATALOADERS
 		loader_kwargs = {
-			'batch_size':512,
+			'batch_size':main_args.batch_size,
 			#'num_workers':2, # bug?
 		}
 		random_subcrops = 3
@@ -134,7 +126,7 @@ if __name__== '__main__':
 		r_val_loader = CustomDataLoader(r_val_dataset, random_subcrops=0, **loader_kwargs)
 		
 		### IDS
-		model_ids = range(0, 5)
+		model_ids = list(range(main_args.iid, main_args.fid+1))
 		for ki,model_id in enumerate(model_ids): # IDS
 			### GET MODEL
 			mdl_kwargs = mp_grid['mdl_kwargs']

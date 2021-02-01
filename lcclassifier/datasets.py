@@ -14,17 +14,18 @@ from joblib import Parallel, delayed
 from flamingchoripan.lists import get_list_chunks
 from flamingchoripan.progress_bars import ProgressBar
 from fuzzytorch.utils import print_tdict
+from fuzzytorch.models.seq_utils import get_seq_clipped_shape
 
 ###################################################################################################################################################
 
 class CustomDataset(Dataset):
-	def __init__(self, lcdataset, set_name,
+	def __init__(self, lcdataset, lcset_name,
 		attrs:list=['d_days','obs', 'obse'],
 		max_day:float=np.infty,
 		max_te_period:float=None,
 		max_len:int=None,
 		te_features:int=6,
-		effective_beta_eps=0.0001, # same weight -> 0.01 0.001 0.0001 0.00001 -> 1/freq
+		effective_beta_eps=0.00001, # same weight -> 0.01 0.001 0.0001 0.00001 -> 1/freq
 
 		hours_noise_amp:float=C_.HOURS_NOISE_AMP,
 		std_scale:float=C_.OBSE_STD_SCALE,
@@ -32,8 +33,8 @@ class CustomDataset(Dataset):
 		):
 		assert te_features%2==0
 
-		self.lcset = lcdataset[set_name]
-		self.set_name = set_name
+		self.lcset = lcdataset[lcset_name]
+		self.lcset_name = lcset_name
 		self.attrs = attrs.copy()
 		self.max_day = self.get_max_duration() if max_day is None else max_day
 		self.__max_day__ = max_day
@@ -52,16 +53,19 @@ class CustomDataset(Dataset):
 		self.reset()
 
 	def reset(self):
-		self.uses_pre_generated_samples = True
+		self.uses_precomputed_samples = True
 		self.automatic_diff_log()
 		self.get_te_periods()
 		self.get_norm_bdict()
 		self.reset_max_day()
 		self.calculate_poblation_weights()
-		self.pre_sampled_tdict = []
+		self.precomputed_tdict = []
 
 	def calculate_poblation_weights(self):
 		self.poblation_weights = self.lcset.get_class_effective_weigths_cdict(1-self.effective_beta_eps) # get_class_freq_weights_cdict get_class_effective_weigths_cdict
+
+	def get_poblation_weights(self):
+		return self.poblation_weights
 
 	def reset_max_day(self):
 		self.max_day = self.__max_day__
@@ -83,9 +87,6 @@ class CustomDataset(Dataset):
 	def get_output_dims(self):
 		return len(self.attrs)
 
-	def get_poblation_weights(self):
-		return self.poblation_weights
-
 	def __repr__(self):
 		txt = f'CustomDataset('
 		txt += strings.get_string_from_dict({
@@ -101,8 +102,8 @@ class CustomDataset(Dataset):
 		return txt
 
 	def calcule_max_len(self):
-		self.max_len = max([len(self.lcset[lcobj_name].get_custom_x_serial(['days'], max_day=self.max_day)) for lcobj_name in self.lcset.get_lcobj_names()])
-		return self.max_len
+		max_len = max([len(self.lcset[lcobj_name].get_custom_x_serial(['days'], max_day=self.max_day)) for lcobj_name in self.lcset.get_lcobj_names()])
+		return max_len
 
 	def get_max_len(self):
 		return self.max_len
@@ -144,7 +145,7 @@ class CustomDataset(Dataset):
 		self.poblation_weights = poblation_weights
 
 	def transfer_to(self, other):
-		other.set_max_len(self.get_max_len())
+		other.set_max_len(self.get_max_len()) # sure?
 		other.set_max_day(self.get_max_day())
 		other.set_norm_bdict(self.get_norm_bdict())
 		other.set_te_periods(self.get_te_periods())
@@ -172,8 +173,8 @@ class CustomDataset(Dataset):
 	def get_attr_index(self, attr):
 		return self.attrs.index(attr)
 
-	def has_pre_generated_samples(self):
-		return len(self.pre_sampled_tdict)>0
+	def has_precomputed_samples(self):
+		return len(self.precomputed_tdict)>0
 
 	def get_random_stratified_lcobj_names(self,
 		nc=2,
@@ -186,14 +187,14 @@ class CustomDataset(Dataset):
 		return lcobj_names
 
 	def __len__(self):
-		uses_pre_generated_samples = self.has_pre_generated_samples() and self.uses_pre_generated_samples
-		return len(self.pre_sampled_tdict) if uses_pre_generated_samples else len(self.lcset)
+		uses_precomputed_samples = self.has_precomputed_samples() and self.uses_precomputed_samples
+		return len(self.precomputed_tdict) if uses_precomputed_samples else len(self.lcset)
 
 	def __getitem__(self, idx:int):
-		uses_pre_generated_samples = self.has_pre_generated_samples() and self.uses_pre_generated_samples
-		return self.pre_sampled_tdict[idx] if uses_pre_generated_samples else self.get_item(self.lcset.get_lcobj_names()[idx])
+		uses_precomputed_samples = self.has_precomputed_samples() and self.uses_precomputed_samples
+		return self.precomputed_tdict[idx] if uses_precomputed_samples else self.get_item(self.lcset.get_lcobj_names()[idx])
 
-	def generate_daugm_samples(self, pre_daugm_copies,
+	def precompute_samples(self, pre_daugm_copies,
 		n_jobs=1,
 		chunk_size=None,
 		):
@@ -204,10 +205,10 @@ class CustomDataset(Dataset):
 		chunks = get_list_chunks(lcobj_names, chunk_size)
 		bar = ProgressBar(len(chunks))
 		for kc,chunk in enumerate(chunks):
-			bar(f'{self.set_name} {chunk}')
+			bar(f'{self.lcset_name} {chunk}')
 			results = Parallel(n_jobs=n_jobs, backend='threading')([delayed(job)(lcobj_name) for lcobj_name in chunk]) # None threading 
 			for r in results:
-				self.pre_sampled_tdict += r
+				self.precomputed_tdict += r
 		bar.done()
 
 	def get_item(self, lcobj_name,
@@ -220,6 +221,8 @@ class CustomDataset(Dataset):
 			for key in tdict.keys():
 				x = tdict[key]
 				shape = list(x.shape)
+				assert 0
+				get_seq_clipped_shape
 				if uses_len_clip and len(shape)==2:
 					new_shape = [max_len if k==0 else s for k,s in enumerate(shape)]
 					new_x = torch.zeros(new_shape, dtype=x.dtype, device=x.device)

@@ -54,7 +54,6 @@ class LCXEntropy(FTLoss):
 		target_tdict = tdict['target']
 		model_tdict = tdict['model']
 
-		onehot = input_tdict['onehot']
 		y_target = target_tdict['y'].long()
 		y_pred = model_tdict['y.last']
 		poblation_weights = target_tdict['poblation_weights'][0] if self.uses_poblation_weights else None

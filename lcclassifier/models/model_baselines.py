@@ -2,10 +2,10 @@ from __future__ import print_function
 from __future__ import division
 from . import C_
 
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 from fuzzytorch.utils import get_model_name, print_tdict
 
 ###################################################################################################################################################
