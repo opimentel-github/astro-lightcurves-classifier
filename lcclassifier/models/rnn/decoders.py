@@ -34,13 +34,12 @@ class RNNDecoderP(nn.Module):
 		print('te_film:', self.te_film)
 
 		### RNN STACK
-		rnn_args = [self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), self.curvelength_max]
 		rnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'bidirectional':self.bidirectional,
 		}
-		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(*rnn_args, **rnn_kwargs) for b in self.band_names})
+		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs) for b in self.band_names})
 		print('ml_rnn:', self.ml_rnn)
 
 		mlp_kwargs = {
@@ -82,7 +81,7 @@ class RNNDecoderP(nn.Module):
 
 			p_rx, p_extra_info_rnn = self.ml_rnn[b](p_rx, p_onehot, **kwargs) # out, (ht, ct)
 			p_rx = self.dz_projection[b](p_rx)
-			tdict['model'].update({f'raw-x.{b}':p_rx})
+			tdict['model'].update({f'rec-x.{b}':p_rx})
 
 		return tdict
 
@@ -111,13 +110,12 @@ class RNNDecoderS(nn.Module):
 		print('te_film:', self.te_film)
 
 		### RNN STACK
-		rnn_args = [self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), self.curvelength_max]
 		rnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'bidirectional':self.bidirectional,
 		}
-		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(*rnn_args, **rnn_kwargs)
+		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs)
 		print('ml_rnn:', self.ml_rnn)
 
 		mlp_kwargs = {
@@ -157,6 +155,6 @@ class RNNDecoderS(nn.Module):
 			
 		for kb,b in enumerate(self.band_names):
 			p_rx = seq_utils.serial_to_parallel(rx, onehot[...,kb])
-			tdict['model'].update({f'raw-x.{b}':p_rx})
+			tdict['model'].update({f'rec-x.{b}':p_rx})
 
 		return tdict

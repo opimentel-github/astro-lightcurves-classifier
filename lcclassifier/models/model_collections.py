@@ -13,11 +13,12 @@ from .rnn import decoders as rnn_decoders
 class ModelCollections():
 	def __init__(self, lcdataset):
 		self.lcdataset = lcdataset
-		self.max_day = 70.
-		self.embd_dims = GDIter(32,64)
+		self.max_day = 150.
+		self.embd_dims = GDIter(30, 60)
 		self.embd_layers = GDIter(2)
 		self.rnn_cell_names = GDIter('GRU','LSTM')
 		self.te_features_iter = GDIter(8)#4,8,16)
+		self.dropout_p = .25 # .2 .25
 		self.common_dict = {
 			'band_names':lcdataset['raw'].band_names,
 			'output_dims':len(lcdataset['raw'].class_names),
@@ -27,12 +28,12 @@ class ModelCollections():
 				'C':rnn_decoders.RNNDecoderS, # RNNDecoderP RNNDecoderS
 				'rnn_cell_name':'GRU',
 				'rnn_layers':1,
-				'dropout':{'p':0.1},
+				'dropout':{'p':self.dropout_p},
 			},
 			'class_mdl_kwargs':{
 				'C':mclass.SimpleClassifier,
 				'embd_layers':1,
-				'dropout':{'p':0.1},
+				'dropout':{'p':self.dropout_p},
 			},
 		}
 		self.reset()
@@ -68,7 +69,8 @@ class ModelCollections():
 	def update_dt(self, gs):
 		gs.update({
 			'dataset_kwargs':{
-				'attrs':['d_days', 'log_obs', 'log_obse'],
+				'in_attrs':['d_days', 'obs', 'obse'],
+				'rec_attr':'obs',
 				'max_day':self.max_day,
 				'te_features':0,
 			}})
@@ -77,7 +79,8 @@ class ModelCollections():
 	def update_te(self, gs):
 		gs.update({
 			'dataset_kwargs':{
-				'attrs':['log_obs', 'log_obse'],
+				'in_attrs':['obs', 'obse'],
+				'rec_attr':'obs',
 				'max_day':self.max_day,
 				'te_features':self.te_features_iter,
 			}})
@@ -92,7 +95,7 @@ class ModelCollections():
 				'rnn_cell_name':self.rnn_cell_names,
 				'rnn_embd_dims':self.embd_dims,
 				'rnn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_dt(gs))
@@ -104,7 +107,7 @@ class ModelCollections():
 				'rnn_cell_name':self.rnn_cell_names,
 				'rnn_embd_dims':self.embd_dims,
 				'rnn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_te(gs))
@@ -120,7 +123,7 @@ class ModelCollections():
 				'rnn_cell_name':self.rnn_cell_names,
 				'rnn_embd_dims':self.embd_dims,
 				'rnn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_dt(gs))
@@ -132,7 +135,7 @@ class ModelCollections():
 				'rnn_cell_name':self.rnn_cell_names,
 				'rnn_embd_dims':self.embd_dims,
 				'rnn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_te(gs))
@@ -143,108 +146,108 @@ class ModelCollections():
 
 ###################################################################################################################################################
 
-	def parallel_tcn_models_dt(self):
+	def parallel_tcnn_models_dt(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
-				'C':mbls.ParallelTCNClassifier,
-				'tcn_embd_dims':self.embd_dims,
-				'tcn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'C':mbls.ParallelTCNNClassifier,
+				'tcnn_embd_dims':self.embd_dims,
+				'tcnn_layers':self.embd_layers,
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_dt(gs))
 
-	def parallel_tcn_models_te(self):
+	def parallel_tcnn_models_te(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
-				'C':mbls.ParallelTCNClassifier,
-				'tcn_embd_dims':self.embd_dims,
-				'tcn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'C':mbls.ParallelTCNNClassifier,
+				'tcnn_embd_dims':self.embd_dims,
+				'tcnn_layers':self.embd_layers,
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_te(gs))
 
-	def parallel_tcn_models(self):
-		self.parallel_tcn_models_dt()
-		self.parallel_tcn_models_te()
+	def parallel_tcnn_models(self):
+		self.parallel_tcnn_models_dt()
+		self.parallel_tcnn_models_te()
 
-	def serial_tcn_models_dt(self):
+	def serial_tcnn_models_dt(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
-				'C':mbls.SerialTCNClassifier,
-				'tcn_embd_dims':self.embd_dims,
-				'tcn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'C':mbls.SerialTCNNClassifier,
+				'tcnn_embd_dims':self.embd_dims,
+				'tcnn_layers':self.embd_layers,
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_dt(gs))
 
-	def serial_tcn_models_te(self):
+	def serial_tcnn_models_te(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
-				'C':mbls.SerialTCNClassifier,
-				'tcn_embd_dims':self.embd_dims,
-				'tcn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'C':mbls.SerialTCNNClassifier,
+				'tcnn_embd_dims':self.embd_dims,
+				'tcnn_layers':self.embd_layers,
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_te(gs))
 
-	def serial_tcn_models(self):
-		self.serial_tcn_models_dt()
-		self.serial_tcn_models_te()
+	def serial_tcnn_models(self):
+		self.serial_tcnn_models_dt()
+		self.serial_tcnn_models_te()
 
 ###################################################################################################################################################
 
-	def parallel_atcn_models_dt(self):
+	def parallel_atcnn_models_dt(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
-				'C':mbls.ParallelAttnTCNClassifier,
-				'tcn_embd_dims':self.embd_dims,
-				'tcn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'C':mbls.ParallelAttnTCNNClassifier,
+				'tcnn_embd_dims':self.embd_dims,
+				'tcnn_layers':self.embd_layers,
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_dt(gs))
 
-	def parallel_atcn_models_te(self):
+	def parallel_atcnn_models_te(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
-				'C':mbls.ParallelAttnTCNClassifier,
-				'tcn_embd_dims':self.embd_dims,
-				'tcn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'C':mbls.ParallelAttnTCNNClassifier,
+				'tcnn_embd_dims':self.embd_dims,
+				'tcnn_layers':self.embd_layers,
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_te(gs))
 
-	def parallel_atcn_models(self):
-		self.parallel_atcn_models_dt()
-		self.parallel_atcn_models_te()
+	def parallel_atcnn_models(self):
+		self.parallel_atcnn_models_dt()
+		self.parallel_atcnn_models_te()
 
-	def serial_atcn_models_dt(self):
+	def serial_atcnn_models_dt(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
-				'C':mbls.SerialAttnTCNClassifier,
-				'tcn_embd_dims':self.embd_dims,
-				'tcn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'C':mbls.SerialAttnTCNNClassifier,
+				'tcnn_embd_dims':self.embd_dims,
+				'tcnn_layers':self.embd_layers,
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_dt(gs))
 
-	def serial_atcn_models_te(self):
+	def serial_atcnn_models_te(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
-				'C':mbls.SerialAttnTCNClassifier,
-				'tcn_embd_dims':self.embd_dims,
-				'tcn_layers':self.embd_layers,
-				'dropout':{'p':0.1},
+				'C':mbls.SerialAttnTCNNClassifier,
+				'tcnn_embd_dims':self.embd_dims,
+				'tcnn_layers':self.embd_layers,
+				'dropout':{'p':self.dropout_p},
 			},
 		})
 		self.add_gs(self.update_te(gs))
 
-	def serial_atcn_models(self):
-		self.serial_atcn_models_dt()
-		self.serial_atcn_models_te()
+	def serial_atcnn_models(self):
+		self.serial_atcnn_models_dt()
+		self.serial_atcnn_models_te()

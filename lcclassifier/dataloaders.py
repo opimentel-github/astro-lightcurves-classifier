@@ -36,13 +36,13 @@ class CustomDataLoader(DataLoader):
 		self.training = False
 
 	def custom_collate_fn(self, batch):
-		if self.random_subcrops>1 and self.training:
+		if self.random_subcrops>0 and self.training:
 			# add subcrops
 			new_batch_dicts = []
 			for tdict in batch:
 				length = tdict['input']['onehot'].sum().item()
 				assert length>=0
-				new_lengths = [length if k==0 else random.randint(self.min_length, max(self.min_length, length-1)) for k in range(self.random_subcrops)]
+				new_lengths = [length if k==0 else random.randint(self.min_length, max(self.min_length, length-1)) for k in range(0, self.random_subcrops+1)]
 				#print(length, new_lengths)
 				for l in new_lengths:
 					new_tdict = {'input':{}, 'target':{}}

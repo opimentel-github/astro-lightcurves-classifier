@@ -55,7 +55,7 @@ def get_day_metrics_from_models(root_folder, model_names, metric_name, fext, # f
 				metric_curves.append(np.array([np.mean([rdict[d][metric_name.replace('*','')][c] for c in class_names]) for d in days])[None,...])
 				#metric_curves.append(np.array([rdict[d][metric_name] for d in days])[None,...]) # fix
 			else:
-				metric_curves.append(np.array([rdict[d][metric_name] for d in days])[None,...])
+				metric_curves.append(np.array([rdict[d]['metrics_dict'][metric_name] for d in days])[None,...])
 
 			#print([rdict[d]['*baccu*'] for d in days])
 			#print([rdict[d]['*recall*'] for d in days])

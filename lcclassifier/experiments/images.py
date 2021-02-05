@@ -8,7 +8,6 @@ import numpy as np
 from lchandler import C_ as C_lchandler
 from lchandler.plots.lc import plot_lightcurve
 import flamingchoripan.prints as prints
-import flamingchoripan.emails as emails
 from flamingchoripan.cuteplots.utils import save_fig
 import matplotlib.pyplot as plt
 
@@ -20,7 +19,6 @@ def reconstructions_m(train_handler, data_loader,
 	nc:int=1,
 	save_rootdir:str='results',
 	experiment_id:int=0,
-	send_email:bool=False,
 	**kwargs):
 	results = []
 	for experiment_id in range(m):
@@ -29,18 +27,8 @@ def reconstructions_m(train_handler, data_loader,
 			nc,
 			save_rootdir,
 			experiment_id,
-			0,
 			**kwargs)
 		results.append(r)
-
-	### send email
-	if send_email:
-		email_dict = {
-			'subject':results[0],
-			'content':'\n'.join(results),
-			'images':results,
-		}
-		emails.send_mail(C_.EMAIL, email_dict)
 
 	return results
 
@@ -69,16 +57,12 @@ def reconstructions(train_handler, data_loader,
 				lcobjb = lcobj.get_b(b)
 				b_len = onehot[...,kb].sum()
 				plot_lightcurve(ax, lcobj, b, label=f'{b} observation', max_day=dataset.max_day)
-				p_rx_pred = out_tdict['model'][f'raw-x.{b}'].repeat(1, 1, len(dataset.attrs)).cpu().numpy()[0]
 
-				index = dataset.get_attr_index('log_obs')
-				inv_p_rx_pred = dataset.norm_bdict[b].inverse_transform(p_rx_pred)
-				p_rx_pred_exp = np.exp(inv_p_rx_pred[:,index])-1 # pasar al objeto pasar unar la inversa del log?
+				p_rx_pred = out_tdict['model'][f'rec-x.{b}'][0,:,0].cpu().numpy()
+				p_rx_pred = dataset.get_rec_inverse_transform(p_rx_pred, b)
+				ax.plot(days[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} reconstruction')
 
-				ax.plot(days[:b_len], p_rx_pred_exp[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} reconstruction')
-
-			title = f'survey: {dataset.survey} - set: {dataset.set_name} - lcobj: {lcobj_names[k]}'
-			title += f' - total obs: {onehot.sum()} - class: {dataset.class_names[lcobj.y]}'
+			title = f'survey: {dataset.survey} - set: {dataset.lcset_name} - lcobj: {lcobj_names[k]} - class: {dataset.class_names[lcobj.y]}'
 			ax.set_title(title)
 			ax.set_ylabel('flux')
 			ax.legend(loc='upper right')
@@ -90,7 +74,7 @@ def reconstructions(train_handler, data_loader,
 	### save file
 	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
 	image_save_dir = f'{save_rootdir}/{complete_save_roodir}'
-	image_save_filedir = f'{image_save_dir}/exp_id={experiment_id}°id={train_handler.id}°set={dataset.set_name}.png'
+	image_save_filedir = f'{image_save_dir}/exp_id={experiment_id}°id={train_handler.id}°set={dataset.lcset_name}.png'
 	prints.print_green(f'> saving: {image_save_filedir}')
 	save_fig(image_save_filedir, fig)
 	return image_save_filedir

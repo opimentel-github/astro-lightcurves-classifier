@@ -11,30 +11,28 @@ import flamingchoripan.files as files
 import flamingchoripan.datascience.metrics as fcm
 from flamingchoripan.cuteplots.utils import save_fig
 import matplotlib.pyplot as plt
-import flamingchoripan.emails as emails
 import fuzzytorch.models.seq_utils as seq_utils
+import pandas as pd
 
 ###################################################################################################################################################
 
 def reconstruction_along_days(train_handler, data_loader,
 	figsize:tuple=C_.DEFAULT_FIGSIZE_REC,
 	save_rootdir:str='results',
-	save_fext:str='exprec',
+	save_fext:str='recerr',
 	days_N:int=C_.DEFAULT_DAYS_N,
 	eps:float=C_.EPS,
-	send_email:bool=False,
 	**kwargs):
 	### dataloader and extract dataset - important
 	train_handler.load_model() # important, refresh to best model
 	data_loader.eval() # set mode
 	dataset = data_loader.dataset # get dataset
 	dataset.reset_max_day() # always reset max day
-	dataset.uses_pre_generated_samples = False
+	dataset.uses_precomputed_samples = False
 
 	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)
 	bar = ProgressBar(len(days), 3)
-	results = {d:{} for d in days}
-	results['days'] = []
+	days_result_df = []
 	train_handler.model.eval() # model eval
 	with torch.no_grad():
 		can_be_in_loop = True
@@ -42,7 +40,6 @@ def reconstruction_along_days(train_handler, data_loader,
 			try:
 				if can_be_in_loop:
 					dataset.set_max_day(day)
-					results['days'].append(day)
 					mse_loss = []
 					ase_loss = []
 					for k,tdict in enumerate(data_loader):
@@ -53,8 +50,8 @@ def reconstruction_along_days(train_handler, data_loader,
 						ase_loss_bdict = {}
 						for kb,b in enumerate(dataset.band_names):
 							p_error = seq_utils.serial_to_parallel(out_tdict['input']['error'], onehot[...,kb]) # (b,t,1)
-							p_rx = seq_utils.serial_to_parallel(out_tdict['target']['raw-x'], onehot[...,kb]) # (b,t,1)
-							p_rx_pred = out_tdict['model'][f'raw-x.{b}'] # (b,t,1)
+							p_rx = seq_utils.serial_to_parallel(out_tdict['target']['rec-x'], onehot[...,kb]) # (b,t,1)
+							p_rx_pred = out_tdict['model'][f'rec-x.{b}'] # (b,t,1)
 
 							mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2 + C_.EPS) # (b,t,1)
 							mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, seq_utils.get_seq_onehot_mask(onehot[...,kb].sum(dim=-1), t)) # (b,t,1) > (b,1)
@@ -71,91 +68,75 @@ def reconstruction_along_days(train_handler, data_loader,
 						ase_loss.append(ase_loss_.mean().cpu().numpy())
 
 					mse_loss = np.mean(mse_loss)
-					results[day]['__mse__'] = mse_loss
 					ase_loss = np.mean(ase_loss)
-					results[day]['__ase__'] = ase_loss
-					bar(f'day: {day:.4f}/{days[-1]:.4f} - mse_loss: {mse_loss:.4f} - ase_loss: {ase_loss:.4f}')
+					day_df = pd.DataFrame.from_dict({
+						'day':[day],
+						'mse':[mse_loss],
+						'ase':[ase_loss],
+						})
+					days_result_df.append(day_df)
+					bar(f'day: {day:.4f}/{days[-1]:.4f} - mse_loss: {mse_loss} - ase_loss: {ase_loss}')
 
 			except KeyboardInterrupt:
 				can_be_in_loop = False
 
 	bar.done()
-	dataset.uses_pre_generated_samples = True  # very important!!
+	dataset.uses_precomputed_samples = True  # very important!!
 	dataset.reset_max_day() # very important!!
-
-	### plot for sanity checks
-	fig, ax = plt.subplots(1, 1, figsize=figsize)
-	days = results['days']
-	for metric_to_plot in ['__mse__', '__ase__']:
-		try:
-			ax.plot(days, [results[d][metric_to_plot] for d in days], label=metric_to_plot.replace('__',''))
-		except:
-			pass
-	ax.set_xlabel('days')
-	ax.set_ylabel('metric-value')
-	ax.legend()
-	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
-	title = f'survey: {dataset.survey} - set: {dataset.set_name}\n'
-	title += f'model: {complete_save_roodir} - id: {train_handler.id}'
-	ax.set_title(title)
-	ax.grid(alpha=0.25)
-	fig.tight_layout()
-	img_dir = f'../temp/reconstruction_along_days.png'
-	save_fig(img_dir, fig)
+	days_result_df = pd.concat(days_result_df)
 
 	### more info
-	results['complete_save_roodir'] = complete_save_roodir
-	results['model_name'] = train_handler.model.get_name()
-	results['survey'] = dataset.survey
-	results['band_names'] = dataset.band_names
-	results['class_names'] = dataset.class_names
-	results['parameters'] = count_parameters(train_handler.model)
-	set_names = ['train', 'val']
+	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
+	results = {
+		'days':days,
+		'days_result_df':days_result_df,
+		
+		'complete_save_roodir':complete_save_roodir,
+		'model_name':train_handler.model.get_name(),
+		'survey':dataset.survey,
+		'band_names':dataset.band_names,
+		'class_names':dataset.class_names,
+		'parameters':count_parameters(train_handler.model),
+	}
 	for lmonitor in train_handler.lmonitors:
-		results[lmonitor] = {
+		results[lmonitor.name] = {
 			'save_dict':lmonitor.get_save_dict(),
 			'best_epoch':lmonitor.get_best_epoch(),
 			'time_per_iteration':lmonitor.get_time_per_iteration(),
-			#'time_per_epoch_set':{set_name:lmonitor.get_time_per_epoch_set(set_name) for set_name in set_names},
+			#'time_per_epoch_set':{set_name:lmonitor.get_time_per_epoch_set(set_name) for set_name in ['train', 'val']},
 			'time_per_epoch':lmonitor.get_time_per_epoch(),
 			'total_time':lmonitor.get_total_time(),
 		}
 
 	### save file
+	#print(results)
 	file_save_dir = f'{save_rootdir}/{complete_save_roodir}'
-	filedir = f'{file_save_dir}/id={train_handler.id}°set={dataset.set_name}.{save_fext}'
+	filedir = f'{file_save_dir}/id={train_handler.id}°set={dataset.lcset_name}.{save_fext}'
 	files.save_pickle(filedir, results) # save file
-
-	### send email
-	if send_email:
-		email_dict = {
-			'subject':filedir,
-			'content':complete_save_roodir,
-			'images':[img_dir],
-		}
-		emails.send_mail(C_.EMAIL, email_dict)
 	return
+
+###################################################################################################################################################
 
 def metrics_along_days(train_handler, data_loader,
 	target_is_onehot:bool=False,
 	figsize:tuple=C_.DEFAULT_FIGSIZE_REC,
 	save_rootdir:str='results',
-	save_fext:str='expmet',
+	save_fext:str='metrics',
 	days_N:int=C_.DEFAULT_DAYS_N,
 	eps:float=C_.EPS,
-	send_email:bool=False,
 	**kwargs):
 	### dataloader and extract dataset - important
 	train_handler.load_model() # important, refresh to best model
 	data_loader.eval() # set mode
 	dataset = data_loader.dataset # get dataset
 	dataset.reset_max_day() # always reset max day
-	dataset.uses_pre_generated_samples = False
+	dataset.uses_precomputed_samples = False
 
 	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)
 	bar = ProgressBarMulti(len(days), 3)
-	results = {d:{} for d in days}
-	results['days'] = []
+	days_result_df = []
+	days_metrics_cdict = []
+	days_cm = {}
 	train_handler.model.eval() # model eval
 	with torch.no_grad():
 		can_be_in_loop = True
@@ -163,92 +144,76 @@ def metrics_along_days(train_handler, data_loader,
 			try:
 				if can_be_in_loop:
 					dataset.set_max_day(day)
-					results['days'].append(day)
 					y_target = []
-					y_pred = []
+					y_pred_p = []
 					for k,tdict in enumerate(data_loader):
 						out_tdict = train_handler.model(TDictHolder(tdict).to(train_handler.device))
 						onehot = out_tdict['input']['onehot']
 						y_target_ = out_tdict['target']['y']
-						y_pred_ = out_tdict['model']['y.last']
+						y_pred_p_ = torch.nn.functional.softmax(out_tdict['model']['y.last'], dim=-1)
 
 						if target_is_onehot:
 							assert y_pred_.shape==y_target_.shape
 							y_target_ = y_target_.argmax(dim=-1)
 
-						y_pred_ = y_pred_.argmax(dim=-1)
-						#print(y_target_.shape, y_pred_.shape)
+						#print(y_target_.shape, y_pred_p_.shape)
 						y_target.append(y_target_)
-						y_pred.append(y_pred_)
+						y_pred_p.append(y_pred_p_)
 
 					y_target = torch.cat(y_target, dim=0)
-					y_pred = torch.cat(y_pred, dim=0)
+					y_pred_p = torch.cat(y_pred_p, dim=0)
+					y_pred = torch.argmax(y_pred_p, dim=-1)
 					met_kwargs = {
 						'pred_is_onehot':False,
 						'target_is_onehot':False,
+						'y_pred_p':y_pred_p.cpu().numpy(),
 					}
-					metrics_cdict, metrics_dict, cm = fcm.get_all_metrics_c(y_pred.cpu().numpy(), y_target.cpu().numpy(), dataset.class_names, **met_kwargs)
-					results[day].update(metrics_cdict)
-					results[day].update({f'__{key}__':metrics_dict[key] for key in metrics_dict.keys()})
-					results[day]['cm'] = cm
+					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred.cpu().numpy(), y_target.cpu().numpy(), dataset.class_names, **met_kwargs)
+					days_metrics_cdict.append(metrics_cdict)
+					days_cm[day] = cm
+					d = {'day':[day]}
+					for km in metrics_dict.keys():
+						d[km] = [metrics_dict[km]]
+					day_df = pd.DataFrame.from_dict(d)
+					days_result_df.append(day_df)
 					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'metrics_dict: {metrics_dict}', f'metrics_cdict: {metrics_cdict}'])
 
 			except KeyboardInterrupt:
 				can_be_in_loop = False
 
 	bar.done()
-	dataset.uses_pre_generated_samples = True  # very important!!
+	dataset.uses_precomputed_samples = True  # very important!!
 	dataset.reset_max_day() # very important!!
-
-	### plot for sanity checks
-	fig, ax = plt.subplots(1, 1, figsize=figsize)
-	days = results['days']
-	for metric_to_plot in ['__b-accuracy__', '__b-f1score__']:
-		try:
-			ax.plot(days, [results[d][metric_to_plot] for d in days], label=metric_to_plot.replace('__',''))
-		except:
-			pass
-	ax.set_xlabel('days')
-	ax.set_ylabel('metric-value')
-	ax.legend()
-	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
-	title = f'survey: {dataset.survey} - set: {dataset.set_name}\n'
-	title += f'model: {complete_save_roodir} - id: {train_handler.id}'
-	ax.set_title(title)
-	ax.grid(alpha=0.25)
-	fig.tight_layout()
-	img_dir = f'../temp/metrics_along_days.png'
-	save_fig(img_dir, fig)
+	days_result_df = pd.concat(days_result_df)
 
 	### more info
-	results['complete_save_roodir'] = complete_save_roodir
-	results['model_name'] = train_handler.model.get_name()
-	results['survey'] = dataset.survey
-	results['band_names'] = dataset.band_names
-	results['class_names'] = dataset.class_names
-	results['parameters'] = count_parameters(train_handler.model)
-	set_names = ['train', 'val']
+	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
+	results = {
+		'days':days,
+		'days_result_df':days_result_df,
+		'days_metrics_cdict':days_metrics_cdict, # fix to df
+		'days_cm':days_cm,
+
+		'complete_save_roodir':complete_save_roodir,
+		'model_name':train_handler.model.get_name(),
+		'survey':dataset.survey,
+		'band_names':dataset.band_names,
+		'class_names':dataset.class_names,
+		'parameters':count_parameters(train_handler.model),
+	}
 	for lmonitor in train_handler.lmonitors:
-		results[lmonitor] = {
+		results[lmonitor.name] = {
 			'save_dict':lmonitor.get_save_dict(),
 			'best_epoch':lmonitor.get_best_epoch(),
 			'time_per_iteration':lmonitor.get_time_per_iteration(),
-			#'time_per_epoch_set':{set_name:lmonitor.get_time_per_epoch_set(set_name) for set_name in set_names},
+			#'time_per_epoch_set':{set_name:lmonitor.get_time_per_epoch_set(set_name) for set_name in ['train', 'val']},
 			'time_per_epoch':lmonitor.get_time_per_epoch(),
 			'total_time':lmonitor.get_total_time(),
 		}
 
 	### save file
+	#print(results)
 	file_save_dir = f'{save_rootdir}/{complete_save_roodir}'
-	filedir = f'{file_save_dir}/id={train_handler.id}°set={dataset.set_name}.{save_fext}'
+	filedir = f'{file_save_dir}/id={train_handler.id}°set={dataset.lcset_name}.{save_fext}'
 	files.save_pickle(filedir, results) # save file
-
-	### send email
-	if send_email:
-		email_dict = {
-			'subject':filedir,
-			'content':complete_save_roodir,
-			'images':[img_dir],
-		}
-		emails.send_mail(C_.EMAIL, email_dict)
 	return

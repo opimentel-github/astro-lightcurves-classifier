@@ -12,7 +12,7 @@ import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
 
-class TCNEncoderP(nn.Module):
+class TCNNEncoderP(nn.Module):
 	def __init__(self, **kwargs):
 		super().__init__()
 
@@ -29,15 +29,15 @@ class TCNEncoderP(nn.Module):
 			'activation':'linear',
 		}
 		extra_dims = 0
-		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.tcn_embd_dims, **linear_kwargs) for b in self.band_names})
+		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.tcnn_embd_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:', self.x_projection)
 
 		### TE
-		self.te_film = FILM(self.te_features, self.tcn_embd_dims)
+		self.te_film = FILM(self.te_features, self.tcnn_embd_dims)
 		print('te_film:', self.te_film)
 
 		### CNN STACK
-		cnn_args = [self.tcn_embd_dims, [self.curvelength_max], self.tcn_embd_dims, [self.tcn_embd_dims]*(self.tcn_layers-1)] # input_dims:int, input_space:list, output_dims:int, embd_dims_list
+		cnn_args = [self.tcnn_embd_dims, [self.curvelength_max], self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1)] # input_dims:int, input_space:list, output_dims:int, embd_dims_list
 		cnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -60,11 +60,11 @@ class TCNEncoderP(nn.Module):
 		linear_kwargs = {
 			'activation':'linear',
 		}
-		self.z_projection = Linear(self.tcn_embd_dims*len(self.band_names), self.tcn_embd_dims, **linear_kwargs)
+		self.z_projection = Linear(self.tcnn_embd_dims*len(self.band_names), self.tcnn_embd_dims, **linear_kwargs)
 		print('z_projection:', self.z_projection)
 
 	def get_output_dims(self):
-		return self.tcn_embd_dims#*len(self.band_names)
+		return self.tcnn_embd_dims#*len(self.band_names)
 	
 	def get_embd_dims_list(self):
 		return {b:self.ml_cnn[b].get_embd_dims_list() for b in self.band_names}
@@ -96,7 +96,7 @@ class TCNEncoderP(nn.Module):
 		})
 		return tdict
 
-class TCNEncoderS(nn.Module):
+class TCNNEncoderS(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()
@@ -110,15 +110,15 @@ class TCNEncoderS(nn.Module):
 			'activation':'linear',
 		}
 		extra_dims = len(self.band_names)
-		self.x_projection = Linear(self.input_dims+extra_dims, self.tcn_embd_dims, **linear_kwargs)
+		self.x_projection = Linear(self.input_dims+extra_dims, self.tcnn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 
 		### TE
-		self.te_film = FILM(self.te_features, self.tcn_embd_dims)
+		self.te_film = FILM(self.te_features, self.tcnn_embd_dims)
 		print('te_film:', self.te_film)
 
 		### CNN STACK
-		cnn_args = [self.tcn_embd_dims, [self.curvelength_max], self.tcn_embd_dims, [self.tcn_embd_dims]*(self.tcn_layers-1)] # input_dims:int, input_space:list, output_dims:int, embd_dims_list
+		cnn_args = [self.tcnn_embd_dims, [self.curvelength_max], self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1)] # input_dims:int, input_space:list, output_dims:int, embd_dims_list
 		cnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -138,7 +138,7 @@ class TCNEncoderS(nn.Module):
 		print('ml_cnn:', self.ml_cnn)
 
 	def get_output_dims(self):
-		return self.tcn_embd_dims
+		return self.tcnn_embd_dims
 	
 	def get_embd_dims_list(self):
 		return self.ml_cnn.get_embd_dims_list()

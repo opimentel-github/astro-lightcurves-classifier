@@ -149,7 +149,7 @@ def plot_te_scores(root_folder,
 
 def plot_baccu_f1score(root_folder,
 	figsize=C_.PLOT_FIGZISE_RECT,
-	fext='expmet',
+	fext='metrics',
 	error_scale=1,
 	ylims=(0,1),
 	):
@@ -160,7 +160,7 @@ def plot_baccu_f1score(root_folder,
 
 	figsize = list(figsize)
 	#metric_names = ['__accuracy__', '__b-accuracy__', '__b-f1score__']
-	metric_names = ['__b-accuracy__', '__b-f1score__']
+	metric_names = ['b-accuracy', 'b-f1score']
 	figsize[0] = figsize[0]/2*len(metric_names)
 	fig, axs = plt.subplots(1, len(metric_names), figsize=figsize)
 	for kax,metric_name in enumerate(metric_names):
@@ -171,22 +171,23 @@ def plot_baccu_f1score(root_folder,
 		for kmn,model_name in enumerate(model_names):
 			mn_dict = strings.get_dict_from_string(model_name)
 			xe = metrics_dict[model_name]
-			ax.plot(days, xe.median, '-', label=f'{utils.formating_model_name(model_name)}', c=colors[index])
+			#cmodel_name = utils.formating_model_name(model_name)
+			cmodel_name = 'attn+tcnn+te'
+			ax.plot(days, xe.median, '-', label=f'{cmodel_name}', c=colors[index])
 			ax.fill_between(days, xe.p5, xe.p95, alpha=0.25, fc=colors[index])
 			index += 1
 
 		if 'accu' in metric_name:
-			ax.plot(days, np.full_like(days, 1/len(class_names)), '--', c='k', lw=1, label=f'random guess ({len(class_names)} classes)')
+			ax.plot(days, np.full_like(days, 100./len(class_names)), '--', c='k', lw=1, label=f'random guess ({len(class_names)} classes)')
 
-		cmetric_name = metric_name.replace('__','')
-		title = f'{cmetric_name} vs days'
+		title = f'{metric_name} vs days'
 		title += f'\nsurvey: {survey} - bands: {band_names}'
-		title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
+		#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
 		ax.set_title(title)
 		ax.set_xlabel('days')
-		ax.set_ylabel(cmetric_name)
+		ax.set_ylabel(metric_name)
 		ax.set_xlim([days.min(), days.max()])
-		ax.set_ylim(ylims)
+		ax.set_ylim([0, 100] if 'accuracy' in metric_name else [0, 1])
 		ax.grid(alpha=0.5)
 		ax.legend(loc='lower right')
 

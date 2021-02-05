@@ -9,33 +9,49 @@ import numpy as np
 from torch.utils.data import Dataset
 import random
 from sklearn.preprocessing import StandardScaler, QuantileTransformer
+from .scalers import LogStandardScaler, LogQuantileTransformer
 import flamingchoripan.strings as strings
 from joblib import Parallel, delayed
 from flamingchoripan.lists import get_list_chunks
 from flamingchoripan.progress_bars import ProgressBar
 from fuzzytorch.utils import print_tdict
-from fuzzytorch.models.seq_utils import get_seq_clipped_shape
+import fuzzytorch.models.seq_utils as seq_utils
+
+###################################################################################################################################################
+
+def fix_new_len(tdict, uses_len_clip, max_len):
+	new_tdict = {}
+	for key in tdict.keys():
+		x = tdict[key]
+		is_seq_tensor = len(x.shape)==2
+		if uses_len_clip and is_seq_tensor:
+			new_tdict[key] = seq_utils.get_seq_clipped_shape(x, max_len)
+		else:
+			new_tdict[key] = x
+	return new_tdict
 
 ###################################################################################################################################################
 
 class CustomDataset(Dataset):
-	def __init__(self, lcdataset, lcset_name,
-		attrs:list=['d_days','obs', 'obse'],
+	def __init__(self, lcdataset, lcset_name, in_attrs, rec_attr,
 		max_day:float=np.infty,
 		max_te_period:float=None,
 		max_len:int=None,
 		te_features:int=6,
-		effective_beta_eps=0.00001, # same weight -> 0.01 0.001 0.0001 0.00001 -> 1/freq
+		effective_beta_eps=C_.EFFECTIVE_BETA_EPS,
 
 		hours_noise_amp:float=C_.HOURS_NOISE_AMP,
 		std_scale:float=C_.OBSE_STD_SCALE,
 		cpds_p:float=C_.CPDS_P,
+
+		uses_precomputed_samples=True,
 		):
 		assert te_features%2==0
 
 		self.lcset = lcdataset[lcset_name]
 		self.lcset_name = lcset_name
-		self.attrs = attrs.copy()
+		self.in_attrs = in_attrs.copy()
+		self.rec_attr = rec_attr
 		self.max_day = self.get_max_duration() if max_day is None else max_day
 		self.__max_day__ = max_day
 		self.max_te_period = self.max_day*2 if max_te_period is None else max_te_period
@@ -47,45 +63,74 @@ class CustomDataset(Dataset):
 		self.std_scale = std_scale
 		self.cpds_p = cpds_p
 
-		self.band_names = self.lcset.band_names
-		self.class_names = self.lcset.class_names
-		self.survey = self.lcset.survey
+		self.uses_precomputed_samples = uses_precomputed_samples
+
 		self.reset()
 
 	def reset(self):
-		self.uses_precomputed_samples = True
-		self.automatic_diff_log()
-		self.get_te_periods()
-		self.get_norm_bdict()
-		self.reset_max_day()
-		self.calculate_poblation_weights()
 		self.precomputed_tdict = []
+		self.band_names = self.lcset.band_names
+		self.class_names = self.lcset.class_names
+		self.survey = self.lcset.survey
+		self.automatic_diff()
+		self.get_te_periods()
+		self.calcule_in_scaler_bdict()
+		self.calcule_rec_scaler_bdict()
+		self.reset_max_day()
+		self.calcule_poblation_weights()
 
-	def calculate_poblation_weights(self):
+	def automatic_diff(self):
+		attrs = self.in_attrs+[self.rec_attr]
+		for attr in attrs: # calcule derivates!
+			if attr=='d_days':
+				self.lcset.set_diff_parallel('days')
+			if attr=='d_obs':
+				self.lcset.set_diff_parallel('obs')
+			if attr=='d_obse':
+				self.lcset.set_diff_parallel('obse')
+
+	def get_te_periods(self):
+		self.te_periods = list(np.array([self.max_te_period]*(self.te_features//2)/2**np.arange(self.te_features//2)))
+		return self.te_periods
+
+	def calcule_in_scaler_bdict(self):
+		self.in_scaler_bdict = {}
+		for kb,b in enumerate(self.band_names):
+			values = np.concatenate([self.lcset.get_lcset_values_b(b, in_attr)[...,None] for ka,in_attr in enumerate(self.in_attrs)], axis=-1)
+			#print(values.shape)
+			#qt = StandardScaler()
+			#qt = LogStandardScaler()
+			qt = LogQuantileTransformer() # slow
+			#qt = QuantileTransformer(n_quantiles=10000, random_state=0, output_distribution='normal') # slow
+			qt.fit(values)
+			self.in_scaler_bdict[b] = qt
+
+	def calcule_rec_scaler_bdict(self):
+		self.rec_scaler_bdict = {}
+		for kb,b in enumerate(self.band_names):
+			values = self.lcset.get_lcset_values_b(b, self.rec_attr)[...,None]
+			#print(values.shape)
+			#qt = StandardScaler()
+			#qt = LogStandardScaler()
+			qt = LogQuantileTransformer() # slow
+			#qt = QuantileTransformer(n_quantiles=10000, random_state=0, output_distribution='normal') # slow
+			qt.fit(values)
+			self.rec_scaler_bdict[b] = qt
+
+	def reset_max_day(self):
+		self.max_day = self.__max_day__
+
+	def calcule_poblation_weights(self):
 		self.poblation_weights = self.lcset.get_class_effective_weigths_cdict(1-self.effective_beta_eps) # get_class_freq_weights_cdict get_class_effective_weigths_cdict
 
 	def get_poblation_weights(self):
 		return self.poblation_weights
 
-	def reset_max_day(self):
-		self.max_day = self.__max_day__
-
-	def automatic_diff_log(self):
-		for attr in self.attrs: # calcule the desired attrs
-			if attr=='d_days':
-				self.lcset.set_diff_parallel('days')
-			elif attr=='log_obs':
-				self.lcset.set_log_parallel('obs')
-			elif attr=='log_obse':
-				self.lcset.set_log_parallel('obse')
-			else:
-				raise Exception(f'no attr: {attr}')
-
 	def get_te_features_dims(self):
 		return self.te_features
 
 	def get_output_dims(self):
-		return len(self.attrs)
+		return len(self.in_attrs)
 
 	def __repr__(self):
 		txt = f'CustomDataset('
@@ -94,15 +139,15 @@ class CustomDataset(Dataset):
 			'max_day':f'{self.max_day:.2f}',
 			'max_len': f'{self.max_len:,}',
 			'te_periods':f'{self.te_periods}',
-			'attrs':self.attrs,
-			'norm_bdict':self.norm_bdict,
+			'in_attrs':self.in_attrs,
+			'rec_attr':self.rec_attr,
 			'poblation_weights':self.poblation_weights,
 			}, ', ', '=')
 		txt += ')'
 		return txt
 
 	def calcule_max_len(self):
-		max_len = max([len(self.lcset[lcobj_name].get_custom_x_serial(['days'], max_day=self.max_day)) for lcobj_name in self.lcset.get_lcobj_names()])
+		max_len = max([len(self.lcset[lcobj_name].get_custom_x_serial(['days'], max_day=self.max_day)) for lcobj_name in self.get_lcobj_names()])
 		return max_len
 
 	def get_max_len(self):
@@ -118,47 +163,68 @@ class CustomDataset(Dataset):
 		self.max_day = max_day
 
 	def get_max_duration(self):
-		self.max_duration = max([self.lcset[lcobj_name].get_days_serial_duration() for lcobj_name in self.lcset.get_lcobj_names()])
+		self.max_duration = max([self.lcset[lcobj_name].get_days_serial_duration() for lcobj_name in self.get_lcobj_names()])
 		return self.max_duration
-
-	def get_te_periods(self):
-		self.te_periods = list(np.array([self.max_te_period]*(self.te_features//2)/2**np.arange(self.te_features//2)))
-		return self.te_periods
 
 	def set_te_periods(self, te_periods:list):
 		self.te_periods = te_periods.copy()
-	
-	def get_norm_bdict(self):
-		self.norm_bdict = {}
-		for kb,b in enumerate(self.band_names):
-			values = np.concatenate([self.lcset.get_lcset_values_b(b, attr)[...,None] for ka,attr in enumerate(self.attrs)], axis=-1)
-			qt = StandardScaler()
-			#qt = QuantileTransformer(n_quantiles=10000, random_state=0, output_distribution='normal') # slow
-			qt.fit(values)
-			self.norm_bdict[b] = qt
-		return self.norm_bdict
-
-	def set_norm_bdict(self, norm_bdict):
-		self.norm_bdict = {k:norm_bdict[k] for k in norm_bdict.keys()}
 
 	def set_poblation_weights(self, poblation_weights):
 		self.poblation_weights = poblation_weights
 
-	def transfer_to(self, other):
-		other.set_max_len(self.get_max_len()) # sure?
+	def transfer_metadata_to(self, other):
 		other.set_max_day(self.get_max_day())
-		other.set_norm_bdict(self.get_norm_bdict())
+		other.set_in_scaler_bdict(self.get_in_scaler_bdict())
+		other.set_rec_scaler_bdict(self.get_rec_scaler_bdict())
 		other.set_te_periods(self.get_te_periods())
-		other.set_poblation_weights(self.get_poblation_weights()) # sure?
+		#other.set_max_len(self.get_max_len())
+		#other.set_poblation_weights(self.get_poblation_weights()) # sure?
 	
-	def normalize(self, x, onehot):
-		new_x = np.zeros_like(x) # starts with zero!!!
+	def get_in_scaler_bdict(self):
+		return self.in_scaler_bdict
+
+	def get_rec_scaler_bdict(self):
+		return self.rec_scaler_bdict
+
+	def set_in_scaler_bdict(self, scaler_bdict):
+		self.in_scaler_bdict = {k:scaler_bdict[k] for k in scaler_bdict.keys()}
+
+	def set_rec_scaler_bdict(self, scaler_bdict):
+		self.rec_scaler_bdict = {k:scaler_bdict[k] for k in scaler_bdict.keys()}
+
+	def get_rec_inverse_transform(self, model_rec_x_b, b):
+		'''
+		x (t)
+		'''
+		assert len(model_rec_x_b.shape)==1
+		return self.rec_scaler_bdict[b].inverse_transform(model_rec_x_b[...,None])[...,0]
+
+	def in_normalize(self, x, onehot):
+		'''
+		x (t,f)
+		'''
+		assert len(x.shape)==2
+		assert x.shape[-1]==len(self.in_attrs)
+		new_x = np.zeros_like(x) # starts with zeros!!!
 		for kb,b in enumerate(self.band_names):
 			onehot_b = onehot[...,kb][...,None]
-			qt = self.norm_bdict[b]
+			qt = self.in_scaler_bdict[b]
 			new_x += qt.transform(x)*onehot_b
 		return new_x
-	
+
+	def rec_normalize(self, x, onehot):
+		'''
+		x (t,1)
+		'''
+		assert len(x.shape)==2
+		assert x.shape[-1]==1
+		new_x = np.zeros_like(x) # starts with zeros!!!
+		for kb,b in enumerate(self.band_names):
+			onehot_b = onehot[...,kb][...,None]
+			qt = self.rec_scaler_bdict[b]
+			new_x += qt.transform(x)*onehot_b
+		return new_x
+
 	def get_te(self, time):
 		assert np.all(~np.isnan(time))
 		encoding = np.zeros((len(time), len(self.te_periods)*2))
@@ -170,8 +236,8 @@ class CustomDataset(Dataset):
 	
 	###################################################################################################################################################
 
-	def get_attr_index(self, attr):
-		return self.attrs.index(attr)
+	def get_lcobj_names(self):
+		return self.lcset.get_lcobj_names()
 
 	def has_precomputed_samples(self):
 		return len(self.precomputed_tdict)>0
@@ -192,21 +258,24 @@ class CustomDataset(Dataset):
 
 	def __getitem__(self, idx:int):
 		uses_precomputed_samples = self.has_precomputed_samples() and self.uses_precomputed_samples
-		return self.precomputed_tdict[idx] if uses_precomputed_samples else self.get_item(self.lcset.get_lcobj_names()[idx])
+		return self.precomputed_tdict[idx] if uses_precomputed_samples else self.get_item(self.get_lcobj_names()[idx])
 
-	def precompute_samples(self, pre_daugm_copies,
-		n_jobs=1,
-		chunk_size=None,
+	def precompute_samples(self, precomputed_copies,
+		n_jobs=C_.N_JOBS,
+		chunk_size=C_.CHUNK_SIZE,
+		backend='threading',
 		):
 		chunk_size = n_jobs if chunk_size is None else chunk_size
+
 		def job(lcobj_name):
-			return [self.get_item(lcobj_name, uses_daugm=True) for _ in range(pre_daugm_copies)]
-		lcobj_names = self.lcset.get_lcobj_names()
+			return [self.get_item(lcobj_name, uses_daugm=True) for _ in range(precomputed_copies)]
+
+		lcobj_names = self.get_lcobj_names()
 		chunks = get_list_chunks(lcobj_names, chunk_size)
 		bar = ProgressBar(len(chunks))
 		for kc,chunk in enumerate(chunks):
 			bar(f'{self.lcset_name} {chunk}')
-			results = Parallel(n_jobs=n_jobs, backend='threading')([delayed(job)(lcobj_name) for lcobj_name in chunk]) # None threading 
+			results = Parallel(n_jobs=n_jobs, backend=backend)([delayed(job)(lcobj_name) for lcobj_name in chunk]) # None threading 
 			for r in results:
 				self.precomputed_tdict += r
 		bar.done()
@@ -216,22 +285,6 @@ class CustomDataset(Dataset):
 		uses_len_clip=True,
 		return_lcobjs=False,
 		):
-		def fix_new_len(tdict, uses_len_clip, max_len):
-			new_tdict = {}
-			for key in tdict.keys():
-				x = tdict[key]
-				shape = list(x.shape)
-				assert 0
-				get_seq_clipped_shape
-				if uses_len_clip and len(shape)==2:
-					new_shape = [max_len if k==0 else s for k,s in enumerate(shape)]
-					new_x = torch.zeros(new_shape, dtype=x.dtype, device=x.device)
-					new_x[:min(new_shape[0], len(x))] = x[:min(new_shape[0], len(x))]
-					new_tdict[key] = new_x
-				else:
-					new_tdict[key] = x
-			return new_tdict
-
 		### get and copy object
 		lcobj = self.lcset[lcobj_name].copy() # important to copy!!!!
 
@@ -250,34 +303,37 @@ class CustomDataset(Dataset):
 		max_day = self.max_day
 		sorted_time_indexs = lcobj.get_sorted_days_indexs_serial() # get just once for performance purposes
 		onehot = lcobj.get_onehot_serial(sorted_time_indexs, max_day)
-		x = self.normalize(lcobj.get_custom_x_serial(self.attrs, sorted_time_indexs, max_day), onehot) # norm
+		in_x = self.in_normalize(lcobj.get_custom_x_serial(self.in_attrs, sorted_time_indexs, max_day), onehot)
+		rec_x =self.rec_normalize(lcobj.get_custom_x_serial([self.rec_attr], sorted_time_indexs, max_day), onehot)
 		time = lcobj.get_custom_x_serial(['days'], sorted_time_indexs, max_day)
 		error = lcobj.get_custom_x_serial(['obse'], sorted_time_indexs, max_day)
+		#print(in_x.shape, rec_x.shape)
 
-		### build output
+		### input
 		model_input = {
 			'onehot':torch.as_tensor(onehot),
-			'x':torch.as_tensor(x, dtype=torch.float32),
+			'x':torch.as_tensor(in_x, dtype=torch.float32),
 			'time':torch.as_tensor(time, dtype=torch.float32),
 			'error':torch.as_tensor(error, dtype=torch.float32),
 		}
 		if self.te_features>0:
 			model_input['te'] = torch.as_tensor(self.get_te(time[:,0]), dtype=torch.float32)
-		if 'd_days' in self.attrs:
-			model_input['dt'] = torch.as_tensor(x[:,self.get_attr_index('d_days')][:,None], dtype=torch.float32) # max_day ?
+		else:
+			assert 'd_days' in self.in_attrs
+			index = self.in_attrs.index('d_days')
+			model_input['dt'] = torch.as_tensor(in_x[:,index][:,None], dtype=torch.float32)
 
+		### target
 		target = {
 			'y':torch.as_tensor(lcobj.y),
 			'poblation_weights':torch.as_tensor([self.poblation_weights[c] for c in self.class_names], dtype=torch.float32),
+			'rec-x':torch.as_tensor(rec_x, dtype=torch.float32),
 		}
-		if 'log_obs' in self.attrs:
-			target['raw-x'] = torch.as_tensor(x[:,self.get_attr_index('log_obs')][:,None], dtype=torch.float32)
 
 		tdict = {
 			'input':fix_new_len(model_input, uses_len_clip, self.max_len),
 			'target':fix_new_len(target, uses_len_clip, self.max_len),
 			}
-
 		#print_tdict(tdict)
 		if return_lcobjs:
 			return tdict, lcobj

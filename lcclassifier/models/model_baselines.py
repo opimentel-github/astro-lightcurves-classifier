@@ -124,9 +124,9 @@ class SerialRNNClassifier(ModelBaseline):
 
 ###################################################################################################################################################
 
-from .tcn import encoders as tcn_encoders
+from .tcnn import encoders as tcnn_encoders
 
-class ParallelTCNClassifier(ModelBaseline):
+class ParallelTCNNClassifier(ModelBaseline):
 	def __init__(self, **raw_kwargs):
 		super().__init__()
 
@@ -139,8 +139,8 @@ class ParallelTCNClassifier(ModelBaseline):
 		self.band_names = self.mdl_kwargs['band_names']
 
 		### MODEL DEFINITION
-		encoder = tcn_encoders.TCNEncoderP(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['tcn_embd_dims']
+		encoder = tcnn_encoders.TCNNEncoderP(**self.mdl_kwargs)
+		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
 		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
 		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
@@ -151,7 +151,7 @@ class ParallelTCNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'ParallelTCN',
+			'mdl':f'ParallelTCNn',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
@@ -167,7 +167,7 @@ class ParallelTCNClassifier(ModelBaseline):
 		#print_tdict(encoder_tdict)
 		return classifier_tdict
 
-class SerialTCNClassifier(ModelBaseline):
+class SerialTCNNClassifier(ModelBaseline):
 	def __init__(self, **raw_kwargs):
 		super().__init__()
 
@@ -180,8 +180,8 @@ class SerialTCNClassifier(ModelBaseline):
 		self.band_names = self.mdl_kwargs['band_names']
 
 		### MODEL DEFINITION
-		encoder = tcn_encoders.TCNEncoderS(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['tcn_embd_dims']
+		encoder = tcnn_encoders.TCNNEncoderS(**self.mdl_kwargs)
+		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
 		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
 		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
@@ -192,7 +192,7 @@ class SerialTCNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'SerialTCN',
+			'mdl':f'SerialTCNn',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
@@ -211,7 +211,7 @@ class SerialTCNClassifier(ModelBaseline):
 
 from .attn import encoders as attn_encoders
 
-class ParallelAttnTCNClassifier(ModelBaseline):
+class ParallelAttnTCNNClassifier(ModelBaseline):
 	def __init__(self, **raw_kwargs):
 		super().__init__()
 
@@ -224,8 +224,8 @@ class ParallelAttnTCNClassifier(ModelBaseline):
 		self.band_names = self.mdl_kwargs['band_names']
 
 		### MODEL DEFINITION
-		encoder = attn_encoders.AttnTCNEncoderP(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['tcn_embd_dims']
+		encoder = attn_encoders.AttnTCNNEncoderP(**self.mdl_kwargs)
+		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
 		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
 		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
@@ -236,7 +236,7 @@ class ParallelAttnTCNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'ParallelAttnTCN',
+			'mdl':f'ParallelAttnTCNn',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
@@ -251,7 +251,7 @@ class ParallelAttnTCNClassifier(ModelBaseline):
 		classifier_tdict = self.classifier(encoder_tdict)
 		return classifier_tdict
 
-class SerialAttnTCNClassifier(ModelBaseline):
+class SerialAttnTCNNClassifier(ModelBaseline):
 	def __init__(self, **raw_kwargs):
 		super().__init__()
 
@@ -264,8 +264,8 @@ class SerialAttnTCNClassifier(ModelBaseline):
 		self.band_names = self.mdl_kwargs['band_names']
 
 		### MODEL DEFINITION
-		encoder = attn_encoders.AttnTCNEncoderS(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['tcn_embd_dims']
+		encoder = attn_encoders.AttnTCNNEncoderS(**self.mdl_kwargs)
+		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
 		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
 		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
@@ -276,7 +276,7 @@ class SerialAttnTCNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'SerialAttnTCN',
+			'mdl':f'SerialAttnTCNn',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),

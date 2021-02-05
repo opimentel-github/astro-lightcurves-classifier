@@ -12,7 +12,7 @@ import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
 
-class AttnTCNEncoderP(nn.Module):
+class AttnTCNNEncoderP(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()
@@ -26,16 +26,16 @@ class AttnTCNEncoderP(nn.Module):
 			'activation':'linear',
 		}
 		extra_dims = 0
-		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.tcn_embd_dims, **linear_kwargs) for b in self.band_names})
+		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.tcnn_embd_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:', self.x_projection)
 
 		### TE
 		assert self.te_features>0
-		self.te_film = FILM(self.te_features, self.tcn_embd_dims)
+		self.te_film = FILM(self.te_features, self.tcnn_embd_dims)
 		print('te_film:', self.te_film)
 
 		### CNN STACK
-		cnn_args = [self.tcn_embd_dims, [self.curvelength_max], self.tcn_embd_dims, [self.tcn_embd_dims]*(self.tcn_layers-1)] # input_dims:int, input_space:list, output_dims:int, embd_dims_list
+		cnn_args = [self.tcnn_embd_dims, [None], self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1)] # input_dims:int, input_space:list, output_dims:int, embd_dims_list
 		cnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -59,14 +59,14 @@ class AttnTCNEncoderP(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 		}
-		self.ml_attn = ft_attn.MLSelfAttn(self.tcn_embd_dims, self.tcn_embd_dims, [self.tcn_embd_dims]*(0), self.curvelength_max, **attn_kwargs)
+		self.ml_attn = ft_attn.MLSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(0), **attn_kwargs)
 		print('ml_attn:', self.ml_attn)
 
-		self.attn_te_film = FILM(self.te_features, self.tcn_embd_dims)
+		self.attn_te_film = FILM(self.te_features, self.tcnn_embd_dims)
 		print('attn_te_film:', self.attn_te_film)
 
 	def get_output_dims(self):
-		return self.tcn_embd_dims#*len(self.band_names)
+		return self.tcnn_embd_dims#*len(self.band_names)
 	
 	def get_embd_dims_list(self):
 		return {b:self.ml_cnn[b].get_embd_dims_list() for b in self.band_names}
@@ -110,7 +110,7 @@ class AttnTCNEncoderP(nn.Module):
 		})
 		return tdict
 
-class AttnTCNEncoderS(nn.Module):
+class AttnTCNNEncoderS(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()
@@ -124,16 +124,16 @@ class AttnTCNEncoderS(nn.Module):
 			'activation':'linear',
 		}
 		extra_dims = len(self.band_names)
-		self.x_projection = Linear(self.input_dims+extra_dims, self.tcn_embd_dims, **linear_kwargs)
+		self.x_projection = Linear(self.input_dims+extra_dims, self.tcnn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 
 		### TE
 		assert self.te_features>0
-		self.te_film = FILM(self.te_features, self.tcn_embd_dims)
+		self.te_film = FILM(self.te_features, self.tcnn_embd_dims)
 		print('te_film:', self.te_film)
 
 		### CNN STACK
-		cnn_args = [self.tcn_embd_dims, [self.curvelength_max], self.tcn_embd_dims, [self.tcn_embd_dims]*(self.tcn_layers-1)] # input_dims:int, input_space:list, output_dims:int, embd_dims_list
+		cnn_args = [self.tcnn_embd_dims, [None], self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1)] # input_dims:int, input_space:list, output_dims:int, embd_dims_list
 		cnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -157,14 +157,14 @@ class AttnTCNEncoderS(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 		}
-		self.ml_attn = ft_attn.MLSelfAttn(self.tcn_embd_dims, self.tcn_embd_dims, [self.tcn_embd_dims]*(0), self.curvelength_max, **attn_kwargs)
+		self.ml_attn = ft_attn.MLSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(0), **attn_kwargs)
 		print('ml_attn:', self.ml_attn)
 
-		self.attn_te_film = FILM(self.te_features, self.tcn_embd_dims)
+		self.attn_te_film = FILM(self.te_features, self.tcnn_embd_dims)
 		print('attn_te_film:', self.attn_te_film)
 
 	def get_output_dims(self):
-		return self.tcn_embd_dims
+		return self.tcnn_embd_dims
 	
 	def get_embd_dims_list(self):
 		return self.ml_cnn.get_embd_dims_list()

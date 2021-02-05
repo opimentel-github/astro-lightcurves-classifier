@@ -1,23 +1,32 @@
-import synthsne.C_ as C_synth
+import numpy as np
+import lchandler.C_ as C_lchandler
 
 ###################################################################################################################################################
 
 EPS = 1e-10
 
-HOURS_NOISE_AMP = C_synth.HOURS_NOISE_AMP
-OBSE_STD_SCALE = C_synth.OBSE_STD_SCALE
-CPDS_P = C_synth.CPDS_P
+### JOBLIB
+N_JOBS = 6 # The number of jobs to use for the computation. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all CPUs but one are used.
+CHUNK_SIZE = N_JOBS*1
 
-DEFAULT_DAYS_N = 80
-DEFAULT_MIN_DAY = 1
+### SYNTHETIC
+OBSE_STD_SCALE = 1/2
+CPDS_P = 5./100. # curve points down sampling probability
+HOURS_NOISE_AMP = 2.5
+
+EFFECTIVE_BETA_EPS = 0.0001 # same weight -> 0.01 0.001 0.0001 0.00001 -> 1/freq
+
+DEFAULT_DAYS_N = 50
+DEFAULT_MIN_DAY = 2.
+
+### PLOTS
 DEFAULT_FIGSIZE_BOX = (10,10)
 DEFAULT_FIGSIZE_REC = (10,3)
-EMAIL = 'oscarlo.pimentel@gmail.com'
-
 PLOT_FIGZISE_CM = (7,5)
 PLOT_FIGZISE_RECT = (13,7)
 FONTSIZE = 14
 
+'''
 FNAME_REPLACE_DICT = { # formating
 	'mdl:':'',
 	#'mdl':'model',
@@ -32,3 +41,4 @@ METRIC_FEXT_DICT = {
 	'ase':'exprec',
 	'*f1score*':'expmet',
 }
+'''

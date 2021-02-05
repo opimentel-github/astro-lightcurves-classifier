@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*
 import sys
 sys.path.append('../') # or just install the module
 sys.path.append('../../fuzzy-torch') # or just install the module
 sys.path.append('../../flaming-choripan') # or just install the module
 sys.path.append('../../astro-lightcurves-handler') # or just install the module
-sys.path.append('../../sne-lightcurves-synthetic') # or just install the module
 
 if __name__== '__main__':
 	### parser arguments
@@ -12,16 +12,19 @@ if __name__== '__main__':
 	from flamingchoripan.prints import print_big_bar
 
 	parser = argparse.ArgumentParser('usage description')
-	parser.add_argument('-method',  type=str, default='', help='method')
-	parser.add_argument('-gpu',  type=int, default=-1, help='gpu_index')
+	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
+	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-email',  type=bool, default=False, help='send_email')
 	parser.add_argument('-batch_size',  type=int, default=512, help='batch_size')
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
-	parser.add_argument('-epochs_max',  type=int, default=int(1e4), help='epochs_max')
-	parser.add_argument('-save_rootdir',  type=str, default='SAVE_TESIS1', help='save_rootdir')
-	parser.add_argument('-iid',  type=int, default=1, help='initial id')
+	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
+	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
+	parser.add_argument('-iid',  type=int, default=0, help='initial id')
 	parser.add_argument('-fid',  type=int, default=5, help='final id')
+	parser.add_argument('-kf',  type=str, default='0', help='kf')
+	parser.add_argument('-rsc',  type=int, default=3, help='random_subcrops')
+	parser.add_argument('-upc',  type=int, default=True, help='precompute')
+	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
 	print_big_bar()
 
@@ -37,28 +40,29 @@ if __name__== '__main__':
 	from flamingchoripan.files import load_pickle, save_pickle
 	from flamingchoripan.files import get_dict_from_filedir
 
-	filedir = f'../../surveys-save/alerceZTFv7.1/survey=alerceZTFv7.1°bands=gr°mode=onlySNe°method={method}.splcds'
-	filedict = load_pickle(filedir)
+	filedir = f'../../surveys-save/alerceZTFv7.1/survey=alerceZTFv7.1°bands=gr°mode=onlySNe°method={main_args.method}.splcds'
+	filedict = get_dict_from_filedir(filedir)
 	root_folder = filedict['*rootdir*']
 	cfilename = filedict['*cfilename*']
 	survey = filedict['survey']
-	lcdataset = load_lcdataset(filedir)
+	lcdataset = load_pickle(filedir)
 	print(lcdataset)
 
 	###################################################################################################################################################
 	from lcclassifier.models.model_collections import ModelCollections
 
 	model_collections = ModelCollections(lcdataset)
+	getattr(model_collections, main_args.mc)()
 	#getattr(model_collections, 'parallel_rnn_models_dt')()
 	#getattr(model_collections, 'parallel_rnn_models_te')()
 	#getattr(model_collections, 'serial_rnn_models_dt')()
 	#getattr(model_collections, 'serial_rnn_models_te')()
-	#getattr(model_collections, 'parallel_tcn_models_dt')()
-	#getattr(model_collections, 'parallel_tcn_models_te')()
-	#getattr(model_collections, 'serial_tcn_models_te')()
-	getattr(model_collections, 'parallel_atcn_models_te')()
-	#getattr(model_collections, 'serial_atcn_models_te')()
-	print(model_collections)
+	#getattr(model_collections, 'parallel_tcnn_models_dt')()
+	#getattr(model_collections, 'parallel_tcnn_models_te')()
+	#getattr(model_collections, 'serial_tcnn_models_dt')()
+	#getattr(model_collections, 'serial_tcnn_models_te')()
+	#getattr(model_collections, 'parallel_atcnn_models_te')()
+	#getattr(model_collections, 'serial_atcnn_models_te')()
 
 	###################################################################################################################################################
 	### LOSS & METRICS
@@ -68,12 +72,13 @@ if __name__== '__main__':
 	loss_kwargs = {
 		'model_output_is_with_softmax':False,
 		'target_is_onehot':False,
+		'uses_poblation_weights':True,
 	}
-	#pre_loss = LCCompleteLoss('wmse', lcdataset['raw'].band_names)
-	#pre_loss = LCXEntropy('wxentropy', **loss_kwargs)
-	pre_loss = LCCompleteLoss('wmse-wxentropy', lcdataset['raw'].band_names, **loss_kwargs)
-	pre_metrics = [
-		LCXEntropyMetric('wxentropy', **loss_kwargs),
+	#pt_loss = LCCompleteLoss('wmse', lcdataset['raw'].band_names)
+	#pt_loss = LCXEntropy('wxentropy', **loss_kwargs)
+	pt_loss = LCCompleteLoss('wmse-xentropy', lcdataset['raw'].band_names, **loss_kwargs)
+	pt_metrics = [
+		LCXEntropyMetric('xentropy', **loss_kwargs),
 		LCAccuracy('b-accuracy', balanced=True, **loss_kwargs),
 		LCAccuracy('accuracy', **loss_kwargs),
 	]
@@ -92,39 +97,42 @@ if __name__== '__main__':
 	for mp_grid in model_collections.pms:
 		### DATASETS
 		dataset_kwargs = mp_grid['dataset_kwargs']
-		
-		s_train_dataset = CustomDataset(lcdataset, 'train+val.mcmc', **dataset_kwargs)
-		s_val_dataset = CustomDataset(lcdataset, 'val', **dataset_kwargs)
-		r_train_dataset = CustomDataset(lcdataset, 'train', **dataset_kwargs)
-		r_val_dataset = CustomDataset(lcdataset, 'val', **dataset_kwargs)
-		
+
+		s_train_dataset = CustomDataset(lcdataset, f'{main_args.kf}@train.{main_args.method}', **dataset_kwargs)
+		s_val_dataset = CustomDataset(lcdataset, f'{main_args.kf}@val.{main_args.method}', **dataset_kwargs)
+		r_train_dataset = CustomDataset(lcdataset, f'{main_args.kf}@train', **dataset_kwargs)
+		r_val_dataset = CustomDataset(lcdataset, f'{main_args.kf}@val', **dataset_kwargs)
+
 		mp_grid['mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
 		mp_grid['dec_mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
-		s_train_dataset.transfer_to(s_val_dataset) # transfer information to val/test
-		s_train_dataset.transfer_to(r_train_dataset) # transfer information to val/test
-		s_train_dataset.transfer_to(r_val_dataset) # transfer information to val/test
+		s_train_dataset.transfer_metadata_to(s_val_dataset) # transfer metadata to val/test
+		s_train_dataset.transfer_metadata_to(r_train_dataset) # transfer metadata to val/test
+		s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 
 		print('s_train_dataset:', s_train_dataset)
 		print('s_val_dataset:', s_val_dataset)
 		print('r_train_dataset:', r_train_dataset)
 		print('r_val_dataset:', r_val_dataset)
 		
-		s_train_dataset.precompute_samples(1)
-		s_val_dataset.generate_daugm_samples(1)
-		r_train_dataset.generate_daugm_samples(100)
-		r_val_dataset.generate_daugm_samples(100)
-		
+		if main_args.upc:
+			synth_precomputed_samples = 5
+			real_precomputed_samples = synth_precomputed_samples*1
+			s_train_dataset.precompute_samples(synth_precomputed_samples)
+			s_val_dataset.precompute_samples(synth_precomputed_samples)
+			r_train_dataset.precompute_samples(real_precomputed_samples)
+			r_val_dataset.precompute_samples(real_precomputed_samples)
+
 		### DATALOADERS
 		loader_kwargs = {
-			'batch_size':main_args.batch_size,
 			#'num_workers':2, # bug?
+			'batch_size':main_args.batch_size,
+			'random_subcrops':main_args.rsc,
 		}
-		random_subcrops = 3
-		s_train_loader = CustomDataLoader(s_train_dataset, random_subcrops=random_subcrops, shuffle=True, **loader_kwargs)
-		s_val_loader = CustomDataLoader(s_val_dataset, random_subcrops=random_subcrops, shuffle=True, **loader_kwargs)
-		r_train_loader = CustomDataLoader(r_train_dataset, random_subcrops=random_subcrops, shuffle=True, **loader_kwargs)
-		r_val_loader = CustomDataLoader(r_val_dataset, random_subcrops=0, **loader_kwargs)
-		
+		s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs)
+		s_val_loader = CustomDataLoader(s_val_dataset, shuffle=False, **loader_kwargs)
+		r_train_loader = CustomDataLoader(r_train_dataset, shuffle=True, **loader_kwargs)
+		r_val_loader = CustomDataLoader(r_val_dataset, shuffle=False, **loader_kwargs)
+
 		### IDS
 		model_ids = list(range(main_args.iid, main_args.fid+1))
 		for ki,model_id in enumerate(model_ids): # IDS
@@ -133,23 +141,23 @@ if __name__== '__main__':
 			for k_ in ['mdl_kwargs', 'dec_mdl_kwargs']:
 				mp_grid[k_]['input_dims'] = s_train_loader.dataset.get_output_dims()
 				mp_grid[k_]['te_features'] = s_train_loader.dataset.get_te_features_dims()
-				mp_grid[k_]['curvelength_max'] = s_train_dataset.get_max_len()
-				
+				#mp_grid[k_]['curvelength_max'] = s_train_dataset.get_max_len()
+
 			model = mdl_kwargs['C'](**mp_grid)
-			
+
 			### OPTIMIZER
 			import torch.optim as optims
 			from fuzzytorch.optimizers import LossOptimizer
 
-			pre_optimizer_kwargs = {
+			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':1e-3,
+					'lr':.5e-3,
 				},
-				'decay_kwargs':{
-					'lr':0.9,
-				}
+				#'decay_kwargs':{
+				#	'lr':.95,
+				#}
 			}
-			pre_optimizer = LossOptimizer(model, optims.Adam, **pre_optimizer_kwargs)
+			pt_optimizer = LossOptimizer(model, optims.Adam, **pt_optimizer_kwargs)
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -159,34 +167,36 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':1, # every k epochs check
+				'val_epoch_counter_duration':2, # every k epochs check
 				'earlystop_epoch_duration':20,
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
 				#'save_mode':C_.SM_ONLY_ALL,
-				'save_mode':C_.SM_ONLY_INF_METRIC,
-				#'save_mode':C_.SM_ONLY_INF_LOSS,
+				#'save_mode':C_.SM_ONLY_INF_METRIC,
+				'save_mode':C_.SM_ONLY_INF_LOSS,
 				#'save_mode':C_.SM_ONLY_SUP_METRIC,
 			}
-			pre_loss_monitors = LossMonitor(pre_loss, pre_optimizer, pre_metrics, **monitor_config)
-			
+			pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics, **monitor_config)
+
 			### TRAIN
 			mtrain_config = {
 				'id':model_id,
 				'epochs_max':1e5,
 				'save_rootdir':f'../save/training',
 				'extra_model_name_dict':{
-					'mode':'s',
+					'mode':'pt',
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					'ef-be':s_train_loader.dataset.effective_beta_eps,
+					'rsc':main_args.rsc,
 				},
 				'uses_train_eval_loader_methods':True,
 			}
-			model_train_handler = ModelTrainHandler(model, pre_loss_monitors, **mtrain_config)
+			model_train_handler = ModelTrainHandler(model, pt_loss_monitors, **mtrain_config)
 			model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			if ki==0:
 				print(model_train_handler)
-			model_train_handler.fit_loader(s_train_loader, s_val_loader)
+			model_train_handler.fit_loader(s_train_loader, s_val_loader) # main fit
+
 
 			###################################################################################################################################################
 			import fuzzytorch
@@ -204,35 +214,27 @@ if __name__== '__main__':
 			###################################################################################################################################################
 			import lcclassifier.experiments.images as exp_img
 
-			### perform the experiments
 			exp_kwargs = {
-				'save_rootdir':f'../save/experiments',
 				'm':4,
-				'send_email':0,
 			}
-			#exp_img.reconstructions(model_train_handler, s_train_loader, **exp_kwargs)
-			exp_img.reconstructions(model_train_handler, s_val_loader, **exp_kwargs)
+			exp_img.reconstructions_m(model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/train', **exp_kwargs)
+			exp_img.reconstructions_m(model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/val', **exp_kwargs)
 
 			###################################################################################################################################################
 			import lcclassifier.experiments.performance as exp_perf
 
 			### perform the experiments
 			exp_kwargs = {
-				'save_rootdir':f'../save/experiments',
 				'target_is_onehot':False,
-				'send_email':0,
 			}
-			#exp_perf.reconstruction_along_days(model_train_handler, s_train_loader, **exp_kwargs) # over real
-			exp_perf.reconstruction_along_days(model_train_handler, s_val_loader, **exp_kwargs) # over real
+			#exp_perf.reconstruction_along_days(model_train_handler, s_train_loader, **exp_kwargs)
+			exp_perf.reconstruction_along_days(model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/val', **exp_kwargs)
 
 			###################################################################################################################################################
 			import lcclassifier.experiments.performance as exp_perf
 
-			### perform the experiments
 			exp_kwargs = {
-				'save_rootdir':f'../save/experiments',
 				'target_is_onehot':False,
-				'send_email':0,
 			}
-			#exp_perf.metrics_along_days(model_train_handler, s_val_loader, **exp_kwargs) # over real
-			exp_perf.metrics_along_days(model_train_handler, s_val_loader, **exp_kwargs) # over real
+			#exp_perf.metrics_along_days(model_train_handler, s_val_loader, **exp_kwargs)
+			exp_perf.metrics_along_days(model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/val', **exp_kwargs)

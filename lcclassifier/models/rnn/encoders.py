@@ -35,14 +35,13 @@ class RNNEncoderP(nn.Module):
 		print('te_film:', self.te_film)
 
 		### RNN STACK
-		rnn_args = [self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), self.curvelength_max]
 		rnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'bidirectional':self.bidirectional,
 			'uses_batchnorm':self.uses_batchnorm,
 		}
-		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(*rnn_args, **rnn_kwargs) for b in self.band_names})
+		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs) for b in self.band_names})
 		print('ml_rnn:', self.ml_rnn)
 
 		### PARALLEL PATCH
@@ -111,14 +110,13 @@ class RNNEncoderS(nn.Module):
 		print('te_film:', self.te_film)
 
 		### RNN STACK
-		rnn_args = [self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), self.curvelength_max]
 		rnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'bidirectional':self.bidirectional,
 			'uses_batchnorm':self.uses_batchnorm,
 		}
-		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(*rnn_args, **rnn_kwargs)
+		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs)
 		print('ml_rnn:', self.ml_rnn)
 
 	def get_output_dims(self):
