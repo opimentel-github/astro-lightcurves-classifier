@@ -99,8 +99,8 @@ class CustomDataset(Dataset):
 			values = np.concatenate([self.lcset.get_lcset_values_b(b, in_attr)[...,None] for ka,in_attr in enumerate(self.in_attrs)], axis=-1)
 			#print(values.shape)
 			#qt = StandardScaler()
-			#qt = LogStandardScaler()
-			qt = LogQuantileTransformer() # slow
+			qt = LogStandardScaler()
+			#qt = LogQuantileTransformer() # slow
 			#qt = QuantileTransformer(n_quantiles=10000, random_state=0, output_distribution='normal') # slow
 			qt.fit(values)
 			self.in_scaler_bdict[b] = qt
@@ -111,8 +111,8 @@ class CustomDataset(Dataset):
 			values = self.lcset.get_lcset_values_b(b, self.rec_attr)[...,None]
 			#print(values.shape)
 			#qt = StandardScaler()
-			#qt = LogStandardScaler()
-			qt = LogQuantileTransformer() # slow
+			qt = LogStandardScaler()
+			#qt = LogQuantileTransformer() # slow
 			#qt = QuantileTransformer(n_quantiles=10000, random_state=0, output_distribution='normal') # slow
 			qt.fit(values)
 			self.rec_scaler_bdict[b] = qt
@@ -177,8 +177,8 @@ class CustomDataset(Dataset):
 		other.set_in_scaler_bdict(self.get_in_scaler_bdict())
 		other.set_rec_scaler_bdict(self.get_rec_scaler_bdict())
 		other.set_te_periods(self.get_te_periods())
+		other.set_poblation_weights(self.get_poblation_weights()) # sure?
 		#other.set_max_len(self.get_max_len())
-		#other.set_poblation_weights(self.get_poblation_weights()) # sure?
 	
 	def get_in_scaler_bdict(self):
 		return self.in_scaler_bdict
@@ -254,11 +254,13 @@ class CustomDataset(Dataset):
 
 	def __len__(self):
 		uses_precomputed_samples = self.has_precomputed_samples() and self.uses_precomputed_samples
-		return len(self.precomputed_tdict) if uses_precomputed_samples else len(self.lcset)
+		lcobj_names = self.get_lcobj_names()
+		return len(self.precomputed_tdict) if uses_precomputed_samples else len(lcobj_names)
 
 	def __getitem__(self, idx:int):
 		uses_precomputed_samples = self.has_precomputed_samples() and self.uses_precomputed_samples
-		return self.precomputed_tdict[idx] if uses_precomputed_samples else self.get_item(self.get_lcobj_names()[idx])
+		lcobj_names = self.get_lcobj_names()
+		return self.precomputed_tdict[idx] if uses_precomputed_samples else self.get_item(lcobj_names[idx])
 
 	def precompute_samples(self, precomputed_copies,
 		n_jobs=C_.N_JOBS,
@@ -294,7 +296,7 @@ class CustomDataset(Dataset):
 				lcobjb = lcobj.get_b(b)
 				lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
 				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
-				lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling
+				lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling # bugs?
 
 		### remove day offset!
 		day_offset = lcobj.reset_day_offset_serial()

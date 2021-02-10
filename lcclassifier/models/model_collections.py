@@ -14,57 +14,57 @@ class ModelCollections():
 	def __init__(self, lcdataset):
 		self.lcdataset = lcdataset
 		self.max_day = 150.
-		self.embd_dims = GDIter(30, 60)
+		self.embd_dims = GDIter(60) # 50
 		self.embd_layers = GDIter(2)
-		self.rnn_cell_names = GDIter('GRU','LSTM')
-		self.te_features_iter = GDIter(8)#4,8,16)
-		self.dropout_p = .25 # .2 .25
+		self.rnn_cell_names = GDIter('GRU', 'LSTM')
+		self.te_features_iter = GDIter(16, 32, 8, 4, 2)
+		self.dropout_p = .2 # .1 .2 .25
 		self.common_dict = {
 			'band_names':lcdataset['raw'].band_names,
 			'output_dims':len(lcdataset['raw'].class_names),
 		}
 		self.base_dict = {
 			'dec_mdl_kwargs':{
-				'C':rnn_decoders.RNNDecoderS, # RNNDecoderP RNNDecoderS
+				'C':rnn_decoders.RNNDecoderP, # RNNDecoderP RNNDecoderS
 				'rnn_cell_name':'GRU',
 				'rnn_layers':1,
 				'dropout':{'p':self.dropout_p},
 			},
 			'class_mdl_kwargs':{
 				'C':mclass.SimpleClassifier,
-				'embd_layers':1,
-				'dropout':{'p':self.dropout_p},
+				'embd_layers':2,
+				'dropout':{'p':.5}, # .2 .25
 			},
 		}
 		self.reset()
 
 	def reset(self):
-		self.pms = []
+		self.mps = []
 
 	def __repr__(self):
 		txt = ''
-		for k,pm in enumerate(self.pms):
-			txt += f'({k}) - mdl_kwargs: {pm["mdl_kwargs"]}\n'
-			txt += f'({k}) - dataset_kwargs: {pm["dataset_kwargs"]}\n'
-			txt += f'({k}) - dec_mdl_kwargs: {pm["dec_mdl_kwargs"]}\n'
-			txt += f'({k}) - class_mdl_kwargs: {pm["class_mdl_kwargs"]}\n'
+		for k,mp in enumerate(self.mps):
+			txt += f'({k}) - mdl_kwargs: {mp["mdl_kwargs"]}\n'
+			txt += f'({k}) - dataset_kwargs: {mp["dataset_kwargs"]}\n'
+			txt += f'({k}) - dec_mdl_kwargs: {mp["dec_mdl_kwargs"]}\n'
+			txt += f'({k}) - class_mdl_kwargs: {mp["class_mdl_kwargs"]}\n'
 			txt += f'---\n'
 		return txt
 
 	def add_gs(self, gs):
-		new_pms = []
-		pms = gs.get_dicts()
-		for pm in pms:
+		new_mps = []
+		mps = gs.get_dicts()
+		for mp in mps:
 			bd = self.base_dict.copy()
-			bd.update(pm)
-			new_pms += GridSeacher(bd).get_dicts()
+			bd.update(mp)
+			new_mps += GridSeacher(bd).get_dicts()
 
-		for pm in new_pms:
+		for mp in new_mps:
 			for k in self.common_dict.keys():
-				for k2 in pm.keys():
+				for k2 in mp.keys():
 					if k2!='dataset_kwargs':
-						pm[k2][k] = self.common_dict[k]
-		self.pms += new_pms
+						mp[k2][k] = self.common_dict[k]
+		self.mps += new_mps
 
 	def update_dt(self, gs):
 		gs.update({

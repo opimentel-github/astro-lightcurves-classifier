@@ -10,11 +10,11 @@ N_JOBS = 6 # The number of jobs to use for the computation. If -1 all CPUs are u
 CHUNK_SIZE = N_JOBS*1
 
 ### SYNTHETIC
-OBSE_STD_SCALE = 1/2
-CPDS_P = 5./100. # curve points down sampling probability
+OBSE_STD_SCALE = 1/3
+CPDS_P = 0./100. # curve points down sampling probability
 HOURS_NOISE_AMP = 2.5
 
-EFFECTIVE_BETA_EPS = 0.0001 # same weight -> 0.01 0.001 0.0001 0.00001 -> 1/freq
+EFFECTIVE_BETA_EPS = 0.00001 # same weight -> 0.01 0.001 0.0001 0.00001 -> 1/freq
 
 DEFAULT_DAYS_N = 50
 DEFAULT_MIN_DAY = 2.

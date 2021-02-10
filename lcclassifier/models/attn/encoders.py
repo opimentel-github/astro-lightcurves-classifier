@@ -91,6 +91,7 @@ class AttnTCNNEncoderP(nn.Module):
 
 			### representative element
 			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot)
+			#last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot)
 
 		z = seq_utils.parallel_to_serial(p_z_list, onehot)
 		

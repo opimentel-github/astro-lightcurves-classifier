@@ -92,6 +92,7 @@ class SerialRNNClassifier(ModelBaseline):
 		self.input_dims = self.mdl_kwargs['input_dims']
 		self.te_features = self.mdl_kwargs['te_features']
 		self.band_names = self.mdl_kwargs['band_names']
+		self.rnn_cell_name = self.mdl_kwargs['rnn_cell_name']
 
 		### MODEL DEFINITION
 		encoder = rnn_encoders.RNNEncoderS(**self.mdl_kwargs)
@@ -151,7 +152,7 @@ class ParallelTCNNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'ParallelTCNn',
+			'mdl':f'ParallelTCNN',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
@@ -192,7 +193,7 @@ class SerialTCNNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'SerialTCNn',
+			'mdl':f'SerialTCNN',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
@@ -236,7 +237,7 @@ class ParallelAttnTCNNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'ParallelAttnTCNn',
+			'mdl':f'ParallelAttnTCNN',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
@@ -276,7 +277,7 @@ class SerialAttnTCNNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'SerialAttnTCNn',
+			'mdl':f'SerialAttnTCNN',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),

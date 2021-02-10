@@ -86,7 +86,8 @@ class TCNNEncoderP(nn.Module):
 			tdict['model'].update({f'z.{b}.last':p_z})
 
 			### representative element
-			last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot)
+			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot)
+			last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot)
 
 		last_z = torch.cat([last_z_dic[b] for b in self.band_names], dim=-1)
 		last_z = self.z_projection(last_z)
@@ -156,7 +157,8 @@ class TCNNEncoderS(nn.Module):
 		z = self.ml_cnn(z.permute(0,2,1)).permute(0,2,1)
 
 		### representative element
-		last_z = seq_utils.seq_max_pooling(z, s_onehot) # get last value of sequence according to onehot
+		#last_z = seq_utils.seq_max_pooling(z, s_onehot) # get last value of sequence according to onehot
+		last_z = seq_utils.seq_avg_pooling(z, s_onehot) # get last value of sequence according to onehot
 
 		tdict['model'].update({
 			#'z':z, # not used

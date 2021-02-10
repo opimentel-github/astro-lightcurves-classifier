@@ -32,8 +32,7 @@ def latex_day(metric_name, day):
 
 ###################################################################################################################################################
 
-def get_day_metrics_from_models(root_folder, model_names, metric_name, fext, # fix
-	error_scale=1,
+def get_day_metrics_from_models(root_folder, model_names, metric_name, fext,
 	return_xerror=True,
 	):
 	metrics_dict = {}
@@ -44,7 +43,13 @@ def get_day_metrics_from_models(root_folder, model_names, metric_name, fext, # f
 		metric_curves = []
 		for filedir in filedirs:
 			rdict = load_pickle(filedir, verbose=0)
-			days = np.array(rdict['days'])
+			days = rdict['days']
+			mdict_name = ''
+			metric = rdict['days_class_metrics_df'][metric_name].values[:]
+			print(metric)
+
+			assert 0
+			
 
 			if metric_name=='*accu*':
 				for d in days:
@@ -63,7 +68,7 @@ def get_day_metrics_from_models(root_folder, model_names, metric_name, fext, # f
 
 		metric_curves = np.concatenate(metric_curves, axis=0)
 		samples.append(len(metric_curves))
-		metrics_dict[model_name] = dstats.XError(metric_curves, 0, error_scale=error_scale) if return_xerror else metric_curves
+		metrics_dict[model_name] = dstats.XError(metric_curves, 0) if return_xerror else metric_curves
 
 	if not np.all(np.array(samples)==samples[0]):
 		warnings.warn(f'not same samples: {samples}')
@@ -100,8 +105,7 @@ def get_info_from_models(root_folder, model_names, fext,
 		filedirs = search_for_filedirs(f'{root_folder}/{model_name}', fext=fext, verbose=0)
 		for filedir in filedirs:
 			rdict = load_pickle(filedir, verbose=0)
-			days = np.array(rdict['days'])
 			survey = rdict['survey']
 			band_names = ''.join(rdict['band_names'])
 			class_names = rdict['class_names']
-			return days, survey, band_names, class_names
+			return survey, band_names, class_names

@@ -16,107 +16,6 @@ import pandas as pd
 
 ###################################################################################################################################################
 
-def reconstruction_along_days(train_handler, data_loader,
-	figsize:tuple=C_.DEFAULT_FIGSIZE_REC,
-	save_rootdir:str='results',
-	save_fext:str='recerr',
-	days_N:int=C_.DEFAULT_DAYS_N,
-	eps:float=C_.EPS,
-	**kwargs):
-	### dataloader and extract dataset - important
-	train_handler.load_model() # important, refresh to best model
-	data_loader.eval() # set mode
-	dataset = data_loader.dataset # get dataset
-	dataset.reset_max_day() # always reset max day
-	dataset.uses_precomputed_samples = False
-
-	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)
-	bar = ProgressBar(len(days), 3)
-	days_result_df = []
-	train_handler.model.eval() # model eval
-	with torch.no_grad():
-		can_be_in_loop = True
-		for day in days: # along days
-			try:
-				if can_be_in_loop:
-					dataset.set_max_day(day)
-					mse_loss = []
-					ase_loss = []
-					for k,tdict in enumerate(data_loader):
-						out_tdict = train_handler.model(TDictHolder(tdict).to(train_handler.device))
-						onehot = out_tdict['input']['onehot']
-						b,t,_ = onehot.size()
-						mse_loss_bdict = {}
-						ase_loss_bdict = {}
-						for kb,b in enumerate(dataset.band_names):
-							p_error = seq_utils.serial_to_parallel(out_tdict['input']['error'], onehot[...,kb]) # (b,t,1)
-							p_rx = seq_utils.serial_to_parallel(out_tdict['target']['rec-x'], onehot[...,kb]) # (b,t,1)
-							p_rx_pred = out_tdict['model'][f'rec-x.{b}'] # (b,t,1)
-
-							mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2 + C_.EPS) # (b,t,1)
-							mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, seq_utils.get_seq_onehot_mask(onehot[...,kb].sum(dim=-1), t)) # (b,t,1) > (b,1)
-							mse_loss_bdict[b] = mse_loss_b[...,0]
-			
-							ase_loss_b = torch.abs(p_rx-p_rx_pred)/(p_error**2 + C_.EPS) # (b,t,1)
-							ase_loss_b = seq_utils.seq_avg_pooling(ase_loss_b, seq_utils.get_seq_onehot_mask(onehot[...,kb].sum(dim=-1), t)) # (b,t,1) > (b,1)
-							ase_loss_bdict[b] = ase_loss_b[...,0]
-
-						mse_loss_ = torch.cat([mse_loss_bdict[b][...,None] for b in dataset.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
-						mse_loss.append(mse_loss_.mean().cpu().numpy())
-
-						ase_loss_ = torch.cat([ase_loss_bdict[b][...,None] for b in dataset.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
-						ase_loss.append(ase_loss_.mean().cpu().numpy())
-
-					mse_loss = np.mean(mse_loss)
-					ase_loss = np.mean(ase_loss)
-					day_df = pd.DataFrame.from_dict({
-						'day':[day],
-						'mse':[mse_loss],
-						'ase':[ase_loss],
-						})
-					days_result_df.append(day_df)
-					bar(f'day: {day:.4f}/{days[-1]:.4f} - mse_loss: {mse_loss} - ase_loss: {ase_loss}')
-
-			except KeyboardInterrupt:
-				can_be_in_loop = False
-
-	bar.done()
-	dataset.uses_precomputed_samples = True  # very important!!
-	dataset.reset_max_day() # very important!!
-	days_result_df = pd.concat(days_result_df)
-
-	### more info
-	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
-	results = {
-		'days':days,
-		'days_result_df':days_result_df,
-		
-		'complete_save_roodir':complete_save_roodir,
-		'model_name':train_handler.model.get_name(),
-		'survey':dataset.survey,
-		'band_names':dataset.band_names,
-		'class_names':dataset.class_names,
-		'parameters':count_parameters(train_handler.model),
-	}
-	for lmonitor in train_handler.lmonitors:
-		results[lmonitor.name] = {
-			'save_dict':lmonitor.get_save_dict(),
-			'best_epoch':lmonitor.get_best_epoch(),
-			'time_per_iteration':lmonitor.get_time_per_iteration(),
-			#'time_per_epoch_set':{set_name:lmonitor.get_time_per_epoch_set(set_name) for set_name in ['train', 'val']},
-			'time_per_epoch':lmonitor.get_time_per_epoch(),
-			'total_time':lmonitor.get_total_time(),
-		}
-
-	### save file
-	#print(results)
-	file_save_dir = f'{save_rootdir}/{complete_save_roodir}'
-	filedir = f'{file_save_dir}/id={train_handler.id}°set={dataset.lcset_name}.{save_fext}'
-	files.save_pickle(filedir, results) # save file
-	return
-
-###################################################################################################################################################
-
 def metrics_along_days(train_handler, data_loader,
 	target_is_onehot:bool=False,
 	figsize:tuple=C_.DEFAULT_FIGSIZE_REC,
@@ -133,9 +32,11 @@ def metrics_along_days(train_handler, data_loader,
 	dataset.uses_precomputed_samples = False
 
 	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)
-	bar = ProgressBarMulti(len(days), 3)
-	days_result_df = []
-	days_metrics_cdict = []
+	bar_rows = 4
+	bar = ProgressBarMulti(len(days), bar_rows)
+	days_rec_metrics_df = []
+	days_class_metrics_df = []
+	days_class_metrics_cdf = {c:[] for c in dataset.class_names}
 	days_cm = {}
 	train_handler.model.eval() # model eval
 	with torch.no_grad():
@@ -144,11 +45,28 @@ def metrics_along_days(train_handler, data_loader,
 			try:
 				if can_be_in_loop:
 					dataset.set_max_day(day)
+					mse_loss = []
 					y_target = []
 					y_pred_p = []
 					for k,tdict in enumerate(data_loader):
 						out_tdict = train_handler.model(TDictHolder(tdict).to(train_handler.device))
 						onehot = out_tdict['input']['onehot']
+
+						### decoder
+						mse_loss_bdict = {}
+						for kb,b in enumerate(dataset.band_names):
+							p_error = seq_utils.serial_to_parallel(out_tdict['input']['error'], onehot[...,kb]) # (b,t,1)
+							p_rx = seq_utils.serial_to_parallel(out_tdict['target']['rec-x'], onehot[...,kb]) # (b,t,1)
+							p_rx_pred = out_tdict['model'][f'rec-x.{b}'] # (b,t,1)
+
+							mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2 + C_.EPS) # (b,t,1)
+							mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, seq_utils.get_seq_onehot_mask(onehot[...,kb].sum(dim=-1), onehot.shape[1])) # (b,t,1) > (b,1)
+							mse_loss_bdict[b] = mse_loss_b[...,0] # (b,1) > (b)
+
+						mse_loss_ = torch.cat([mse_loss_bdict[b][...,None] for b in dataset.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
+						mse_loss.append(mse_loss_.mean().cpu().numpy())
+
+						### class
 						y_target_ = out_tdict['target']['y']
 						y_pred_p_ = torch.nn.functional.softmax(out_tdict['model']['y.last'], dim=-1)
 
@@ -156,10 +74,18 @@ def metrics_along_days(train_handler, data_loader,
 							assert y_pred_.shape==y_target_.shape
 							y_target_ = y_target_.argmax(dim=-1)
 
-						#print(y_target_.shape, y_pred_p_.shape)
 						y_target.append(y_target_)
 						y_pred_p.append(y_pred_p_)
 
+					### decoder metrics
+					mse_loss = np.mean(mse_loss)
+					day_df = pd.DataFrame.from_dict({
+						'day':[day],
+						'mse':[mse_loss],
+						})
+					days_rec_metrics_df.append(day_df)
+
+					### class metrics
 					y_target = torch.cat(y_target, dim=0)
 					y_pred_p = torch.cat(y_pred_p, dim=0)
 					y_pred = torch.argmax(y_pred_p, dim=-1)
@@ -169,14 +95,22 @@ def metrics_along_days(train_handler, data_loader,
 						'y_pred_p':y_pred_p.cpu().numpy(),
 					}
 					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred.cpu().numpy(), y_target.cpu().numpy(), dataset.class_names, **met_kwargs)
-					days_metrics_cdict.append(metrics_cdict)
-					days_cm[day] = cm
+					
 					d = {'day':[day]}
 					for km in metrics_dict.keys():
 						d[km] = [metrics_dict[km]]
 					day_df = pd.DataFrame.from_dict(d)
-					days_result_df.append(day_df)
-					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'metrics_dict: {metrics_dict}', f'metrics_cdict: {metrics_cdict}'])
+					days_class_metrics_df.append(day_df)
+
+					for c in dataset.class_names:
+						d = {'day':[day]}
+						for km in metrics_cdict.keys():
+							d[km] = [metrics_cdict[km][c]]
+						day_df = pd.DataFrame.from_dict(d)
+						days_class_metrics_cdf[c].append(day_df)
+
+					days_cm[day] = cm
+					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'mse_loss: {mse_loss}', f'metrics_dict: {metrics_dict}', f'metrics_cdict: {metrics_cdict}'])
 
 			except KeyboardInterrupt:
 				can_be_in_loop = False
@@ -184,14 +118,18 @@ def metrics_along_days(train_handler, data_loader,
 	bar.done()
 	dataset.uses_precomputed_samples = True  # very important!!
 	dataset.reset_max_day() # very important!!
-	days_result_df = pd.concat(days_result_df)
+
+	days_rec_metrics_df = pd.concat(days_rec_metrics_df)
+	days_class_metrics_df = pd.concat(days_class_metrics_df)
+	days_class_metrics_cdf = {c:pd.concat(days_class_metrics_cdf[c]) for c in dataset.class_names}
 
 	### more info
 	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
 	results = {
 		'days':days,
-		'days_result_df':days_result_df,
-		'days_metrics_cdict':days_metrics_cdict, # fix to df
+		'days_rec_metrics_df':days_rec_metrics_df,
+		'days_class_metrics_df':days_class_metrics_df,
+		'days_class_metrics_cdf':days_class_metrics_cdf,
 		'days_cm':days_cm,
 
 		'complete_save_roodir':complete_save_roodir,
