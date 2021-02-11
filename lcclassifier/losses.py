@@ -68,8 +68,8 @@ class LCCompleteLoss(FTLoss):
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
 		uses_poblation_weights:bool=True,
-		xentropy_k=1e3,
-		mse_k=1e-2,
+		xentropy_k=C_.XENTROPY_K,
+		mse_k=C_.MSE_K,
 		**kwargs):
 		self.name = name
 		self.xentropy = LCXEntropy('',

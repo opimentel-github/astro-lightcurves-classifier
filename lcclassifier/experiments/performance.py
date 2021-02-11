@@ -26,19 +26,19 @@ def metrics_along_days(train_handler, data_loader,
 	**kwargs):
 	### dataloader and extract dataset - important
 	train_handler.load_model() # important, refresh to best model
+	train_handler.model.eval() # model eval
 	data_loader.eval() # set mode
 	dataset = data_loader.dataset # get dataset
 	dataset.reset_max_day() # always reset max day
 	dataset.uses_precomputed_samples = False
 
-	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)
+	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)[::-1]
 	bar_rows = 4
 	bar = ProgressBarMulti(len(days), bar_rows)
 	days_rec_metrics_df = []
 	days_class_metrics_df = []
 	days_class_metrics_cdf = {c:[] for c in dataset.class_names}
 	days_cm = {}
-	train_handler.model.eval() # model eval
 	with torch.no_grad():
 		can_be_in_loop = True
 		for day in days: # along days
@@ -72,7 +72,7 @@ def metrics_along_days(train_handler, data_loader,
 
 						if target_is_onehot:
 							assert y_pred_.shape==y_target_.shape
-							y_target_ = y_target_.argmax(dim=-1)
+							y_target_ = torch.argmax(y_target_, dim=-1)
 
 						y_target.append(y_target_)
 						y_pred_p.append(y_pred_p_)
@@ -86,15 +86,17 @@ def metrics_along_days(train_handler, data_loader,
 					days_rec_metrics_df.append(day_df)
 
 					### class metrics
-					y_target = torch.cat(y_target, dim=0)
-					y_pred_p = torch.cat(y_pred_p, dim=0)
-					y_pred = torch.argmax(y_pred_p, dim=-1)
+					y_target = torch.cat(y_target, dim=0).cpu().numpy()
+					y_pred_p = torch.cat(y_pred_p, dim=0).cpu().numpy()
+					y_pred = np.argmax(y_pred_p, axis=-1)
+					accuracy = (y_target==y_pred).astype(np.float)*100
+					print('accuracy', accuracy.shape, np.mean(accuracy))
 					met_kwargs = {
 						'pred_is_onehot':False,
 						'target_is_onehot':False,
-						'y_pred_p':y_pred_p.cpu().numpy(),
+						'y_pred_p':y_pred_p,
 					}
-					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred.cpu().numpy(), y_target.cpu().numpy(), dataset.class_names, **met_kwargs)
+					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred, y_target, dataset.class_names, **met_kwargs)
 					
 					d = {'day':[day]}
 					for km in metrics_dict.keys():
@@ -110,7 +112,8 @@ def metrics_along_days(train_handler, data_loader,
 						days_class_metrics_cdf[c].append(day_df)
 
 					days_cm[day] = cm
-					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'mse_loss: {mse_loss}', f'metrics_dict: {metrics_dict}', f'metrics_cdict: {metrics_cdict}'])
+					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'mse_loss: {mse_loss}', f'metrics_dict: {metrics_dict}', f'metrics_cdict: {metrics_cdict["recall"]}'])
+					break # dummy
 
 			except KeyboardInterrupt:
 				can_be_in_loop = False

@@ -40,10 +40,10 @@ def reconstructions(train_handler, data_loader,
 	**kwargs):
 	### dataloader and extract dataset - important
 	train_handler.load_model() # important, refresh to best model
+	train_handler.model.eval() # important, model eval mode
 	data_loader.eval() # set mode
 	dataset = data_loader.dataset # get dataset
-
-	train_handler.model.eval() # important, model eval mode
+	
 	with torch.no_grad():
 		lcobj_names = dataset.get_random_stratified_lcobj_names(nc)
 		fig, axs = plt.subplots(len(lcobj_names), 1, figsize=figsize)

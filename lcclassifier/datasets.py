@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler, QuantileTransformer
 from .scalers import LogStandardScaler, LogQuantileTransformer
 import flamingchoripan.strings as strings
 from joblib import Parallel, delayed
-from flamingchoripan.lists import get_list_chunks
+from flamingchoripan.lists import get_list_chunks, get_random_subsampled_list
 from flamingchoripan.progress_bars import ProgressBar
 from fuzzytorch.utils import print_tdict
 import fuzzytorch.models.seq_utils as seq_utils
@@ -48,6 +48,7 @@ class CustomDataset(Dataset):
 		):
 		assert te_features%2==0
 
+		self.training = False
 		self.lcset = lcdataset[lcset_name]
 		self.lcset_name = lcset_name
 		self.in_attrs = in_attrs.copy()
@@ -68,6 +69,7 @@ class CustomDataset(Dataset):
 		self.reset()
 
 	def reset(self):
+		self.training = False
 		self.precomputed_tdict = []
 		self.band_names = self.lcset.band_names
 		self.class_names = self.lcset.class_names
@@ -78,6 +80,7 @@ class CustomDataset(Dataset):
 		self.calcule_rec_scaler_bdict()
 		self.reset_max_day()
 		self.calcule_poblation_weights()
+		self.generate_balanced_lcobj_names()
 
 	def automatic_diff(self):
 		attrs = self.in_attrs+[self.rec_attr]
@@ -122,6 +125,15 @@ class CustomDataset(Dataset):
 
 	def calcule_poblation_weights(self):
 		self.poblation_weights = self.lcset.get_class_effective_weigths_cdict(1-self.effective_beta_eps) # get_class_freq_weights_cdict get_class_effective_weigths_cdict
+
+	def generate_balanced_lcobj_names(self):
+		populations_cdict = self.lcset.get_populations_cdict()
+		max_pop = max([populations_cdict[c] for c in self.class_names])
+		to_fill_cdict = {c:max_pop-populations_cdict[c] for c in self.class_names}
+		self.balanced_lcobj_names = self.lcset.get_lcobj_names().copy()
+		for c in self.class_names:
+			lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c), to_fill_cdict[c])
+			self.balanced_lcobj_names += lcobj_names_c
 
 	def get_poblation_weights(self):
 		return self.poblation_weights
@@ -177,7 +189,7 @@ class CustomDataset(Dataset):
 		other.set_in_scaler_bdict(self.get_in_scaler_bdict())
 		other.set_rec_scaler_bdict(self.get_rec_scaler_bdict())
 		other.set_te_periods(self.get_te_periods())
-		other.set_poblation_weights(self.get_poblation_weights()) # sure?
+		#other.set_poblation_weights(self.get_poblation_weights()) # sure?
 		#other.set_max_len(self.get_max_len())
 	
 	def get_in_scaler_bdict(self):
@@ -237,7 +249,10 @@ class CustomDataset(Dataset):
 	###################################################################################################################################################
 
 	def get_lcobj_names(self):
-		return self.lcset.get_lcobj_names()
+		if self.training:
+			return self.balanced_lcobj_names
+		else:
+			return self.lcset.get_lcobj_names()
 
 	def has_precomputed_samples(self):
 		return len(self.precomputed_tdict)>0
@@ -265,7 +280,7 @@ class CustomDataset(Dataset):
 	def precompute_samples(self, precomputed_copies,
 		n_jobs=C_.N_JOBS,
 		chunk_size=C_.CHUNK_SIZE,
-		backend='threading',
+		backend=C_.JOBLIB_BACKEND,
 		):
 		chunk_size = n_jobs if chunk_size is None else chunk_size
 
@@ -291,12 +306,14 @@ class CustomDataset(Dataset):
 		lcobj = self.lcset[lcobj_name].copy() # important to copy!!!!
 
 		### apply data augmentation, this overrides obj information
-		if uses_daugm:
+		#if uses_daugm:
+		if self.training:
 			for b in lcobj.bands:
 				lcobjb = lcobj.get_b(b)
 				lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
-				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
+				#lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
 				lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling # bugs?
+				pass
 
 		### remove day offset!
 		day_offset = lcobj.reset_day_offset_serial()

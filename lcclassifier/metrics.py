@@ -39,7 +39,7 @@ class LCXEntropyMetric(FTMetric):
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
 		uses_poblation_weights:bool=True,
-		k=1e3,
+		k=C_.XENTROPY_K,
 		**kwargs):
 		self.name = name
 		self.xentropy = LCXEntropy('',
