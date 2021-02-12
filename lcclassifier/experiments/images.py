@@ -75,6 +75,6 @@ def reconstructions(train_handler, data_loader,
 	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
 	image_save_dir = f'{save_rootdir}/{complete_save_roodir}'
 	image_save_filedir = f'{image_save_dir}/exp_id={experiment_id}°id={train_handler.id}°set={dataset.lcset_name}.png'
-	prints.print_green(f'> saving: {image_save_filedir}')
+	#prints.print_green(f'> saving: {image_save_filedir}')
 	save_fig(image_save_filedir, fig)
 	return image_save_filedir

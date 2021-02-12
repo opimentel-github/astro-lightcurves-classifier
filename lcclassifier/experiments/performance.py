@@ -32,7 +32,7 @@ def metrics_along_days(train_handler, data_loader,
 	dataset.reset_max_day() # always reset max day
 	dataset.uses_precomputed_samples = False
 
-	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)[::-1]
+	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)#[::-1]
 	bar_rows = 4
 	bar = ProgressBarMulti(len(days), bar_rows)
 	days_rec_metrics_df = []
@@ -90,7 +90,7 @@ def metrics_along_days(train_handler, data_loader,
 					y_pred_p = torch.cat(y_pred_p, dim=0).cpu().numpy()
 					y_pred = np.argmax(y_pred_p, axis=-1)
 					accuracy = (y_target==y_pred).astype(np.float)*100
-					print('accuracy', accuracy.shape, np.mean(accuracy))
+					#print('accuracy', accuracy.shape, np.mean(accuracy))
 					met_kwargs = {
 						'pred_is_onehot':False,
 						'target_is_onehot':False,
@@ -113,7 +113,7 @@ def metrics_along_days(train_handler, data_loader,
 
 					days_cm[day] = cm
 					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'mse_loss: {mse_loss}', f'metrics_dict: {metrics_dict}', f'metrics_cdict: {metrics_cdict["recall"]}'])
-					break # dummy
+					#break # dummy
 
 			except KeyboardInterrupt:
 				can_be_in_loop = False

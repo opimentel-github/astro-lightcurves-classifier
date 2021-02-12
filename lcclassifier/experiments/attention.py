@@ -25,13 +25,13 @@ def attention_statistics(train_handler, data_loader,
 	**kwargs):
 	### dataloader and extract dataset - important
 	train_handler.load_model() # important, refresh to best model
+	train_handler.model.eval() # model eval
 	data_loader.eval() # set mode
 	dataset = data_loader.dataset # get dataset
 	dataset.reset_max_day() # always reset max day
 	dataset.uses_precomputed_samples = False
 
-	results = []
-	train_handler.model.eval() # model eval
+	attn_scores_collection = []
 	with torch.no_grad():
 		lcobj_names = dataset.get_lcobj_names()
 
@@ -39,16 +39,18 @@ def attention_statistics(train_handler, data_loader,
 			tdict, lcobj = dataset.get_item(lcobj_name, return_lcobjs=True)
 			out_tdict = train_handler.model(TDictHolder(tdict).to(train_handler.device, add_dummy_dim=True))
 			uses_attn = 'layer_scores' in out_tdict['model'].keys()
+			if not uses_attn:
+				return
 
 			onehot = out_tdict['input']['onehot']
 			s_onehot = onehot.sum(dim=-1).bool()
 			lcobj_len = s_onehot.sum().item()
-			attn_scores = out_tdict['model']['layer_scores'][-1] # from last layer (b,h,t,q)
+			attn_scores = out_tdict['model']['layer_scores'][:,-1,...] # from last layer (b,h,t,q)
 			#attn_scores = attn_scores.mean(dim=1) # collapse along heads (b,h,t,q) > (b,t,q)
 			attn_scores = attn_scores.max(dim=1)[0] # collapse along heads (b,h,t,q) > (b,t,q)
 			attn_scores = seq_utils.seq_last_element(attn_scores, s_onehot)[0] # get elements from last step (b,t,q) > (b,t)
 			attn_scores_np = attn_scores.cpu().numpy()
-			attn_entropy = -np.sum(attn_scores_np*np.log(attn_scores_np+1e-10))
+			attn_entropy = -np.sum(attn_scores_np*np.log(attn_scores_np+eps))
 			#print(attn_scores.shape, attn_scores.sum(-1), attn_scores)
 
 			'''
@@ -56,10 +58,10 @@ def attention_statistics(train_handler, data_loader,
 			x = lcobj.get_custom_x_serial(['obs', 'obse'])
 			obs = x[:lcobj_len,0]
 			obse = x[:lcobj_len,1]
-			wobs = obs/(obse**2+C_.EPS)
+			wobs = obs/(obse**2+eps)
 
 			for i in range(lcobj_len):
-				results.append({
+				attn_scores_collection.append({
 					'i':i,
 					'lcobj_len':lcobj_len,
 					'attn':attn_scores[i],
@@ -79,10 +81,10 @@ def attention_statistics(train_handler, data_loader,
 				lcobjb_len = p_onehot.sum().item()
 				
 				def norm(x, i):
-					return x[i]/(x.sum()+C_.EPS)
+					return x[i]/(x.sum()+eps)
 
 				def min_max_norm(x, i):
-					return (x[i]-x.min())/(x.max()-x.min()+C_.EPS)
+					return (x[i]-x.min())/(x.max()-x.min()+eps)
 
 				if lcobjb_len<10:
 					continue
@@ -95,7 +97,7 @@ def attention_statistics(train_handler, data_loader,
 				days = lcobjb.days[:lcobjb_len]
 				obs = lcobjb.obs[:lcobjb_len]
 				obse = lcobjb.obse[:lcobjb_len]
-				wobs = obs/(obse**2+C_.EPS)
+				wobs = obs/(obse**2+eps)
 				peak_day = days[np.argmax(obs)]
 				
 				for i in range(di, lcobjb_len):
@@ -104,7 +106,7 @@ def attention_statistics(train_handler, data_loader,
 					r = {
 						'i':i,
 						'b':b,
-						'c':c,
+						'c':dataset.class_names[lcobj.y],
 						'attn_entropy':attn_entropy,
 						'p_attn_entropy':p_attn_entropy,
 						'p_attn_entropy/len':p_attn_entropy/lcobjb_len,
@@ -128,51 +130,36 @@ def attention_statistics(train_handler, data_loader,
 						#'slope':np.arctan(slope),
 					}
 					#print(r)
-					results.append(r)
+					attn_scores_collection.append(r)
 
 	dataset.uses_precomputed_samples = True  # very important!!
 	dataset.reset_max_day() # very important!!
-	return results, {}, {}
-
-	### plot for sanity checks
-	fig, ax = plt.subplots(1, 1, figsize=figsize)
-	days = results['days']
-	for metric_to_plot in ['mse', 'ase']:
-		try:
-			ax.plot(days, [results[d]['metrics_dict'][metric_to_plot] for d in days], label=metric_to_plot)
-		except:
-			pass
-	ax.set_xlabel('days')
-	ax.set_ylabel('metric-value')
-	ax.legend()
-	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
-	title = f'survey: {dataset.survey} - set: {dataset.lcset_name}\n'
-	title += f'model: {complete_save_roodir} - id: {train_handler.id}'
-	ax.set_title(title)
-	ax.grid(alpha=0.25)
-	fig.tight_layout()
-	img_dir = f'../temp/reconstruction_along_days.png'
-	save_fig(img_dir, fig)
 
 	### more info
-	results['complete_save_roodir'] = complete_save_roodir
-	results['model_name'] = train_handler.model.get_name()
-	results['survey'] = dataset.survey
-	results['band_names'] = dataset.band_names
-	results['class_names'] = dataset.class_names
-	results['parameters'] = count_parameters(train_handler.model)
-	set_names = ['train', 'val']
+	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
+	results = {
+		'day':dataset.max_day,
+		'attn_scores_collection':attn_scores_collection,
+
+		'complete_save_roodir':complete_save_roodir,
+		'model_name':train_handler.model.get_name(),
+		'survey':dataset.survey,
+		'band_names':dataset.band_names,
+		'class_names':dataset.class_names,
+		'parameters':count_parameters(train_handler.model),
+	}
 	for lmonitor in train_handler.lmonitors:
-		results[lmonitor] = {
+		results[lmonitor.name] = {
 			'save_dict':lmonitor.get_save_dict(),
 			'best_epoch':lmonitor.get_best_epoch(),
 			'time_per_iteration':lmonitor.get_time_per_iteration(),
-			#'time_per_epoch_set':{set_name:lmonitor.get_time_per_epoch_set(set_name) for set_name in set_names},
+			#'time_per_epoch_set':{set_name:lmonitor.get_time_per_epoch_set(set_name) for set_name in ['train', 'val']},
 			'time_per_epoch':lmonitor.get_time_per_epoch(),
 			'total_time':lmonitor.get_total_time(),
 		}
 
 	### save file
+	#print(results)
 	file_save_dir = f'{save_rootdir}/{complete_save_roodir}'
 	filedir = f'{file_save_dir}/id={train_handler.id}°set={dataset.lcset_name}.{save_fext}'
 	files.save_pickle(filedir, results) # save file
