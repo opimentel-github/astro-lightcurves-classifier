@@ -57,11 +57,11 @@ class CustomDataLoader(DataLoader):
 
 	def train(self):
 		self.training = True
-		self.dataset.training = True
+		self.dataset.train()
 
 	def eval(self):
 		self.training = False
-		self.dataset.training = False
+		self.dataset.eval()
 
 	def custom_collate_fn(self, batch):
 		if self.random_subcrops>0 and self.training:

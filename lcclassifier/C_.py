@@ -13,11 +13,11 @@ CHUNK_SIZE = N_JOBS*1
 ### SYNTHETIC
 OBSE_STD_SCALE = 1/3
 CPDS_P = 5./100. # curve points down sampling probability
-HOURS_NOISE_AMP = 3.
+HOURS_NOISE_AMP = 2.5
 
 EFFECTIVE_BETA_EPS = 0.000001 # same weight -> 0.01 0.001 0.0001 0.00001 -> 1/freq
-XENTROPY_K = 1e2
-MSE_K = 1e-2
+XENTROPY_K = 1e0
+MSE_K = 1e-1
 
 DEFAULT_DAYS_N = 50
 DEFAULT_MIN_DAY = 2.

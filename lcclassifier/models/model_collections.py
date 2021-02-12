@@ -14,10 +14,10 @@ class ModelCollections():
 	def __init__(self, lcdataset):
 		self.lcdataset = lcdataset
 		self.max_day = 150.
-		self.embd_dims = GDIter(50) # 50
+		self.embd_dims = GDIter(80) # 50
 		self.embd_layers = GDIter(2)
 		self.rnn_cell_names = GDIter('GRU', 'LSTM')
-		self.te_features_iter = GDIter(8, 16, 32, 4, 2)
+		self.te_features_iter = GDIter(32, 8, 16, 4, 2)
 		#self.te_features_iter = GDIter(2, 4, 8, 16, 32)
 		self.dropout_p = .2 # .1 .2 .25
 		self.common_dict = {
@@ -71,6 +71,7 @@ class ModelCollections():
 		gs.update({
 			'dataset_kwargs':{
 				'in_attrs':['d_days', 'obs', 'obse'],
+				#'in_attrs':['d_days', 'obs'],
 				'rec_attr':'obs',
 				'max_day':self.max_day,
 				'te_features':0,
@@ -81,6 +82,7 @@ class ModelCollections():
 		gs.update({
 			'dataset_kwargs':{
 				'in_attrs':['obs', 'obse'],
+				#'in_attrs':['obs'],
 				'rec_attr':'obs',
 				'max_day':self.max_day,
 				'te_features':self.te_features_iter,

@@ -124,12 +124,13 @@ class CustomDataset(Dataset):
 		self.max_day = self.__max_day__
 
 	def calcule_poblation_weights(self):
+		self.populations_cdict = self.lcset.get_populations_cdict()
 		self.poblation_weights = self.lcset.get_class_effective_weigths_cdict(1-self.effective_beta_eps) # get_class_freq_weights_cdict get_class_effective_weigths_cdict
 
 	def generate_balanced_lcobj_names(self):
-		populations_cdict = self.lcset.get_populations_cdict()
-		max_pop = max([populations_cdict[c] for c in self.class_names])
-		to_fill_cdict = {c:max_pop-populations_cdict[c] for c in self.class_names}
+		#print('generate_balanced_lcobj_names')
+		max_pop = max([self.populations_cdict[c] for c in self.class_names])
+		to_fill_cdict = {c:max_pop-self.populations_cdict[c] for c in self.class_names}
 		self.balanced_lcobj_names = self.lcset.get_lcobj_names().copy()
 		for c in self.class_names:
 			lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c), to_fill_cdict[c])
@@ -246,6 +247,13 @@ class CustomDataset(Dataset):
 			encoding[...,2*kp+1] = np.cos(w)
 		return encoding
 	
+	def train(self):
+		self.training = True
+		self.generate_balanced_lcobj_names()
+
+	def eval(self):
+		self.training = False
+
 	###################################################################################################################################################
 
 	def get_lcobj_names(self):
@@ -311,7 +319,7 @@ class CustomDataset(Dataset):
 			for b in lcobj.bands:
 				lcobjb = lcobj.get_b(b)
 				lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
-				#lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
+				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
 				lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling # bugs?
 				pass
 
@@ -345,7 +353,7 @@ class CustomDataset(Dataset):
 		### target
 		target = {
 			'y':torch.as_tensor(lcobj.y),
-			'poblation_weights':torch.as_tensor([self.poblation_weights[c] for c in self.class_names], dtype=torch.float32),
+			#'poblation_weights':torch.as_tensor([self.poblation_weights[c] for c in self.class_names], dtype=torch.float32),
 			'rec-x':torch.as_tensor(rec_x, dtype=torch.float32),
 		}
 

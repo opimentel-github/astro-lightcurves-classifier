@@ -156,8 +156,6 @@ if __name__== '__main__':
 		### IDS
 		model_ids = list(range(main_args.iid, main_args.fid+1))
 		for ki,model_id in enumerate(model_ids): # IDS
-			s_train_loader.dataset.generate_balanced_lcobj_names()
-			r_train_loader.dataset.generate_balanced_lcobj_names()
 
 			### GET MODEL
 			mdl_kwargs = mp_grid['mdl_kwargs']
@@ -172,10 +170,9 @@ if __name__== '__main__':
 			import torch.optim as optims
 			from fuzzytorch.optimizers import LossOptimizer
 
-			lr = .9e-3
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':lr,
+					'lr':.9e-3,
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -192,14 +189,14 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':1, # every k epochs check
-				'earlystop_epoch_duration':25,
+				'earlystop_epoch_duration':30,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
 				#'save_mode':C_.SM_ONLY_ALL,
 				#'save_mode':C_.SM_ONLY_INF_METRIC,
-				#'save_mode':C_.SM_ONLY_INF_LOSS,
-				'save_mode':C_.SM_ONLY_SUP_METRIC,
+				'save_mode':C_.SM_ONLY_INF_LOSS,
+				#'save_mode':C_.SM_ONLY_SUP_METRIC,
 			}
 			pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics, **monitor_config)
 
@@ -243,11 +240,11 @@ if __name__== '__main__':
 				'm':10,
 				'target_is_onehot':False,
 			}
-			#exp_img.reconstructions_m(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **exp_kwargs) # sanity check / slow
-			#exp_img.reconstructions_m(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **exp_kwargs) # sanity check
-			#exp_img.reconstructions_m(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **exp_kwargs)
-			#exp_img.reconstructions_m(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **exp_kwargs)
-			#exp_img.reconstructions_m(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@test/{train_mode}', **exp_kwargs)
+			exp_img.reconstructions_m(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **exp_kwargs) # sanity check / slow
+			exp_img.reconstructions_m(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **exp_kwargs) # sanity check
+			exp_img.reconstructions_m(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **exp_kwargs)
+			exp_img.reconstructions_m(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **exp_kwargs)
+			exp_img.reconstructions_m(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@test/{train_mode}', **exp_kwargs)
 
 			###################################################################################################################################################
 			import lcclassifier.experiments.performance as exp_perf
@@ -265,7 +262,7 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':lr,
+					'lr':1e-3,
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -281,15 +278,15 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':0, # every k epochs check
+				'val_epoch_counter_duration':1, # every k epochs check
 				'earlystop_epoch_duration':200,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
 				#'save_mode':C_.SM_ONLY_ALL,
 				#'save_mode':C_.SM_ONLY_INF_METRIC,
-				#'save_mode':C_.SM_ONLY_INF_LOSS,
-				'save_mode':C_.SM_ONLY_SUP_METRIC,
+				'save_mode':C_.SM_ONLY_INF_LOSS,
+				#'save_mode':C_.SM_ONLY_SUP_METRIC,
 			}
 			ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics, **monitor_config)
 
@@ -317,7 +314,7 @@ if __name__== '__main__':
 			import lcclassifier.experiments.performance as exp_perf
 
 			#exp_perf.metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **exp_kwargs) # sanity check
-			exp_perf.metrics_along_days(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **exp_kwargs) # sanity check
+			exp_perf.metrics_along_days(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **exp_kwargs) # sanity check
 			exp_perf.metrics_along_days(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **exp_kwargs)
 			exp_perf.metrics_along_days(ft_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **exp_kwargs)
 			exp_perf.metrics_along_days(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@test/{train_mode}', **exp_kwargs)
