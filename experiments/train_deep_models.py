@@ -20,7 +20,7 @@ if __name__== '__main__':
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
 	parser.add_argument('-iid',  type=int, default=0, help='initial id')
-	parser.add_argument('-fid',  type=int, default=2, help='final id')
+	parser.add_argument('-fid',  type=int, default=10, help='final id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
 	parser.add_argument('-rsc',  type=int, default=1, help='random_subcrops')
 	parser.add_argument('-upc',  type=int, default=True, help='uses_precompute')
@@ -250,9 +250,9 @@ if __name__== '__main__':
 			from lcclassifier.experiments.performance import metrics_along_days
 			from lcclassifier.experiments.attention import attention_statistics
 
-			if ki==0:
-				#attention_statistics(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **exp_kwargs) # slow
-				#attention_statistics(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **exp_kwargs)
+			if model_id==model_ids[-1]:
+				attention_statistics(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **exp_kwargs) # slow
+				attention_statistics(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **exp_kwargs)
 				pass
 
 			#metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **exp_kwargs) # sanity check / slow
@@ -268,7 +268,7 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.999e-3,
+					'lr':1.1e-3,
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -320,9 +320,9 @@ if __name__== '__main__':
 			from lcclassifier.experiments.performance import metrics_along_days
 			from lcclassifier.experiments.attention import attention_statistics
 
-			if ki==0:
-				#attention_statistics(ft_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **exp_kwargs) # slow
-				#attention_statistics(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **exp_kwargs)
+			if model_id==model_ids[-1]:
+				attention_statistics(ft_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **exp_kwargs) # slow
+				attention_statistics(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **exp_kwargs)
 				pass
 			
 			#metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **exp_kwargs) # sanity check
