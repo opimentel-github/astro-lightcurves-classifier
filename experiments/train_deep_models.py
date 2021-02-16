@@ -20,7 +20,7 @@ if __name__== '__main__':
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
 	parser.add_argument('-iid',  type=int, default=0, help='initial id')
-	parser.add_argument('-fid',  type=int, default=10, help='final id')
+	parser.add_argument('-fid',  type=int, default=6, help='final id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
 	parser.add_argument('-rsc',  type=int, default=1, help='random_subcrops')
 	parser.add_argument('-upc',  type=int, default=True, help='uses_precompute')
@@ -189,7 +189,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':40,
+				'earlystop_epoch_duration':50,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,

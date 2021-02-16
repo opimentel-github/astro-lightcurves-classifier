@@ -5,7 +5,7 @@ from . import C_
 from . import utils as utils
 import numpy as np
 import warnings
-from flamingchoripan.files import search_for_filedirs, load_pickle, get_dict_from_filedir
+from flamingchoripan.files import search_for_filedirs, load_pickle
 import flamingchoripan.strings as strings
 import flamingchoripan.datascience.statistics as dstats
 from scipy.interpolate import interp1d
@@ -38,10 +38,19 @@ def plot_baccu_f1score(root_folder,
 		for kmn,model_name in enumerate(model_names):
 			print(f'model_name: {model_name}')
 			filedirs = search_for_filedirs(f'{root_folder}/{model_name}', fext=fext, verbose=0)
+			mn_dict = strings.get_dict_from_string(model_name)
+			rsc = int(mn_dict['rsc'])
+			mdl = mn_dict['mdl']
+			te_dims = int(mn_dict.get('te-dims', 0))
+			valid_model = 'Serial' in mn_dict['mdl'] and (te_dims==32 or te_dims==0)
+
+			if not valid_model:
+				continue
 
 			metric_curve = []
 			for filedir in filedirs:
 				rdict = load_pickle(filedir, verbose=0)
+				model_name = rdict['model_name']
 				days = rdict['days']
 				survey = rdict['survey']
 				band_names = ''.join(rdict['band_names'])
@@ -51,16 +60,17 @@ def plot_baccu_f1score(root_folder,
 			metric_curve = np.concatenate(metric_curve, axis=0)
 			samples = len(metric_curve)
 			xe_metric_curve = dstats.XError(metric_curve, 0)
-			mn_dict = strings.get_dict_from_string(model_name)
-			label = f'{mn_dict["mdl"]} {mn_dict["rsc"]}'
-			ax.plot(days, xe_metric_curve.median, '-', label=label, c=colors[kmn])
-			ax.fill_between(days, xe_metric_curve.p5, xe_metric_curve.p95, alpha=0.25, fc=colors[kmn])
+			label = f'{mdl} {rsc}'
+			style = '-' if rsc==0 else '--' 
+			ax.plot(days, xe_metric_curve.median, style, label=label, c=colors[kmn])
+			ax.fill_between(days, xe_metric_curve.p15, xe_metric_curve.p85, alpha=0.25, fc=colors[kmn])
 
 		is_accuracy = 'accuracy' in metric_name
+		random_guess = 100./len(class_names)
 		if is_accuracy:
-			ax.plot(days, np.full_like(days, 100./len(class_names)), '--', c='k', lw=1, label=f'random guess ({len(class_names)} classes)')
+			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess ({len(class_names)} classes)')
 
-		ax.plot(days, np.full_like(days, 70.), '--', c='k', lw=1)
+		ax.plot(days, np.full_like(days, 79.), ':', c='k')
 
 		title = f'{metric_name} v/s days'
 		title += f'\nsurvey: {survey} - bands: {band_names}'
@@ -69,7 +79,7 @@ def plot_baccu_f1score(root_folder,
 		ax.set_xlabel('days')
 		ax.set_ylabel(metric_name)
 		ax.set_xlim([days.min(), days.max()])
-		ax.set_ylim([0, 100] if is_accuracy else [0, 1])
+		ax.set_ylim([random_guess*.9, 100] if is_accuracy else [0, 1])
 		ax.grid(alpha=0.5)
 		ax.legend(loc='lower right')
 

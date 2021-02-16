@@ -80,14 +80,15 @@ class TCNNEncoderP(nn.Module):
 			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
 			p_x = seq_utils.serial_to_parallel(x, onehot[...,kb])
 			p_z = self.x_projection[b](p_x)
-			p_z = self.te_film(p_z, seq_utils.serial_to_parallel(model_input['te'], onehot[...,kb])) if self.te_features>0 else p_z
 
+			p_z = self.te_film(p_z, seq_utils.serial_to_parallel(model_input['te'], onehot[...,kb])) if self.te_features>0 else p_z
 			p_z = self.ml_cnn[b](p_z.permute(0,2,1)).permute(0,2,1)
-			tdict['model'].update({f'z.{b}.last':p_z})
 
 			### representative element
-			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot)
-			last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot)
+			#last_z_dic[b] = seq_utils.seq_last_element(p_z, p_onehot) # last element
+			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot) # max pooling
+			last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot) # avg pooling
+			tdict['model'].update({f'z.{b}.last':p_z})
 
 		last_z = torch.cat([last_z_dic[b] for b in self.band_names], dim=-1)
 		last_z = self.z_projection(last_z)
@@ -96,6 +97,8 @@ class TCNNEncoderP(nn.Module):
 			'z.last':last_z,
 		})
 		return tdict
+
+###################################################################################################################################################
 
 class TCNNEncoderS(nn.Module):
 	def __init__(self,
@@ -149,17 +152,16 @@ class TCNNEncoderS(nn.Module):
 		model_input = tdict['input']
 		x = model_input['x']
 		onehot = model_input['onehot']
-
-		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
-		z = self.te_film(z, model_input['te']) if self.te_features>0  else z
-
 		s_onehot = onehot.sum(dim=-1).bool()
+		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
+
+		z = self.te_film(z, model_input['te']) if self.te_features>0  else z
 		z = self.ml_cnn(z.permute(0,2,1)).permute(0,2,1)
 
 		### representative element
-		#last_z = seq_utils.seq_max_pooling(z, s_onehot) # get last value of sequence according to onehot
-		last_z = seq_utils.seq_avg_pooling(z, s_onehot) # get last value of sequence according to onehot
-
+		#last_z = seq_utils.seq_last_element(z, s_onehot) # last element
+		#last_z = seq_utils.seq_max_pooling(z, s_onehot) # max pooling
+		last_z = seq_utils.seq_avg_pooling(z, s_onehot) # avg pooling
 		tdict['model'].update({
 			#'z':z, # not used
 			'z.last':last_z,

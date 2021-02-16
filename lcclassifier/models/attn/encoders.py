@@ -59,11 +59,17 @@ class AttnTCNNEncoderP(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 		}
-		self.ml_attn = ft_attn.MLSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(0), **attn_kwargs)
+		self.ml_attn = nn.ModuleDict({b:ft_attn.MLSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(0), **attn_kwargs) for b in self.band_names})
 		print('ml_attn:', self.ml_attn)
-
 		self.attn_te_film = FILM(self.te_features, self.tcnn_embd_dims)
 		print('attn_te_film:', self.attn_te_film)
+
+		### PARALLEL PATCH
+		linear_kwargs = {
+			'activation':'linear',
+		}
+		self.z_projection = Linear(self.tcnn_embd_dims*len(self.band_names), self.tcnn_embd_dims, **linear_kwargs)
+		print('z_projection:', self.z_projection)
 
 	def get_output_dims(self):
 		return self.tcnn_embd_dims#*len(self.band_names)
@@ -77,39 +83,36 @@ class AttnTCNNEncoderP(nn.Module):
 		x = model_input['x']
 		onehot = model_input['onehot']
 
-		#last_z_dic = {}
-		p_z_list = []
+		last_z_dic = {}
+		layer_scores = {}
 		for kb,b in enumerate(self.band_names):
 			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
 			p_x = seq_utils.serial_to_parallel(x, onehot[...,kb])
 			p_z = self.x_projection[b](p_x)
-			p_z = self.te_film(p_z, seq_utils.serial_to_parallel(model_input['te'], onehot[...,kb])) if self.te_features>0 else p_z
 
+			p_z = self.te_film(p_z, seq_utils.serial_to_parallel(model_input['te'], onehot[...,kb])) if self.te_features>0 else p_z
 			p_z = self.ml_cnn[b](p_z.permute(0,2,1)).permute(0,2,1)
-			p_z_list.append(p_z)
-			#tdict['model'].update({f'z.{b}.last':p_z})
+
+			p_z = self.attn_te_film(p_z, model_input['te']) if self.te_features>0 else p_z
+			p_z, p_layer_scores = self.ml_attn[b](p_z, p_onehot)
 
 			### representative element
-			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot)
-			#last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot)
-
-		z = seq_utils.parallel_to_serial(p_z_list, onehot)
+			last_z_dic[b] = seq_utils.seq_last_element(p_z, p_onehot) # last element
+			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot) # max pooling
+			#last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot) # avg pooling
+			tdict['model'].update({f'z.{b}.last':p_z})
+			layer_scores[b] = p_layer_scores
 		
-		z = self.attn_te_film(z, model_input['te']) if self.te_features>0 else z
-		s_onehot = onehot.sum(dim=-1).bool()
-		z, layer_scores = self.ml_attn(z, s_onehot)
-
-		### get last element
-		last_z = seq_utils.seq_last_element(z, s_onehot) # get last value of sequence according to onehot
-
-		#last_z = torch.cat([last_z_dic[b] for b in self.band_names], dim=-1)
-		#last_z = self.z_projection(last_z)
+		last_z = torch.cat([last_z_dic[b] for b in self.band_names], dim=-1)
+		last_z = self.z_projection(last_z)
 		tdict['model'].update({
 			'layer_scores':layer_scores,
 			#'z':z, # not used
 			'z.last':last_z,
 		})
 		return tdict
+
+###################################################################################################################################################
 
 class AttnTCNNEncoderS(nn.Module):
 	def __init__(self,
@@ -175,18 +178,19 @@ class AttnTCNNEncoderS(nn.Module):
 		model_input = tdict['input']
 		x = model_input['x']
 		onehot = model_input['onehot']
-
-		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
-		z = self.te_film(z, model_input['te']) if self.te_features>0  else z
-
-		z = self.ml_cnn(z.permute(0,2,1)).permute(0,2,1)
-		z = self.attn_te_film(z, model_input['te']) if self.te_features>0 else z
 		s_onehot = onehot.sum(dim=-1).bool()
+		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
+
+		z = self.te_film(z, model_input['te']) if self.te_features>0  else z
+		z = self.ml_cnn(z.permute(0,2,1)).permute(0,2,1)
+
+		z = self.attn_te_film(z, model_input['te']) if self.te_features>0 else z
 		z, layer_scores = self.ml_attn(z, s_onehot)
 
-		### get last element
-		last_z = seq_utils.seq_last_element(z, s_onehot) # get last value of sequence according to onehot
-
+		### representative element
+		last_z = seq_utils.seq_last_element(z, s_onehot) # last element
+		#last_z = seq_utils.seq_max_pooling(z, s_onehot) # max pooling
+		#last_z = seq_utils.seq_avg_pooling(z, s_onehot) # avg pooling
 		tdict['model'].update({
 			'layer_scores':layer_scores,
 			#'z':z, # not used
