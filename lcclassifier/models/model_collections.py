@@ -13,13 +13,13 @@ from .rnn import decoders as rnn_decoders
 class ModelCollections():
 	def __init__(self, lcdataset):
 		self.lcdataset = lcdataset
-		self.max_day = 150.
+		self.max_day = C_.MAX_DAY
 		self.embd_dims = GDIter(80) # 50
 		self.embd_layers = GDIter(2)
 		self.rnn_cell_names = GDIter('GRU', 'LSTM')
 		self.te_features_iter = GDIter(32, 8, 16, 4)
 		#self.te_features_iter = GDIter(2, 4, 8, 16, 32)
-		self.dropout_p = .2 # .1 .2 .25
+		self.dropout_p = .25 # .1 .2 .25
 		self.common_dict = {
 			'band_names':lcdataset['raw'].band_names,
 			'output_dims':len(lcdataset['raw'].class_names),
@@ -128,6 +128,7 @@ class ModelCollections():
 				'tcnn_embd_dims':self.embd_dims,
 				'tcnn_layers':self.embd_layers,
 				'dropout':{'p':self.dropout_p},
+				'aggregation':GDIter('max', 'avg'),
 			},
 		})
 		self.add_gs(self.update_dt(gs))
@@ -139,6 +140,7 @@ class ModelCollections():
 				'tcnn_embd_dims':self.embd_dims,
 				'tcnn_layers':self.embd_layers,
 				'dropout':{'p':self.dropout_p},
+				'aggregation':GDIter('max', 'avg'),
 			},
 		})
 		self.add_gs(self.update_dt(gs))
@@ -171,6 +173,6 @@ class ModelCollections():
 		})
 		self.add_gs(self.update_te(gs))
 
-	def all_atcnn_models(self):
+	def all_attn_models(self):
 		self.parallel_atcnn_models_te()
 		self.serial_atcnn_models_te()

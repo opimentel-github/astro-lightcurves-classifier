@@ -13,11 +13,11 @@ from fuzzytorch.utils import get_model_name, print_tdict
 def get_enc_emb_str(mdl, band_names):
 	dims = mdl.get_embd_dims_list()
 	if isinstance(dims, dict):
-		txts = ['.'.join([f'{b}{d}' for d in dims[b]]) for b in band_names]
+		txts = ['-'.join([f'{b}{d}' for d in dims[b]]) for b in band_names]
+		return '.'.join(txts)
 	else:
 		txts = [f'{d}' for d in dims]
-	return '-'.join(txts)
-
+		return '-'.join(txts)
 
 from .rnn import encoders as rnn_encoders
 
@@ -138,6 +138,7 @@ class ParallelTCNNClassifier(ModelBaseline):
 		self.input_dims = self.mdl_kwargs['input_dims']
 		self.te_features = self.mdl_kwargs['te_features']
 		self.band_names = self.mdl_kwargs['band_names']
+		self.aggregation = self.mdl_kwargs['aggregation']
 
 		### MODEL DEFINITION
 		encoder = tcnn_encoders.TCNNEncoderP(**self.mdl_kwargs)
@@ -157,6 +158,7 @@ class ParallelTCNNClassifier(ModelBaseline):
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
+			'aggr':f'{self.aggregation}',
 		})
 
 	def forward(self, tdict, **kwargs):
@@ -179,6 +181,7 @@ class SerialTCNNClassifier(ModelBaseline):
 		self.input_dims = self.mdl_kwargs['input_dims']
 		self.te_features = self.mdl_kwargs['te_features']
 		self.band_names = self.mdl_kwargs['band_names']
+		self.aggregation = self.mdl_kwargs['aggregation']
 
 		### MODEL DEFINITION
 		encoder = tcnn_encoders.TCNNEncoderS(**self.mdl_kwargs)
@@ -198,6 +201,7 @@ class SerialTCNNClassifier(ModelBaseline):
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
+			'aggr':f'{self.aggregation}',
 		})
 
 	def forward(self, tdict:dict, **kwargs):

@@ -19,10 +19,9 @@ if __name__== '__main__':
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
-	parser.add_argument('-iid',  type=int, default=0, help='initial id')
-	parser.add_argument('-fid',  type=int, default=6, help='final id')
+	parser.add_argument('-mids',  type=str, default='0-10', help='initial_id-final_id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
-	parser.add_argument('-rsc',  type=int, default=1, help='random_subcrops')
+	parser.add_argument('-rsc',  type=int, default=0, help='random_subcrops')
 	parser.add_argument('-upc',  type=int, default=True, help='uses_precompute')
 	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
@@ -141,7 +140,7 @@ if __name__== '__main__':
 		### DATALOADERS
 		loader_kwargs = {
 			'num_workers':2,
-			'pin_memory':False, # False True
+			'pin_memory':True, # False True
 			'prefetch_factor':1,
 			'batch_size':main_args.batch_size,
 			'random_subcrops':main_args.rsc,
@@ -154,7 +153,8 @@ if __name__== '__main__':
 		previous_dataset_kwargs = dataset_kwargs.copy()
 
 		### IDS
-		model_ids = list(range(main_args.iid, main_args.fid+1))
+		ki, kf = [int(k) for k in main_args.mids.split('-')]
+		model_ids = list(range(ki, kf))
 		for ki,model_id in enumerate(model_ids): # IDS
 
 			### GET MODEL
@@ -172,7 +172,7 @@ if __name__== '__main__':
 
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.999e-3,
+					'lr':.9999e-3,
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -189,7 +189,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':50,
+				'earlystop_epoch_duration':40,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -209,7 +209,7 @@ if __name__== '__main__':
 				'extra_model_name_dict':{
 					'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
-					'ef-be':s_train_loader.dataset.effective_beta_eps,
+					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'rsc':main_args.rsc,
 				},
 				'uses_train_eval_loader_methods':True,
@@ -268,7 +268,7 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':1.1e-3,
+					'lr':.9999e-3,
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -305,7 +305,7 @@ if __name__== '__main__':
 				'extra_model_name_dict':{
 					'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
-					'ef-be':s_train_loader.dataset.effective_beta_eps,
+					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'rsc':main_args.rsc,
 				},
 				'uses_train_eval_loader_methods':True,

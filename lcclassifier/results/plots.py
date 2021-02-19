@@ -18,34 +18,71 @@ from scipy import stats
 
 ###################################################################################################################################################
 
-def plot_baccu_f1score(root_folder,
+def get_cmodel_name(model_name):
+	mn_dict = strings.get_dict_from_string(model_name)
+	mn_dict.pop('enc-emb')
+	cmodel_name = '°'.join([f'{k}={mn_dict[k]}' for k in mn_dict.keys()])
+	cmodel_name = cmodel_name.replace('Parallel', '').replace('Serial', '')
+	return cmodel_name
+
+def get_models_from_rootdir(rootdir,
+	fext='metrics',
+	):
+	filedirs = search_for_filedirs(rootdir, fext=fext, verbose=0)
+	model_names = sorted(list(set([f.split('/')[-2] for f in filedirs])))
+	return model_names
+
+def filter_models(model_names, condition_dict):
+	new_model_names = []
+	for model_name in model_names:
+		mn_dict = strings.get_dict_from_string(model_name)
+		for c in condition_dict.keys():
+			value = mn_dict.get(c, None)
+			acceptable_values = condition_dict[c]
+			if value in acceptable_values:
+				new_model_names += [model_name]
+
+	return new_model_names
+
+def get_color_dict(model_names):
+	cmodel_names = []
+	for kmn,model_name in enumerate(model_names):
+		cmodel_names += [get_cmodel_name(model_name)]
+
+	cmodel_names = list(set(cmodel_names))
+	colors = cc.colors()
+	#colors = cc.get_colorlist('seaborn', len(cmodel_names))
+	color_dict = {}
+	for kmn,cmodel_name in enumerate(cmodel_names):
+		color_dict[cmodel_name] = colors[kmn]
+		#print(f'model_name: {model_name}')
+
+	return color_dict
+
+###################################################################################################################################################
+
+def plot_metric(rootdir, metric_name, model_names, metric_dict,
+	label_keys=[],
 	figsize=C_.PLOT_FIGZISE_RECT,
 	fext='metrics',
 	):
-	filedirs = search_for_filedirs(root_folder, fext=fext, verbose=0)
-	model_names = sorted(list(set([f.split('/')[-2] for f in filedirs])))
-	colors = cc.colors()
-	#colors = cc.get_colorlist('seaborn', 6)
+	fig, axs = plt.subplots(1, 2, figsize=figsize)
+	color_dict = get_color_dict(model_names)
 
-	figsize = list(figsize)
-	metric_names = ['b-accuracy', 'b-f1score']
-	figsize[0] = figsize[0]/2*len(metric_names)
-	fig, axs = plt.subplots(1, len(metric_names), figsize=figsize)
-
-	for kax,metric_name in enumerate(metric_names):
+	for kax,mode in enumerate(['pt', 'ft']):
+		baseline_v = metric_dict[metric_name]
 		ax = axs[kax]
-		print(f'metric_name: {metric_name}')
 		for kmn,model_name in enumerate(model_names):
-			print(f'model_name: {model_name}')
-			filedirs = search_for_filedirs(f'{root_folder}/{model_name}', fext=fext, verbose=0)
+			new_rootdir = f'{rootdir}/{mode}/{model_name}'
+			new_rootdir = new_rootdir.replace('mode=pt', f'mode={mode}') # patch
+			new_rootdir = new_rootdir.replace('mode=ft', f'mode={mode}') # patch
+			filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
+			print(f'[{kmn}][{len(filedirs)}#] {model_name}')
 			mn_dict = strings.get_dict_from_string(model_name)
-			rsc = int(mn_dict['rsc'])
+			rsc = mn_dict['rsc']
 			mdl = mn_dict['mdl']
-			te_dims = int(mn_dict.get('te-dims', 0))
-			valid_model = 'Serial' in mn_dict['mdl'] and (te_dims==32 or te_dims==0)
-
-			if not valid_model:
-				continue
+			is_parallel = 'Parallel' in mdl
+			color = color_dict[get_cmodel_name(model_name)]
 
 			metric_curve = []
 			for filedir in filedirs:
@@ -55,29 +92,32 @@ def plot_baccu_f1score(root_folder,
 				survey = rdict['survey']
 				band_names = ''.join(rdict['band_names'])
 				class_names = rdict['class_names']
-				metric_curve.append(rdict['days_class_metrics_df'][metric_name].values[:][None,:])
+				metric_curve += [rdict['days_class_metrics_df'][metric_name].values[:][None,:]]
 
 			metric_curve = np.concatenate(metric_curve, axis=0)
-			samples = len(metric_curve)
 			xe_metric_curve = dstats.XError(metric_curve, 0)
-			label = f'{mdl} {rsc}'
-			style = '-' if rsc==0 else '--' 
-			ax.plot(days, xe_metric_curve.median, style, label=label, c=colors[kmn])
-			ax.fill_between(days, xe_metric_curve.p15, xe_metric_curve.p85, alpha=0.25, fc=colors[kmn])
+			xe_curve_avg = dstats.XError(np.mean(metric_curve, axis=-1), 0)
+			label = f'{mdl}'
+			for label_key in label_keys:
+				if label_key in mn_dict.keys():
+					label += f' - {label_key}: {mn_dict[label_key]}'
+			label += f' (avg: {xe_curve_avg})'
+			ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
+			ax.fill_between(days, xe_metric_curve.p15, xe_metric_curve.p85, alpha=0.25, fc=color)
 
 		is_accuracy = 'accuracy' in metric_name
 		random_guess = 100./len(class_names)
 		if is_accuracy:
-			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess ({len(class_names)} classes)')
+			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess accuracy: $100/N_c$', alpha=.5)
 
-		ax.plot(days, np.full_like(days, 79.), ':', c='k')
+		ax.plot(days, np.full_like(days, baseline_v), ':', c='k', label='baseline (complete curves)')
 
-		title = f'{metric_name} v/s days'
+		title = f'{metric_name} v/s days - mode: {mode}'
 		title += f'\nsurvey: {survey} - bands: {band_names}'
 		#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
 		ax.set_title(title)
 		ax.set_xlabel('days')
-		ax.set_ylabel(metric_name)
+		ax.set_ylabel(metric_name if kax==0 else None)
 		ax.set_xlim([days.min(), days.max()])
 		ax.set_ylim([random_guess*.9, 100] if is_accuracy else [0, 1])
 		ax.grid(alpha=0.5)
@@ -86,97 +126,40 @@ def plot_baccu_f1score(root_folder,
 	fig.tight_layout()
 	plt.show()
 
-def plot_precision_recall(root_folder,
-	figsize=C_.PLOT_FIGZISE_RECT,
-	fext='metrics',
-	):
-	filedirs = search_for_filedirs(root_folder, fext=fext, verbose=0)
-	model_names = sorted(list(set([f.split('/')[-2] for f in filedirs])))
-	colors = cc.colors()
-
-	figsize = list(figsize)
-	metric_names = ['b-precision', 'b-recall']
-	figsize[0] = figsize[0]/2*len(metric_names)
-	fig, axs = plt.subplots(1, len(metric_names), figsize=figsize)
-
-	for kax,metric_name in enumerate(metric_names):
-		ax = axs[kax]
-		print(f'metric_name: {metric_name}')
-		for kmn,model_name in enumerate(model_names):
-			print(f'model_name: {model_name}')
-			filedirs = search_for_filedirs(f'{root_folder}/{model_name}', fext=fext, verbose=0)
-
-			metric_curve = []
-			for filedir in filedirs:
-				rdict = load_pickle(filedir, verbose=0)
-				days = rdict['days']
-				survey = rdict['survey']
-				band_names = ''.join(rdict['band_names'])
-				class_names = rdict['class_names']
-				metric_curve.append(rdict['days_class_metrics_df'][metric_name].values[:][None,:])
-
-			metric_curve = np.concatenate(metric_curve, axis=0)
-			samples = len(metric_curve)
-			xe_metric_curve = dstats.XError(metric_curve, 0)
-			mn_dict = strings.get_dict_from_string(model_name)
-			label = f'{mn_dict["mdl"]}'
-			ax.plot(days, xe_metric_curve.median, '-', label=label, c=colors[kmn])
-			ax.fill_between(days, xe_metric_curve.p5, xe_metric_curve.p95, alpha=0.25, fc=colors[kmn])
-
-		title = f'{metric_name} v/s days'
-		title += f'\nsurvey: {survey} - bands: {band_names}'
-		#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
-		ax.set_title(title)
-		ax.set_xlabel('days')
-		ax.set_ylabel(metric_name)
-		ax.set_xlim([days.min(), days.max()])
-		ax.set_ylim([0, 1])
-		ax.grid(alpha=0.5)
-		ax.legend(loc='lower right')
-
-	fig.tight_layout()
-	plt.show()
-
 ###################################################################################################################################################
 
-def plot_mse(root_folder,
+def plot_mse(rootdir, model_names,
 	figsize=C_.PLOT_FIGZISE_RECT,
 	fext='metrics',
 	):
-	filedirs = search_for_filedirs(root_folder, fext=fext, verbose=0)
-	model_names = sorted(list(set([f.split('/')[-2] for f in filedirs])))
-	colors = cc.colors()
+	fig, ax = plt.subplots(1, 1, figsize=figsize)
+	color_dict = get_color_dict(model_names)
+	for kmn,model_name in enumerate(model_names):
+		filedirs = search_for_filedirs(f'{rootdir}/{model_name}', fext=fext, verbose=0)
+		print(f'[{kmn}] {model_name} (iters: {len(filedirs)})')
+		mn_dict = strings.get_dict_from_string(model_name)
+		rsc = mn_dict['rsc']
+		mdl = mn_dict['mdl']
+		is_parallel = 'Parallel' in mdl
+		color = color_dict[get_cmodel_name(model_name)]
 
-	figsize = list(figsize)
-	metric_names = ['mse']
-	figsize[0] = figsize[0]/2*len(metric_names)
-	fig, axs = plt.subplots(1, len(metric_names), figsize=figsize)
+		metric_curve = []
+		for filedir in filedirs:
+			rdict = load_pickle(filedir, verbose=0)
+			days = rdict['days']
+			survey = rdict['survey']
+			band_names = ''.join(rdict['band_names'])
+			class_names = rdict['class_names']
+			metric_curve += [rdict['days_rec_metrics_df']['mse'].values[:][None,:]]
 
-	for kax,metric_name in enumerate(metric_names):
-		ax = axs#[kax]
-		print(f'metric_name: {metric_name}')
-		for kmn,model_name in enumerate(model_names):
-			print(f'model_name: {model_name}')
-			filedirs = search_for_filedirs(f'{root_folder}/{model_name}', fext=fext, verbose=0)
+		metric_curve = np.concatenate(metric_curve, axis=0)
+		xe_metric_curve = dstats.XError(np.log(metric_curve), 0)
+		mn_dict = strings.get_dict_from_string(model_name)
+		label = f'{mdl} {rsc}'
+		ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
+		ax.fill_between(days, xe_metric_curve.p15, xe_metric_curve.p85, alpha=0.25, fc=color)
 
-			metric_curve = []
-			for filedir in filedirs:
-				rdict = load_pickle(filedir, verbose=0)
-				days = rdict['days']
-				survey = rdict['survey']
-				band_names = ''.join(rdict['band_names'])
-				class_names = rdict['class_names']
-				metric_curve.append(rdict['days_rec_metrics_df'][metric_name].values[:][None,:])
-
-			metric_curve = np.concatenate(metric_curve, axis=0)
-			samples = len(metric_curve)
-			xe_metric_curve = dstats.XError(np.log(metric_curve), 0)
-			mn_dict = strings.get_dict_from_string(model_name)
-			label = f'{mn_dict["mdl"]} {mn_dict["rsc"]}'
-			ax.plot(days, xe_metric_curve.median, '-', label=label, c=colors[kmn])
-			ax.fill_between(days, xe_metric_curve.p5, xe_metric_curve.p95, alpha=0.25, fc=colors[kmn])
-
-	title = 'log-reconstruction-mse v/s days'
+	title = 'log-reconstruction-wmse v/s days'
 	title += f'\nsurvey: {survey} - bands: {band_names}'
 	#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
 	ax.set_title(title)
@@ -187,7 +170,7 @@ def plot_mse(root_folder,
 	ax.legend(loc='upper right')
 	plt.show()
 
-def plot_f1score_mse(root_folder,
+def plot_f1score_mse(rootdir,
 	figsize=(10,6),
 	error_scale=1,
 	):

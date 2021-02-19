@@ -17,10 +17,6 @@ class TCNNEncoderP(nn.Module):
 		super().__init__()
 
 		### ATRIBUTES
-		#setattr(self, 'uses_batchnorm', False)
-		#setattr(self, 'activation_name', 'relu') # tanh, relu
-		#setattr(self, 'split_out_channels', 1) # no split
-		#setattr(self, 'h_conditional_input_dims', 0) # no h
 		for name, val in kwargs.items():
 			setattr(self, name, val)
 
@@ -86,9 +82,12 @@ class TCNNEncoderP(nn.Module):
 
 			### representative element
 			#last_z_dic[b] = seq_utils.seq_last_element(p_z, p_onehot) # last element
-			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot) # max pooling
-			last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot) # avg pooling
-			tdict['model'].update({f'z.{b}.last':p_z})
+			if self.aggregation=='max':
+				last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot) # max pooling
+			elif self.aggregation=='avg':
+				last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot) # avg pooling
+
+			#tdict['model'].update({f'z.{b}.last':p_z})
 
 		last_z = torch.cat([last_z_dic[b] for b in self.band_names], dim=-1)
 		last_z = self.z_projection(last_z)
@@ -160,8 +159,11 @@ class TCNNEncoderS(nn.Module):
 
 		### representative element
 		#last_z = seq_utils.seq_last_element(z, s_onehot) # last element
-		#last_z = seq_utils.seq_max_pooling(z, s_onehot) # max pooling
-		last_z = seq_utils.seq_avg_pooling(z, s_onehot) # avg pooling
+		if self.aggregation=='max':
+			last_z = seq_utils.seq_max_pooling(z, s_onehot) # max pooling
+		elif self.aggregation=='avg':
+			last_z = seq_utils.seq_avg_pooling(z, s_onehot) # avg pooling
+		
 		tdict['model'].update({
 			#'z':z, # not used
 			'z.last':last_z,

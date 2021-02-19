@@ -59,7 +59,7 @@ class AttnTCNNEncoderP(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 		}
-		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1), self.te_features, **attn_kwargs) for b in self.band_names})
+		self.ml_attn = nn.ModuleDict({b:ft_attn.MLSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(0), **attn_kwargs) for b in self.band_names})
 		print('ml_attn:', self.ml_attn)
 		self.attn_te_film = FILM(self.te_features, self.tcnn_embd_dims)
 		print('attn_te_film:', self.attn_te_film)
@@ -91,17 +91,17 @@ class AttnTCNNEncoderP(nn.Module):
 			p_z = self.x_projection[b](p_x)
 			p_te = seq_utils.serial_to_parallel(model_input['te'], onehot[...,kb])
 
-			#p_z = self.te_film(p_z, p_te) if self.te_features>0 else p_z
-			#p_z = self.ml_cnn[b](p_z.permute(0,2,1)).permute(0,2,1)
+			p_z = self.te_film(p_z, p_te) if self.te_features>0 else p_z
+			p_z = self.ml_cnn[b](p_z.permute(0,2,1)).permute(0,2,1)
 
-			#p_z = self.attn_te_film(p_z, p_te) if self.te_features>0 else p_z
-			p_z, p_layer_scores = self.ml_attn[b](p_z, p_onehot, p_te)
+			p_z = self.attn_te_film(p_z, p_te) if self.te_features>0 else p_z
+			p_z, p_layer_scores = self.ml_attn[b](p_z, p_onehot)
 
 			### representative element
 			last_z_dic[b] = seq_utils.seq_last_element(p_z, p_onehot) # last element
 			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot) # max pooling
 			#last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot) # avg pooling
-			#tdict['model'].update({f'z.{b}.last':p_z})
+			tdict['model'].update({f'z.{b}.last':p_z})
 			layer_scores[b] = p_layer_scores
 		
 		last_z = torch.cat([last_z_dic[b] for b in self.band_names], dim=-1)
@@ -162,7 +162,7 @@ class AttnTCNNEncoderS(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 		}
-		self.ml_attn = ft_attn.MLTimeSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1), self.te_features, **attn_kwargs)
+		self.ml_attn = ft_attn.MLSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(0), **attn_kwargs)
 		print('ml_attn:', self.ml_attn)
 
 		self.attn_te_film = FILM(self.te_features, self.tcnn_embd_dims)
@@ -182,11 +182,11 @@ class AttnTCNNEncoderS(nn.Module):
 		s_onehot = onehot.sum(dim=-1).bool()
 		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
 
-		#z = self.te_film(z, model_input['te']) if self.te_features>0  else z
-		#z = self.ml_cnn(z.permute(0,2,1)).permute(0,2,1)
+		z = self.te_film(z, model_input['te']) if self.te_features>0  else z
+		z = self.ml_cnn(z.permute(0,2,1)).permute(0,2,1)
 
-		#z = self.attn_te_film(z, model_input['te']) if self.te_features>0 else z
-		z, layer_scores = self.ml_attn(z, s_onehot, model_input['te'])
+		z = self.attn_te_film(z, model_input['te']) if self.te_features>0 else z
+		z, layer_scores = self.ml_attn(z, s_onehot)
 
 		### representative element
 		last_z = seq_utils.seq_last_element(z, s_onehot) # last element
