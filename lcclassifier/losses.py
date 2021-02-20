@@ -43,11 +43,13 @@ class LCXEntropy(FTLoss):
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
 		uses_poblation_weights:bool=True,
+		classifier_key='y.last',
 		**kwargs):
 		self.name = name
 		self.model_out_uses_softmax = model_out_uses_softmax
 		self.target_is_onehot = target_is_onehot
 		self.uses_poblation_weights = uses_poblation_weights
+		self.classifier_key = classifier_key
 
 	def __call__(self, tdict, **kwargs):
 		input_tdict = tdict['input']
@@ -55,7 +57,7 @@ class LCXEntropy(FTLoss):
 		model_tdict = tdict['model']
 
 		y_target = target_tdict['y'].long()
-		y_pred = model_tdict['y.last']
+		y_pred = model_tdict[self.classifier_key]
 		poblation_weights = target_tdict['poblation_weights'][0] if self.uses_poblation_weights else None
 		xentropy_loss = batch_xentropy(y_pred, y_target, self.model_out_uses_softmax, self.target_is_onehot, poblation_weights) # (b)
 		#print(xentropy_loss.shape)
@@ -68,6 +70,7 @@ class LCCompleteLoss(FTLoss):
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
 		uses_poblation_weights:bool=True,
+		classifier_key='y.last',
 		xentropy_k=C_.XENTROPY_K,
 		mse_k=C_.MSE_K,
 		**kwargs):
@@ -76,6 +79,7 @@ class LCCompleteLoss(FTLoss):
 			model_out_uses_softmax,
 			target_is_onehot,
 			uses_poblation_weights,
+			classifier_key,
 			)
 		self.mse = LCMSEReconstruction('', band_names)
 		self.xentropy_k = xentropy_k

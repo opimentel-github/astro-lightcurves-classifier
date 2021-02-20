@@ -13,10 +13,12 @@ from .losses import LCXEntropy
 class LCAccuracy(FTMetric):
 	def __init__(self, name,
 		target_is_onehot:bool=False,
+		classifier_key='y.last',
 		balanced=False,
 		**kwargs):
 		self.name = name
 		self.target_is_onehot = target_is_onehot
+		self.classifier_key = classifier_key
 		self.accuracy = Accuracy('',
 			target_is_onehot,
 			balanced,
@@ -29,7 +31,7 @@ class LCAccuracy(FTMetric):
 		model_tdict = tdict['model']
 
 		new_tdict = {
-			'model':{'y':model_tdict['y.last']},
+			'model':{'y':model_tdict[self.classifier_key]},
 			'target':{'y':target_tdict['y']},
 		}
 		return self.accuracy(new_tdict, **kwargs)
@@ -39,6 +41,7 @@ class LCXEntropyMetric(FTMetric):
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
 		uses_poblation_weights:bool=True,
+		classifier_key='y.last',
 		k=C_.XENTROPY_K,
 		**kwargs):
 		self.name = name
@@ -46,6 +49,7 @@ class LCXEntropyMetric(FTMetric):
 			model_out_uses_softmax,
 			target_is_onehot,
 			uses_poblation_weights,
+			classifier_key,
 			)
 		self.k = k
 

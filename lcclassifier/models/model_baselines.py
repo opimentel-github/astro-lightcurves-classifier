@@ -241,7 +241,7 @@ class ParallelAttnTCNNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'ParallelAttnTCNN',
+			'mdl':f'ParallelTimeAttn',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
@@ -281,7 +281,7 @@ class SerialAttnTCNNClassifier(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'SerialAttnTCNN',
+			'mdl':f'SerialTimeAttn',
 			'in-dims':f'{self.input_dims}',
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),

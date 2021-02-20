@@ -25,9 +25,13 @@ class RNNDecoderP(nn.Module):
 		linear_kwargs = {
 			'activation':'linear',
 		}
-		extra_dims = 1
+		extra_dims = 0 if self.te_features else 1
 		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:',self.x_projection)
+
+		### TE
+		self.te_film = FILM(self.te_features, self.rnn_embd_dims)
+		print('te_film:', self.te_film)
 
 		### RNN STACK
 		rnn_kwargs = {
@@ -66,9 +70,14 @@ class RNNDecoderP(nn.Module):
 			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
 			p_dz = seq_utils.serial_to_parallel(dz, onehot[...,kb])
 
-			p_dt = seq_utils.serial_to_parallel(model_input['dtime'], onehot[...,kb])
-			p_dz = torch.cat([p_dz, p_dt], dim=-1) # cat dtime
-			p_rx = self.x_projection[b](p_dz)
+			if self.te_features>0:
+				p_rx = self.x_projection[b](p_dz)
+				p_te = seq_utils.serial_to_parallel(model_input['te'], onehot[...,kb])
+				p_rx = self.te_film(p_rx, p_te)
+			else:
+				p_dt = seq_utils.serial_to_parallel(model_input['dt'], onehot[...,kb])
+				p_dz = torch.cat([p_dz, p_dt], dim=-1) # cat dt
+				p_rx = self.x_projection[b](p_dz)
 
 			p_rx, p_extra_info_rnn = self.ml_rnn[b](p_rx, p_onehot, **kwargs) # out, (ht, ct)
 			p_rx = self.dz_projection[b](p_rx)
@@ -92,9 +101,13 @@ class RNNDecoderS(nn.Module):
 		linear_kwargs = {
 			'activation':'linear',
 		}
-		extra_dims = len(self.band_names)+1
+		extra_dims = len(self.band_names) if self.te_features else len(self.band_names)+1
 		self.x_projection = Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
+
+		### TE
+		self.te_film = FILM(self.te_features, self.rnn_embd_dims)
+		print('te_film:', self.te_film)
 
 		### RNN STACK
 		rnn_kwargs = {
@@ -128,9 +141,13 @@ class RNNDecoderS(nn.Module):
 		b,t,_ = onehot.size()
 		dz = tdict['model']['z.last'][:,None,:].repeat(1,t,1) # dz: decoder z
 		dz = torch.cat([dz, onehot.float()], dim=-1)
-		
-		dz = torch.cat([dz, model_input['dtime']], dim=-1) # cat dtime
-		rx = self.x_projection(dz)
+
+		if self.te_features>0:
+			rx = self.x_projection(dz)
+			rx = self.te_film(rx, model_input['te'])
+		else:
+			dz = torch.cat([dz, model_input['dt']], dim=-1) # cat dt
+			rx = self.x_projection(dz)
 
 		s_onehot = onehot.sum(dim=-1).bool()
 		rx, extra_info_rnn = self.ml_rnn(rx, s_onehot, **kwargs) # out, (ht, ct)

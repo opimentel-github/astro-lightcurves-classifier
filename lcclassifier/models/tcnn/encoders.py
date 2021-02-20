@@ -43,7 +43,7 @@ class TCNNEncoderP(nn.Module):
 				'dilation':1,
 			},
 			'pool_kwargs':{
-				'kernel_size':1,
+				'kernel_size':2,
 				'stride':1,
 				'dilation':1,
 			},

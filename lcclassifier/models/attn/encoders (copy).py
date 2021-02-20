@@ -101,7 +101,7 @@ class AttnTCNNEncoderP(nn.Module):
 			last_z_dic[b] = seq_utils.seq_last_element(p_z, p_onehot) # last element
 			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot) # max pooling
 			#last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot) # avg pooling
-			tdict['model'].update({f'z.{b}.last':p_z})
+			#tdict['model'].update({f'z.{b}.last':p_z})
 			layer_scores[b] = p_layer_scores
 		
 		last_z = torch.cat([last_z_dic[b] for b in self.band_names], dim=-1)

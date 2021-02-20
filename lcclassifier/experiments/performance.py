@@ -18,6 +18,8 @@ import pandas as pd
 
 def metrics_along_days(train_handler, data_loader,
 	target_is_onehot:bool=False,
+	classifier_key='y.last',
+	
 	figsize:tuple=C_.DEFAULT_FIGSIZE_REC,
 	save_rootdir:str='results',
 	save_fext:str='metrics',
@@ -68,7 +70,7 @@ def metrics_along_days(train_handler, data_loader,
 
 						### class
 						y_target_ = out_tdict['target']['y']
-						y_pred_p_ = torch.nn.functional.softmax(out_tdict['model']['y.last'], dim=-1)
+						y_pred_p_ = torch.nn.functional.softmax(out_tdict['model'][classifier_key], dim=-1)
 
 						if target_is_onehot:
 							assert y_pred_.shape==y_target_.shape

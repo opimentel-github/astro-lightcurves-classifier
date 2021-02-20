@@ -61,7 +61,7 @@ def get_color_dict(model_names):
 
 ###################################################################################################################################################
 
-def plot_metric(rootdir, metric_name, model_names, metric_dict,
+def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 	label_keys=[],
 	figsize=C_.PLOT_FIGZISE_RECT,
 	fext='metrics',
@@ -69,13 +69,12 @@ def plot_metric(rootdir, metric_name, model_names, metric_dict,
 	fig, axs = plt.subplots(1, 2, figsize=figsize)
 	color_dict = get_color_dict(model_names)
 
-	for kax,mode in enumerate(['pt', 'ft']):
-		baseline_v = metric_dict[metric_name]
+	for kax,mode in enumerate(['pre-training', 'fine-tuning']):
 		ax = axs[kax]
 		for kmn,model_name in enumerate(model_names):
 			new_rootdir = f'{rootdir}/{mode}/{model_name}'
-			new_rootdir = new_rootdir.replace('mode=pt', f'mode={mode}') # patch
-			new_rootdir = new_rootdir.replace('mode=ft', f'mode={mode}') # patch
+			new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
+			new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
 			filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
 			print(f'[{kmn}][{len(filedirs)}#] {model_name}')
 			mn_dict = strings.get_dict_from_string(model_name)
@@ -110,7 +109,8 @@ def plot_metric(rootdir, metric_name, model_names, metric_dict,
 		if is_accuracy:
 			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess accuracy: $100/N_c$', alpha=.5)
 
-		ax.plot(days, np.full_like(days, baseline_v), ':', c='k', label='baseline (complete curves)')
+		if not baselines_dict is None:
+			ax.plot(days, np.full_like(days, baselines_dict[metric_name]), ':', c='k', label='baseline (complete curves)')
 
 		title = f'{metric_name} v/s days - mode: {mode}'
 		title += f'\nsurvey: {survey} - bands: {band_names}'
