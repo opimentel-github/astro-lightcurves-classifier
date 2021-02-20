@@ -273,15 +273,6 @@ class CustomDataset(Dataset):
 			qt = self.ddays_scaler_bdict[b]
 			new_x += qt.transform(x)*onehot_b
 		return new_x
-
-	def get_te(self, time):
-		assert np.all(~np.isnan(time))
-		encoding = np.zeros((len(time), len(self.te_periods)*2))
-		for kp,p in enumerate(self.te_periods):
-			w = 2*math.pi*(time)/p
-			encoding[...,2*kp] = np.sin(w)
-			encoding[...,2*kp+1] = np.cos(w)
-		return encoding
 	
 	def train(self):
 		self.training = True
@@ -368,8 +359,8 @@ class CustomDataset(Dataset):
 		onehot = lcobj.get_onehot_serial(sorted_time_indexs, max_day)
 		in_x = self.in_normalize(lcobj.get_custom_x_serial(self.in_attrs, sorted_time_indexs, max_day), onehot)
 		rec_x =self.rec_normalize(lcobj.get_custom_x_serial([self.rec_attr], sorted_time_indexs, max_day), onehot)
-		ddays =self.ddays_normalize(lcobj.get_custom_x_serial(['d_days'], sorted_time_indexs, max_day), onehot)
-		time = lcobj.get_custom_x_serial(['days'], sorted_time_indexs, max_day)
+		d_days =self.ddays_normalize(lcobj.get_custom_x_serial(['d_days'], sorted_time_indexs, max_day), onehot)
+		days = lcobj.get_custom_x_serial(['days'], sorted_time_indexs, max_day)
 		error = lcobj.get_custom_x_serial(['obse'], sorted_time_indexs, max_day)
 		#print(in_x.shape, rec_x.shape)
 
@@ -377,13 +368,10 @@ class CustomDataset(Dataset):
 		model_input = {
 			'onehot':torch.as_tensor(onehot),
 			'x':torch.as_tensor(in_x, dtype=torch.float32),
-			'time':torch.as_tensor(time, dtype=torch.float32),
-			'dtime':torch.as_tensor(ddays, dtype=torch.float32),
+			'time':torch.as_tensor(days, dtype=torch.float32),
+			'dtime':torch.as_tensor(d_days, dtype=torch.float32),
 			'error':torch.as_tensor(error, dtype=torch.float32),
 		}
-		if self.te_features>0:
-			#model_input['te'] = torch.as_tensor(self.get_te(time[:,0]), dtype=torch.float32)
-			pass
 
 		### target
 		target = {
