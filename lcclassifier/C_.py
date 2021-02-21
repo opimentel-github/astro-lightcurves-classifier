@@ -11,7 +11,7 @@ N_JOBS = 6 # The number of jobs to use for the computation. If -1 all CPUs are u
 CHUNK_SIZE = N_JOBS*1
 
 ### SYNTHETIC
-OBSE_STD_SCALE = 1/3 # important 2 3 5 10
+OBSE_STD_SCALE = 1/2 # important 2 3 5 10
 CPDS_P = 10./100. # curve points down sampling probability
 HOURS_NOISE_AMP = 5.
 

@@ -179,7 +179,7 @@ if __name__== '__main__':
 
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.999e-3,
+					'lr':.75e-3,
 					#'betas':(0.9999, 0.9999),
 				},
 				#'decay_kwargs':{
@@ -197,14 +197,14 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':15, # 10 15 20 25 30
+				'earlystop_epoch_duration':20, # 10 15 20 25 30
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
 				#'save_mode':C_.SM_ONLY_ALL,
 				#'save_mode':C_.SM_ONLY_INF_METRIC,
-				'save_mode':C_.SM_ONLY_INF_LOSS,
-				#'save_mode':C_.SM_ONLY_SUP_METRIC,
+				#'save_mode':C_.SM_ONLY_INF_LOSS,
+				'save_mode':C_.SM_ONLY_SUP_METRIC,
 			}
 			pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics, **monitor_config)
 
@@ -277,7 +277,7 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.5e-2,
+					'lr':1.1e-2,
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -294,7 +294,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':120,
+				'earlystop_epoch_duration':150,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,

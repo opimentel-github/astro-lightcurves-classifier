@@ -65,6 +65,7 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 	label_keys=[],
 	figsize=C_.PLOT_FIGZISE_RECT,
 	fext='metrics',
+	p=15,
 	):
 	fig, axs = plt.subplots(1, 2, figsize=figsize)
 	color_dict = get_color_dict(model_names)
@@ -102,7 +103,7 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 					label += f' - {label_key}: {mn_dict[label_key]}'
 			label += f' (avg: {xe_curve_avg})'
 			ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
-			ax.fill_between(days, xe_metric_curve.p15, xe_metric_curve.p85, alpha=0.25, fc=color)
+			ax.fill_between(days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=0.25, fc=color)
 
 		is_accuracy = 'accuracy' in metric_name
 		random_guess = 100./len(class_names)
