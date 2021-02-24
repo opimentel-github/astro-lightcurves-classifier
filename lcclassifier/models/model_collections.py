@@ -17,8 +17,8 @@ class ModelCollections():
 		self.embd_dims = GDIter(64) # importante 60 80 100
 		self.embd_layers = GDIter(2)
 		self.rnn_cell_names = GDIter('GRU', 'LSTM')
-		self.te_features_iter = GDIter(16)
-		#self.te_features_iter = GDIter(8, 32, 4, 2)
+		#self.te_features_iter = GDIter(16)
+		self.te_features_iter = GDIter(8, 32, 4, 2)
 		self.dropout_p = .3 # .1 .2 .25 .3
 		self.common_dict = {
 			'max_te_period':self.max_day*2,
@@ -152,7 +152,7 @@ class ModelCollections():
 
 ###################################################################################################################################################
 
-	def parallel_atcnn_models_te(self):
+	def parallel_attn_models_te(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.ParallelAttnTCNNClassifier,
@@ -163,7 +163,7 @@ class ModelCollections():
 		})
 		self.add_gs(self.update_te(gs))
 
-	def serial_atcnn_models_te(self):
+	def serial_attn_models_te(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.SerialAttnTCNNClassifier,
@@ -175,5 +175,5 @@ class ModelCollections():
 		self.add_gs(self.update_te(gs))
 
 	def all_attn_models(self):
-		self.parallel_atcnn_models_te()
-		self.serial_atcnn_models_te()
+		self.parallel_attn_models_te()
+		self.serial_attn_models_te()

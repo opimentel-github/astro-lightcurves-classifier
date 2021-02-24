@@ -3,7 +3,7 @@ from __future__ import division
 from . import C_
 
 import torch
-from fuzzytorch.utils import get_model_name, TDictHolder
+from fuzzytorch.utils import get_model_name, TDictHolder, minibatch_dict_collate
 from fuzzytorch.models.utils import count_parameters
 import numpy as np
 from flamingchoripan.progress_bars import ProgressBar, ProgressBarMulti
@@ -47,52 +47,52 @@ def metrics_along_days(train_handler, data_loader,
 			try:
 				if can_be_in_loop:
 					dataset.set_max_day(day)
-					mse_loss = []
-					y_target = []
-					y_pred_p = []
-					for k,tdict in enumerate(data_loader):
-						out_tdict = train_handler.model(TDictHolder(tdict).to(train_handler.device))
-						onehot = out_tdict['input']['onehot']
+					out_tdict = []
+					for ki,in_tdict in enumerate(data_loader):
+						#print(f'  ({ki}) - {TDictHolder(in_tdict)}')
+						out_tdict_ = self.model(TDictHolder(in_tdict).to(self.device), **training_kwargs)
+						#print(f'  ({ki}) - {TDictHolder(out_tdict)}')
+						out_tdict_ = TDictHolder(out_tdict_).to('cpu') # cpu to save gpu memory
+						out_tdict.append(out_tdict_)
 
-						### decoder
-						mse_loss_bdict = {}
-						for kb,b in enumerate(dataset.band_names):
-							p_error = seq_utils.serial_to_parallel(out_tdict['input']['error'], onehot[...,kb]) # (b,t,1)
-							p_rx = seq_utils.serial_to_parallel(out_tdict['target']['rec-x'], onehot[...,kb]) # (b,t,1)
-							p_rx_pred = out_tdict['model'][f'rec-x.{b}'] # (b,t,1)
+					out_tdict = minibatch_dict_collate(out_tdict)
 
-							mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2 + C_.EPS) # (b,t,1)
-							mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, seq_utils.get_seq_onehot_mask(onehot[...,kb].sum(dim=-1), onehot.shape[1])) # (b,t,1) > (b,1)
-							mse_loss_bdict[b] = mse_loss_b[...,0] # (b,1) > (b)
+					### decoder
+					onehot = out_tdict['input']['onehot']
+					mse_loss_bdict = {}
+					for kb,b in enumerate(dataset.band_names):
+						p_onehot = onehot[...,kb]
+						p_error = seq_utils.serial_to_parallel(out_tdict['input']['error'], onehot[...,kb]) # (b,t,1)
+						p_rx = seq_utils.serial_to_parallel(out_tdict['target']['rec-x'], onehot[...,kb]) # (b,t,1)
+						p_rx_pred = out_tdict['model'][f'rec-x.{b}'] # (b,t,1)
 
-						mse_loss_ = torch.cat([mse_loss_bdict[b][...,None] for b in dataset.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
-						mse_loss.append(mse_loss_.mean().cpu().numpy())
+						mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+eps) # (b,t,1)
+						mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, seq_utils.get_seq_onehot_mask(p_onehot.sum(dim=-1), onehot.shape[1])) # (b,t,1) > (b,1)
+						mse_loss_bdict[b] = mse_loss_b[...,0] # (b,1) > (b)
 
-						### class
-						y_target_ = out_tdict['target']['y']
-						y_pred_p_ = torch.nn.functional.softmax(out_tdict['model'][classifier_key], dim=-1)
+					mse_loss = torch.cat([mse_loss_bdict[b][...,None] for b in dataset.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
+					mse_loss = mse_loss.cpu().numpy() # cpu-numpy
 
-						if target_is_onehot:
-							assert y_pred_.shape==y_target_.shape
-							y_target_ = torch.argmax(y_target_, dim=-1)
-
-						y_target.append(y_target_)
-						y_pred_p.append(y_pred_p_)
-
-					### decoder metrics
-					mse_loss = np.mean(mse_loss)
 					day_df = pd.DataFrame.from_dict({
 						'day':[day],
-						'mse':[mse_loss],
+						'mse':[mse_loss.mean()],
 						})
 					days_rec_metrics_df.append(day_df)
 
-					### class metrics
-					y_target = torch.cat(y_target, dim=0).cpu().numpy()
-					y_pred_p = torch.cat(y_pred_p, dim=0).cpu().numpy()
+					### class prediction
+					y_target = out_tdict['target']['y']
+					y_pred_p = torch.nn.functional.softmax(out_tdict['model'][classifier_key], dim=-1)
+
+					if target_is_onehot:
+						assert y_pred_.shape==y_target.shape
+						y_target = torch.argmax(y_target, dim=-1)
+
+					y_target = y_target.cpu().numpy() # cpu-numpy
+					y_pred_p = y_pred_p.cpu().numpy() # cpu-numpy
 					y_pred = np.argmax(y_pred_p, axis=-1)
-					accuracy = (y_target==y_pred).astype(np.float)*100
+					#accuracy = (y_target==y_pred).astype(np.float)*100
 					#print('accuracy', accuracy.shape, np.mean(accuracy))
+
 					met_kwargs = {
 						'pred_is_onehot':False,
 						'target_is_onehot':False,
@@ -113,6 +113,7 @@ def metrics_along_days(train_handler, data_loader,
 						day_df = pd.DataFrame.from_dict(d)
 						days_class_metrics_cdf[c].append(day_df)
 
+					### progress bar
 					days_cm[day] = cm
 					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'mse_loss: {mse_loss}', f'metrics_dict: {metrics_dict}', f'metrics_cdict: {metrics_cdict["recall"]}'])
 					#break # dummy

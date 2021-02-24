@@ -52,12 +52,14 @@ def reconstructions(train_handler, data_loader,
 			tdict, lcobj = dataset.get_item(lcobj_name, return_lcobjs=True)
 			out_tdict = train_handler.model(TDictHolder(tdict).to(train_handler.device, add_dummy_dim=True))
 			onehot = out_tdict['input']['onehot']
+			
 			for kb,b in enumerate(dataset.band_names):
-				days = out_tdict['input']['time'][0,onehot[0,:,kb]].cpu().numpy()
-				lcobjb = lcobj.get_b(b)
 				b_len = onehot[...,kb].sum()
+				lcobjb = lcobj.get_b(b)
 				plot_lightcurve(ax, lcobj, b, label=f'{b} observation', max_day=dataset.max_day)
 
+				### rec plot
+				days = out_tdict['input']['time'][0,onehot[0,:,kb]].cpu().numpy()
 				p_rx_pred = out_tdict['model'][f'rec-x.{b}'][0,:,0].cpu().numpy()
 				p_rx_pred = dataset.get_rec_inverse_transform(p_rx_pred, b)
 				ax.plot(days[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} reconstruction')
