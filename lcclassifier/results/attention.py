@@ -51,7 +51,7 @@ def plot_attention_statistics(rootdir, model_name, x_var, y_var,
 	attn_entropies = list(set(attn_entropies))
 	#print('attn_entropies',np.min(attn_entropies), np.mean(attn_entropies), attn_entropies[:100])
 	attn_entropy_th = np.sort(attn_entropies)[int(len(attn_entropies)*attn_entropy_th_p)]
-		
+	
 	#x = np.array([np.random.uniform(.25,.75) for r in attn_scores_collection if r[attn_entropy_key]<=attn_entropy_th and r[attn_key]>=attn_th])
 	x = np.array([r[x_var] for r in attn_scores_collection if r[attn_entropy_key]<=attn_entropy_th and r[attn_key]>=attn_th])
 	y = np.array([r[y_var] for r in attn_scores_collection if r[attn_entropy_key]<=attn_entropy_th and r[attn_key]>=attn_th])
@@ -97,3 +97,4 @@ def plot_attention_statistics(rootdir, model_name, x_var, y_var,
 
 	fig.tight_layout()
 	plt.show()
+	return

@@ -21,7 +21,9 @@ from lchandler.plots.lc import plot_lightcurve
 def lineal_trend_f(days, m, n):
 	return days*m+n
 
-def min_max_norm(x, i):
+def min_max_norm(x, i,
+	eps:float=C_.EPS,
+	):
 	min_ = x.min()
 	max_ = x.max()
 	diff_ = max_-min_
@@ -185,7 +187,7 @@ def attention_statistics(train_handler, data_loader,
 					lineal_trend_obs = obs[i-di:i]
 					popt, pcov = curve_fit(lineal_trend_f, lineal_trend_days, lineal_trend_obs, p0=[0,0])
 					lineal_trend = popt[0]
-					#slope_degree = np.rad2deg(np.arctan(slope))
+
 					r = {
 						'i':i,
 						'b':b,
@@ -208,7 +210,6 @@ def attention_statistics(train_handler, data_loader,
 						'wobs_min_max':min_max_norm(wobs, i),
 
 						'lineal_trend':lineal_trend,
-						#'slope_degree':slope_degree,
 						
 						'peak_day':peak_day,
 						'day':days[i],

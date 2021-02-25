@@ -226,7 +226,7 @@ if __name__== '__main__':
 			pt_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			if ki==0:
 				print(pt_model_train_handler)
-			#pt_model_train_handler.fit_loader(s_train_loader, s_val_loader) # main fit ?
+			pt_model_train_handler.fit_loader(s_train_loader, s_val_loader) # main fit
 
 			###################################################################################################################################################
 			import fuzzytorch
@@ -237,7 +237,7 @@ if __name__== '__main__':
 			plot_kwargs = {
 				'save_rootdir':f'../save/train_plots',
 			}
-			#ffplots.plot_loss(pt_model_train_handler, **plot_kwargs) ?
+			ffplots.plot_loss(pt_model_train_handler, **plot_kwargs)
 			#ffplots.plot_evaluation_loss(train_handler, **plot_kwargs)
 			#ffplots.plot_evaluation_metrics(train_handler, **plot_kwargs)
 
@@ -251,18 +251,18 @@ if __name__== '__main__':
 			}
 			#reconstructions_m(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
 			#reconstructions_m(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
-			#reconstructions_m(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
-			#reconstructions_m(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
-			#reconstructions_m(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
+			reconstructions_m(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
+			reconstructions_m(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
+			reconstructions_m(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
 
 			###################################################################################################################################################
 			from lcclassifier.experiments.performance import metrics_along_days
 
 			#metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
 			#metrics_along_days(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
-			#metrics_along_days(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
-			#metrics_along_days(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
-			#metrics_along_days(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
+			metrics_along_days(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
+			metrics_along_days(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
+			metrics_along_days(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
 
 			### fine-tuning
 			### OPTIMIZER
@@ -317,7 +317,7 @@ if __name__== '__main__':
 			ft_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			if ki==0:
 				print(ft_model_train_handler)
-			#ft_model_train_handler.fit_loader(r_train_loader, r_val_loader) # main fit ?
+			ft_model_train_handler.fit_loader(r_train_loader, r_val_loader) # main fit
 
 			###################################################################################################################################################
 			from lcclassifier.experiments.performance import metrics_along_days
@@ -329,14 +329,14 @@ if __name__== '__main__':
 			}
 			#metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **ft_exp_kwargs) # sanity check / slow
 			#metrics_along_days(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
-			#metrics_along_days(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow
-			#metrics_along_days(ft_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **ft_exp_kwargs)
-			#metrics_along_days(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **ft_exp_kwargs)
+			metrics_along_days(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow
+			metrics_along_days(ft_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **ft_exp_kwargs)
+			metrics_along_days(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **ft_exp_kwargs)
 
 			###################################################################################################################################################
 			from lcclassifier.experiments.attention import attn_scores_m, attention_statistics
 
-			if model_id==model_ids[-1]:
+			if model_id==model_ids[0]:
 				#attn_scores_m(ft_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **ft_exp_kwargs) # sanity check / slow
 				#attn_scores_m(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
 				attn_scores_m(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow

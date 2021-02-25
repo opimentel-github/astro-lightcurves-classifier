@@ -50,7 +50,7 @@ def metrics_along_days(train_handler, data_loader,
 					out_tdict = []
 					for ki,in_tdict in enumerate(data_loader):
 						#print(f'  ({ki}) - {TDictHolder(in_tdict)}')
-						out_tdict_ = self.model(TDictHolder(in_tdict).to(self.device), **training_kwargs)
+						out_tdict_ = train_handler.model(TDictHolder(in_tdict).to(train_handler.device))
 						#print(f'  ({ki}) - {TDictHolder(out_tdict)}')
 						out_tdict_ = TDictHolder(out_tdict_).to('cpu') # cpu to save gpu memory
 						out_tdict.append(out_tdict_)
@@ -72,10 +72,11 @@ def metrics_along_days(train_handler, data_loader,
 
 					mse_loss = torch.cat([mse_loss_bdict[b][...,None] for b in dataset.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
 					mse_loss = mse_loss.cpu().numpy() # cpu-numpy
+					mse_loss = mse_loss.mean()
 
 					day_df = pd.DataFrame.from_dict({
 						'day':[day],
-						'mse':[mse_loss.mean()],
+						'mse':[mse_loss],
 						})
 					days_rec_metrics_df.append(day_df)
 
@@ -115,7 +116,8 @@ def metrics_along_days(train_handler, data_loader,
 
 					### progress bar
 					days_cm[day] = cm
-					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'mse_loss: {mse_loss}', f'metrics_dict: {metrics_dict}', f'metrics_cdict: {metrics_cdict["recall"]}'])
+					recall = metrics_cdict['recall']
+					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'mse_loss: {mse_loss}', f'metrics_dict: {metrics_dict}', f'recall: {recall}'])
 					#break # dummy
 
 			except KeyboardInterrupt:
