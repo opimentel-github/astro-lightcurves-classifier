@@ -18,10 +18,11 @@ from . import utils as utils
 def plot_attention_statistics(rootdir, model_name, x_var, y_var,
 	figsize=(6*2,6),
 	fext='attnscores',
+	mode='fine-tuning',
 	attn_key='attn_scores_min_max',
-	attn_entropy_key='attn_entropy/len',
-	attn_th=0.8,
-	attn_entropy_th_p=0.1,
+	attn_entropy_key='attn_entropy',
+	attn_th=0.95,
+	attn_entropy_th_p=0.75,
 
 	N=50,
 	p=1,
@@ -29,7 +30,6 @@ def plot_attention_statistics(rootdir, model_name, x_var, y_var,
 	bins_yrange=[None, None],
 	extent=None,
 	):
-	mode = 'fine-tuning'
 	new_rootdir = f'{rootdir}/{mode}/{model_name}'
 	filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
 	print(f'[{0}][{len(filedirs)}#] {model_name}')

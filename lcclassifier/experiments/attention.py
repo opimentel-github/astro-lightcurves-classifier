@@ -93,10 +93,11 @@ def attn_scores(train_handler, data_loader,
 				raw_attn_scores = out_tdict['model']['layer_scores'][b][:,-1,...] # (b,layers,h,t,qt) > (b,h,t,qt)
 				raw_attn_scores = raw_attn_scores.mean(dim=1) # (b,h,t,qt) > (b,t,qt)
 				raw_attn_scores = seq_utils.seq_last_element(raw_attn_scores, dummy_p_onehot)[...,None] # get elements from last step (b,t,q) > (b,qt,1)
-				attn_scores = seq_utils.seq_avg_norm(raw_attn_scores, dummy_p_onehot) # (b,qt,1)
-				attn_scores_min_max = seq_utils.seq_min_max_norm(raw_attn_scores, dummy_p_onehot) # (b,qt,1)
+				attn_scores = seq_utils.seq_sum_norm(raw_attn_scores, dummy_p_onehot) # (b,qt,1)
 				attn_scores = attn_scores.cpu().numpy()
+				attn_scores_min_max = seq_utils.seq_min_max_norm(raw_attn_scores, dummy_p_onehot) # (b,qt,1)
 				attn_scores_min_max = attn_scores_min_max.cpu().numpy()
+
 				attn_entropy = -np.sum(attn_scores*np.log(attn_scores+eps))
 
 				days = out_tdict['input']['time'][0,onehot[0,:,kb]].cpu().numpy()
@@ -169,10 +170,11 @@ def attention_statistics(train_handler, data_loader,
 				raw_attn_scores = out_tdict['model']['layer_scores'][b][:,-1,...] # (b,layers,h,t,qt) > (b,h,t,qt)
 				raw_attn_scores = raw_attn_scores.mean(dim=1) # (b,h,t,qt) > (b,t,qt)
 				raw_attn_scores = seq_utils.seq_last_element(raw_attn_scores, dummy_p_onehot)[...,None] # get elements from last step (b,t,q) > (b,qt,1)
-				attn_scores = seq_utils.seq_avg_norm(raw_attn_scores, dummy_p_onehot) # (b,qt,1)
-				attn_scores_min_max = seq_utils.seq_min_max_norm(raw_attn_scores, dummy_p_onehot) # (b,qt,1)
+				attn_scores = seq_utils.seq_sum_norm(raw_attn_scores, dummy_p_onehot) # (b,qt,1)
 				attn_scores = attn_scores.cpu().numpy()
+				attn_scores_min_max = seq_utils.seq_min_max_norm(raw_attn_scores, dummy_p_onehot) # (b,qt,1)
 				attn_scores_min_max = attn_scores_min_max.cpu().numpy()
+
 				attn_entropy = -np.sum(attn_scores*np.log(attn_scores+eps))
 
 				days = lcobjb.days[:b_len]
