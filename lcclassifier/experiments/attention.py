@@ -12,9 +12,20 @@ import flamingchoripan.datascience.metrics as fcm
 from flamingchoripan.cuteplots.utils import save_fig
 import matplotlib.pyplot as plt
 import fuzzytorch.models.seq_utils as seq_utils
-from scipy import stats
+from scipy.optimize import curve_fit
 from lchandler import C_ as C_lchandler
 from lchandler.plots.lc import plot_lightcurve
+
+###################################################################################################################################################
+
+def lineal_trend_f(days, m, n):
+	return days*m+n
+
+def min_max_norm(x, i):
+	min_ = x.min()
+	max_ = x.max()
+	diff_ = max_-min_
+	return (x[i]-min_)/(diff_+eps)
 
 ###################################################################################################################################################
 
@@ -146,7 +157,7 @@ def attention_statistics(train_handler, data_loader,
 				return
 
 			for kb,b in enumerate(dataset.band_names):
-				b_len = onehot[...,kb].sum()
+				b_len = onehot[...,kb].sum().item()
 				if b_len<10:
 					continue
 				dummy_p_onehot = seq_utils.get_seq_onehot_mask(onehot[...,kb].sum(dim=-1), t)
@@ -167,17 +178,14 @@ def attention_statistics(train_handler, data_loader,
 				obse = lcobjb.obse[:b_len]
 				wobs = obs/(obse**2+eps)
 				peak_day = days[np.argmax(obs)]
-
-				def min_max_norm(x, i):
-					min_ = x.min()
-					max_ = x.max()
-					diff_ = max_-min_
-					return (x[i]-min_)/(diff_+eps)
 				
 				for i in range(di, b_len):
 					#print(days[i-di:i])
-					slope = stats.linregress(days[i-di:i], obs[i-di:i]).slope
-					degrees = np.rad2deg(np.arctan(slope))
+					lineal_trend_days = days[i-di:i]
+					lineal_trend_obs = obs[i-di:i]
+					popt, pcov = curve_fit(lineal_trend_f, lineal_trend_days, lineal_trend_obs, p0=[0,0])
+					lineal_trend = popt[0]
+					#slope_degree = np.rad2deg(np.arctan(slope))
 					r = {
 						'i':i,
 						'b':b,
@@ -187,8 +195,8 @@ def attention_statistics(train_handler, data_loader,
 						'attn_entropy':attn_entropy,
 						'attn_entropy/len':attn_entropy/b_len,
 						
-						'attn_scores':attn_scores[:,i,:],
-						'attn_scores_min_max':attn_scores_min_max[:,i,:],
+						'attn_scores':attn_scores[:,i,:].item(),
+						'attn_scores_min_max':attn_scores_min_max[:,i,:].item(),
 
 						'obs':obs[i],
 						'obs_min_max':min_max_norm(obs, i),
@@ -199,11 +207,12 @@ def attention_statistics(train_handler, data_loader,
 						'wobs':wobs[i],
 						'wobs_min_max':min_max_norm(wobs, i),
 
-						'slope':slope,
-						'degrees':degrees,
+						'lineal_trend':lineal_trend,
+						#'slope_degree':slope_degree,
 						
-						'days':days[i],
-						'days_to_peak':days[i]-peak_day,
+						'peak_day':peak_day,
+						'day':days[i],
+						'days_from_peak':lineal_trend_days.mean()-peak_day,
 					}
 					#print(r)
 					attn_scores_collection.append(r)

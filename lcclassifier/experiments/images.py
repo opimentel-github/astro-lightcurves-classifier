@@ -54,7 +54,7 @@ def reconstructions(train_handler, data_loader,
 			onehot = out_tdict['input']['onehot']
 			
 			for kb,b in enumerate(dataset.band_names):
-				b_len = onehot[...,kb].sum()
+				b_len = onehot[...,kb].sum().item()
 				lcobjb = lcobj.get_b(b)
 				plot_lightcurve(ax, lcobj, b, label=f'{b} observation', max_day=dataset.max_day)
 

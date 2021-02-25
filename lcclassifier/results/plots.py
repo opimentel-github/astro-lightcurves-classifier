@@ -2,62 +2,16 @@ from __future__ import print_function
 from __future__ import division
 from . import C_
 
-from . import utils as utils
 import numpy as np
 import warnings
 from flamingchoripan.files import search_for_filedirs, load_pickle
 import flamingchoripan.strings as strings
-import flamingchoripan.datascience.statistics as dstats
-from scipy.interpolate import interp1d
-import flamingchoripan.cuteplots.colors as cc
 from flamingchoripan.cuteplots.cm_plots import plot_custom_confusion_matrix
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter1d
 import flamingchoripan.datascience.statistics as dstats
-from scipy import stats
-
-###################################################################################################################################################
-
-def get_cmodel_name(model_name):
-	mn_dict = strings.get_dict_from_string(model_name)
-	mn_dict.pop('enc-emb')
-	cmodel_name = '°'.join([f'{k}={mn_dict[k]}' for k in mn_dict.keys()])
-	cmodel_name = cmodel_name.replace('Parallel', '').replace('Serial', '')
-	return cmodel_name
-
-def get_models_from_rootdir(rootdir,
-	fext='metrics',
-	):
-	filedirs = search_for_filedirs(rootdir, fext=fext, verbose=0)
-	model_names = sorted(list(set([f.split('/')[-2] for f in filedirs])))
-	return model_names
-
-def filter_models(model_names, condition_dict):
-	new_model_names = []
-	for model_name in model_names:
-		mn_dict = strings.get_dict_from_string(model_name)
-		for c in condition_dict.keys():
-			value = mn_dict.get(c, None)
-			acceptable_values = condition_dict[c]
-			if value in acceptable_values:
-				new_model_names += [model_name]
-
-	return new_model_names
-
-def get_color_dict(model_names):
-	cmodel_names = []
-	for kmn,model_name in enumerate(model_names):
-		cmodel_names += [get_cmodel_name(model_name)]
-
-	cmodel_names = list(set(cmodel_names))
-	colors = cc.colors()
-	#colors = cc.get_colorlist('seaborn', len(cmodel_names))
-	color_dict = {}
-	for kmn,cmodel_name in enumerate(cmodel_names):
-		color_dict[cmodel_name] = colors[kmn]
-		#print(f'model_name: {model_name}')
-
-	return color_dict
+from . import utils as utils
 
 ###################################################################################################################################################
 
@@ -68,7 +22,7 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 	p=15,
 	):
 	fig, axs = plt.subplots(1, 2, figsize=figsize)
-	color_dict = get_color_dict(model_names)
+	color_dict = utils.get_color_dict(model_names)
 
 	for kax,mode in enumerate(['pre-training', 'fine-tuning']):
 		ax = axs[kax]
@@ -82,7 +36,7 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 			rsc = mn_dict['rsc']
 			mdl = mn_dict['mdl']
 			is_parallel = 'Parallel' in mdl
-			color = color_dict[get_cmodel_name(model_name)]
+			color = color_dict[utils.get_cmodel_name(model_name)]
 
 			metric_curve = []
 			for filedir in filedirs:
@@ -170,6 +124,8 @@ def plot_mse(rootdir, model_names,
 	ax.grid(alpha=0.5)
 	ax.legend(loc='upper right')
 	plt.show()
+
+'''
 
 def plot_f1score_mse(rootdir,
 	figsize=(10,6),
@@ -433,3 +389,5 @@ def animation_cm(root_folder, model_name, target_days,
 	video_save_dir = f'{root_folder}/{model_name}'
 	video_save_cfilename = f'cm'
 	animation.save(video_save_dir, video_save_cfilename)
+
+'''
