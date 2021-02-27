@@ -11,14 +11,14 @@ import pandas as pd
 
 ###################################################################################################################################################
 
-def get_df_table(rootdir, metric_names, model_names, day_to_metric,
+def get_df_table(rootdir, metric_names, model_names, day_to_metric, query_key, query_values,
 	fext='metrics',
+	arch_modes=['Parallel', 'Serial'],
 	):
 	index_df = []
 	info_df = {}
-	for x in ['Parallel']:
-	#for x in ['Parallel', 'Serial']:
-		for y in [2, 4, 8, 16, 32]:
+	for x in arch_modes:
+		for y in query_values:
 			info_df[f'{str(x)}-{str(y)}'] = []
 
 	for kax,mode in enumerate(['pre-training', 'fine-tuning']):
@@ -50,7 +50,7 @@ def get_df_table(rootdir, metric_names, model_names, day_to_metric,
 
 					xe_day_metric = dstats.XError(day_metric, 0)
 					xe_day_metric_avg = dstats.XError(day_metric_avg, 0)
-					key = f'{"Parallel" if is_parallel else "Serial"}-{mn_dict["te-dims"]}'
+					key = f'{"Parallel" if is_parallel else "Serial"}-{mn_dict[query_key]}'
 					info_df[key] += [xe_day_metric]
 					info_df[key] += [xe_day_metric_avg]
 

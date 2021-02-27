@@ -34,7 +34,6 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 			rsc = mn_dict['rsc']
 			mdl = mn_dict['mdl']
 			is_parallel = 'Parallel' in mdl
-			color = color_dict[utils.get_cmodel_name(model_name)]
 
 			metric_curve = []
 			for filedir in filedirs:
@@ -53,18 +52,20 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 			label = f'{mdl}'
 			for label_key in label_keys:
 				if label_key in mn_dict.keys():
-					label += f' - {label_key}: {mn_dict[label_key]}'
-			label += f' ({utils.get_mday_avg_str(metric_name, days[-1])}={xe_curve_avg})'
+					label += f' - {label_key}={mn_dict[label_key]}'
+			#label += f' ({utils.get_mday_avg_str(metric_name, days[-1])}={xe_curve_avg})'
+			label += f' {xe_curve_avg}*'
+			color = color_dict[utils.get_cmodel_name(model_name)]
 			ax.plot(interp_days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
 			ax.fill_between(interp_days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=0.25, fc=color)
 
 		is_accuracy = 'accuracy' in metric_name
 		random_guess = 100./len(class_names)
 		if is_accuracy:
-			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess accuracy: $100/N_c$', alpha=.5)
+			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess accuracy ($100/N_c$)', alpha=.5)
 
 		if not baselines_dict is None:
-			ax.plot(days, np.full_like(days, baselines_dict[metric_name]), ':', c='k', label='baseline (complete curves)')
+			ax.plot(days, np.full_like(days, baselines_dict[metric_name]), ':', c='k', label='FATS+BRF baseline (complete curves)')
 
 		title = f'{metric_name} v/s days - mode: {mode}'
 		title += f'\nsurvey: {survey} - bands: {band_names}'
@@ -95,7 +96,6 @@ def plot_mse(rootdir, model_names,
 		rsc = mn_dict['rsc']
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
-		color = color_dict[get_cmodel_name(model_name)]
 
 		metric_curve = []
 		for filedir in filedirs:
@@ -110,6 +110,7 @@ def plot_mse(rootdir, model_names,
 		xe_metric_curve = dstats.XError(np.log(metric_curve), 0)
 		mn_dict = strings.get_dict_from_string(model_name)
 		label = f'{mdl} {rsc}'
+		color = color_dict[utils.get_cmodel_name(model_name)]
 		ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
 		ax.fill_between(days, xe_metric_curve.p15, xe_metric_curve.p85, alpha=0.25, fc=color)
 

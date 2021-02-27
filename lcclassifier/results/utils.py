@@ -30,7 +30,7 @@ def get_mday_avg_str(metric_name, day_to_metric,
 def get_metric_along_day(days, rdict, metric_name, day_to_metric,
 	N=1e4,
 	):
-	interp_days = np.linspace(days[0], day_to_metric, int(N))
+	interp_days = np.linspace(days.min(), day_to_metric, int(N))
 	v = interp1d(days, rdict['days_class_metrics_df'][metric_name].values[:][None,:])(day_to_metric)[0]
 	vs = interp1d(days, rdict['days_class_metrics_df'][metric_name].values[:][None,:])(interp_days)[0]
 	return v, vs, interp_days
