@@ -3,13 +3,11 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-import warnings
 from flamingchoripan.files import search_for_filedirs, load_pickle
 import flamingchoripan.strings as strings
 from flamingchoripan.cuteplots.cm_plots import plot_custom_confusion_matrix
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-from scipy.ndimage import gaussian_filter1d
 import flamingchoripan.datascience.statistics as dstats
 from . import utils as utils
 
@@ -46,7 +44,8 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 				survey = rdict['survey']
 				band_names = ''.join(rdict['band_names'])
 				class_names = rdict['class_names']
-				metric_curve += [rdict['days_class_metrics_df'][metric_name].values[:][None,:]]
+				_, vs, interp_days = utils.get_metric_along_day(days, rdict, metric_name, days[-1])
+				metric_curve += [vs[None,:]]
 
 			metric_curve = np.concatenate(metric_curve, axis=0)
 			xe_metric_curve = dstats.XError(metric_curve, 0)
@@ -55,9 +54,9 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 			for label_key in label_keys:
 				if label_key in mn_dict.keys():
 					label += f' - {label_key}: {mn_dict[label_key]}'
-			label += f' (avg: {xe_curve_avg})'
-			ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
-			ax.fill_between(days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=0.25, fc=color)
+			label += f' ({utils.get_mday_avg_str(metric_name, days[-1])}={xe_curve_avg})'
+			ax.plot(interp_days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
+			ax.fill_between(interp_days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=0.25, fc=color)
 
 		is_accuracy = 'accuracy' in metric_name
 		random_guess = 100./len(class_names)
