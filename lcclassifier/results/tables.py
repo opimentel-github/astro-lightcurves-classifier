@@ -17,9 +17,9 @@ def get_df_table(rootdir, metric_names, model_names, day_to_metric, query_key, q
 	):
 	index_df = []
 	info_df = {}
-	for x in arch_modes:
+	for arch_mode in arch_modes:
 		for y in query_values:
-			info_df[f'{str(x)}-{str(y)}'] = []
+			info_df[f'{str(arch_mode)}-{str(y)}'] = []
 
 	for kax,mode in enumerate(['pre-training', 'fine-tuning']):
 		for kmn,model_name in enumerate(model_names):
@@ -39,7 +39,7 @@ def get_df_table(rootdir, metric_names, model_names, day_to_metric, query_key, q
 					day_metric_avg = []
 					for filedir in filedirs:
 						rdict = load_pickle(filedir, verbose=0)
-						model_name = rdict['model_name']
+						#model_name = rdict['model_name']
 						days = rdict['days']
 						survey = rdict['survey']
 						band_names = ''.join(rdict['band_names'])
@@ -50,7 +50,8 @@ def get_df_table(rootdir, metric_names, model_names, day_to_metric, query_key, q
 
 					xe_day_metric = dstats.XError(day_metric, 0)
 					xe_day_metric_avg = dstats.XError(day_metric_avg, 0)
-					key = f'{"Parallel" if is_parallel else "Serial"}-{mn_dict[query_key]}'
+					arch_mode = 'Parallel' if is_parallel else 'Serial'
+					key = f'{arch_mode}-{mn_dict[query_key]}'
 					info_df[key] += [xe_day_metric]
 					info_df[key] += [xe_day_metric_avg]
 

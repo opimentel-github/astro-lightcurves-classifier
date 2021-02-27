@@ -38,7 +38,7 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 			metric_curve = []
 			for filedir in filedirs:
 				rdict = load_pickle(filedir, verbose=0)
-				model_name = rdict['model_name']
+				#model_name = rdict['model_name']
 				days = rdict['days']
 				survey = rdict['survey']
 				band_names = ''.join(rdict['band_names'])
@@ -65,7 +65,7 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess accuracy ($100/N_c$)', alpha=.5)
 
 		if not baselines_dict is None:
-			ax.plot(days, np.full_like(days, baselines_dict[metric_name]), ':', c='k', label='FATS+BRF baseline (complete curves)')
+			ax.plot(days, np.full_like(days, baselines_dict[metric_name]), ':', c='k', label='FATS+BRF baseline (complete light curves)')
 
 		title = f'{metric_name} v/s days - mode: {mode}'
 		title += f'\nsurvey: {survey} - bands: {band_names}'
@@ -100,6 +100,7 @@ def plot_mse(rootdir, model_names,
 		metric_curve = []
 		for filedir in filedirs:
 			rdict = load_pickle(filedir, verbose=0)
+			#model_name = rdict['model_name']
 			days = rdict['days']
 			survey = rdict['survey']
 			band_names = ''.join(rdict['band_names'])

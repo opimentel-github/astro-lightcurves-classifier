@@ -41,6 +41,7 @@ def get_cmodel_name(model_name):
 	mn_dict = strings.get_dict_from_string(model_name)
 	mn_dict.pop('enc-emb')
 	mn_dict.pop('dec-emb')
+	mn_dict.pop('mode')
 	cmodel_name = '°'.join([f'{k}={mn_dict[k]}' for k in mn_dict.keys()])
 	cmodel_name = cmodel_name.replace('Parallel', '').replace('Serial', '')
 	return cmodel_name
@@ -77,4 +78,5 @@ def get_color_dict(model_names):
 		color_dict[cmodel_name] = colors[kmn]
 		#print(f'model_name: {model_name}')
 
+	print(color_dict)
 	return color_dict
