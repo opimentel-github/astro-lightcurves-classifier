@@ -17,9 +17,8 @@ class ModelCollections():
 		self.embd_dims = GDIter(64) # importante 60 80 100
 		self.embd_layers = GDIter(2)
 		self.rnn_cell_names = GDIter('GRU', 'LSTM')
-		#self.te_features_iter = GDIter(16)
-		self.te_features_iter = GDIter(2, 4, 8, 16, 32)
-		#self.te_features_iter = GDIter(8, 32, 4, 2)
+		self.te_features_iter = GDIter(32)
+		#self.te_features_iter = GDIter(2, 4, 8, 16, 32)
 		self.dropout_p = .3 # .1 .2 .25 .3
 		self.common_dict = {
 			'max_te_period':self.max_day*2,
