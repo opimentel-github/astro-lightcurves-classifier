@@ -60,7 +60,7 @@ class AttnTCNNEncoderP(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 		}
-		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1), self.te_features, self.max_te_period, **attn_kwargs) for b in self.band_names})
+		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeErrorSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1), self.te_features, self.max_te_period, **attn_kwargs) for b in self.band_names})
 		self.return_scores = False
 		print('ml_attn:', self.ml_attn)
 
@@ -99,7 +99,7 @@ class AttnTCNNEncoderP(nn.Module):
 			#p_z = self.ml_cnn[b](p_z.permute(0,2,1)).permute(0,2,1)
 
 			#p_z = self.attn_te_film(p_z, p_te) if self.te_features>0 else p_z
-			p_z, p_layer_scores = self.ml_attn[b](p_z, p_onehot, p_time[...,0])
+			p_z, p_layer_scores = self.ml_attn[b](p_z, p_onehot, p_time[...,0], error=model_input['error'])
 
 			### representative element
 			last_z_dic[b] = seq_utils.seq_last_element(p_z, p_onehot) # last element
@@ -168,7 +168,7 @@ class AttnTCNNEncoderS(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 		}
-		self.ml_attn = ft_attn.MLTimeSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1), self.te_features, self.max_te_period, **attn_kwargs)
+		self.ml_attn = ft_attn.MLTimeErrorSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1), self.te_features, self.max_te_period, **attn_kwargs)
 		self.return_scores = False
 		print('ml_attn:', self.ml_attn)
 
@@ -193,7 +193,7 @@ class AttnTCNNEncoderS(nn.Module):
 		#z = self.ml_cnn(z.permute(0,2,1)).permute(0,2,1)
 
 		#z = self.attn_te_film(z, model_input['te']) if self.te_features>0 else z
-		z, layer_scores = self.ml_attn(z, s_onehot, model_input['time'][...,0])
+		z, layer_scores = self.ml_attn(z, s_onehot, model_input['time'][...,0], error=model_input['error'])
 
 		### representative element
 		last_z = seq_utils.seq_last_element(z, s_onehot) # last element
