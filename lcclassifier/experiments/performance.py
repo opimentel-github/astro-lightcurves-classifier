@@ -41,6 +41,7 @@ def metrics_along_days(train_handler, data_loader,
 	days_class_metrics_df = []
 	days_class_metrics_cdf = {c:[] for c in dataset.class_names}
 	days_cm = {}
+	wrong_samples = {}
 	with torch.no_grad():
 		can_be_in_loop = True
 		for day in days: # along days
@@ -91,8 +92,6 @@ def metrics_along_days(train_handler, data_loader,
 					y_target = y_target.cpu().numpy() # cpu-numpy
 					y_pred_p = y_pred_p.cpu().numpy() # cpu-numpy
 					y_pred = np.argmax(y_pred_p, axis=-1)
-					#accuracy = (y_target==y_pred).astype(np.float)*100
-					#print('accuracy', accuracy.shape, np.mean(accuracy))
 
 					met_kwargs = {
 						'pred_is_onehot':False,
@@ -114,8 +113,17 @@ def metrics_along_days(train_handler, data_loader,
 						day_df = pd.DataFrame.from_dict(d)
 						days_class_metrics_cdf[c].append(day_df)
 
-					### progress bar
+					### cm
 					days_cm[day] = cm
+
+					### wrong samples
+					lcobj_names = dataset.get_lcobj_names()
+					wrong_classification = ~(y_target==y_pred)
+					assert len(lcobj_names)==len(wrong_classification)
+					wrong_samples[day] = [(lcobj_names[kwc], dataset.class_names[y_target[kwc]]) for kwc,wc in enumerate(wrong_classification) if wc]
+					#print('accuracy', accuracy.shape, np.mean(accuracy))
+
+					### progress bar
 					recall = metrics_cdict['recall']
 					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'mse_loss: {mse_loss}', f'metrics_dict: {metrics_dict}', f'recall: {recall}'])
 					#break # dummy
@@ -139,6 +147,7 @@ def metrics_along_days(train_handler, data_loader,
 		'days_class_metrics_df':days_class_metrics_df,
 		'days_class_metrics_cdf':days_class_metrics_cdf,
 		'days_cm':days_cm,
+		'wrong_samples':wrong_samples,
 
 		'complete_save_roodir':complete_save_roodir,
 		'model_name':train_handler.model.get_name(),

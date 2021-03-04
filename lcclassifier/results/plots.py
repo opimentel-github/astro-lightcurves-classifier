@@ -17,6 +17,7 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 	label_keys=[],
 	figsize=C_.PLOT_FIGZISE_RECT,
 	fext='metrics',
+	mode='fine-tuning',
 	set_name='???',
 	p=15,
 	alpha=0.2,
@@ -24,43 +25,51 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 	fig, axs = plt.subplots(1, 2, figsize=figsize)
 	color_dict = utils.get_color_dict(model_names)
 
-	for kax,mode in enumerate(['pre-training', 'fine-tuning']):
-		ax = axs[kax]
-		for kmn,model_name in enumerate(model_names):
-			new_rootdir = f'{rootdir}/{mode}/{model_name}'
-			new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
-			new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
-			filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
-			print(f'[{kmn}][{len(filedirs)}#] {model_name}')
-			mn_dict = strings.get_dict_from_string(model_name)
-			rsc = mn_dict['rsc']
-			mdl = mn_dict['mdl']
-			is_parallel = 'Parallel' in mdl
+	#for kax,mode in enumerate(['fine-tuning']):
+	#for kax,mode in enumerate(['pre-training', 'fine-tuning']):
+	#ax = axs[kax]
+	for kmn,model_name in enumerate(model_names):
+		new_rootdir = f'{rootdir}/{mode}/{model_name}'
+		new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
+		new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
+		filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
+		print(f'[{kmn}][{len(filedirs)}#] {model_name}')
+		mn_dict = strings.get_dict_from_string(model_name)
+		rsc = mn_dict['rsc']
+		mdl = mn_dict['mdl']
+		is_parallel = 'Parallel' in mdl
+		ax = axs[int(not is_parallel)]
 
-			metric_curve = []
-			for filedir in filedirs:
-				rdict = load_pickle(filedir, verbose=0)
-				#model_name = rdict['model_name']
-				days = rdict['days']
-				survey = rdict['survey']
-				band_names = ''.join(rdict['band_names'])
-				class_names = rdict['class_names']
-				_, vs, interp_days = utils.get_metric_along_day(days, rdict, metric_name, days[-1])
-				metric_curve += [vs[None,:]]
+		metric_curve = []
+		for filedir in filedirs:
+			rdict = load_pickle(filedir, verbose=0)
+			#model_name = rdict['model_name']
+			days = rdict['days']
+			survey = rdict['survey']
+			band_names = ''.join(rdict['band_names'])
+			class_names = rdict['class_names']
+			_, vs, interp_days = utils.get_metric_along_day(days, rdict, metric_name, days[-1])
+			metric_curve += [vs[None,:]]
 
-			metric_curve = np.concatenate(metric_curve, axis=0)
-			xe_metric_curve = XError(metric_curve, 0)
-			xe_curve_avg = XError(np.mean(metric_curve, axis=-1), 0)
-			label = f'{mdl}'
-			for label_key in label_keys:
-				if label_key in mn_dict.keys():
-					label += f' - {label_key}={mn_dict[label_key]}'
-			#label += f' ({utils.get_mday_avg_str(metric_name, days[-1])}={xe_curve_avg})'
-			label += f' ({xe_curve_avg}*)'
-			color = color_dict[utils.get_cmodel_name(model_name)] if rsc=='0' else 'k'
-			ax.plot(interp_days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
-			ax.fill_between(interp_days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=alpha, fc=color)
+		metric_curve = np.concatenate(metric_curve, axis=0)
+		xe_metric_curve = XError(metric_curve, 0)
+		xe_curve_avg = XError(np.mean(metric_curve, axis=-1), 0)
+		label = f'{mdl}'
+		for label_key in label_keys:
+			if label_key in mn_dict.keys():
+				label += f' - {label_key}={mn_dict[label_key]}'
+		#label += f' ({utils.get_mday_avg_str(metric_name, days[-1])}={xe_curve_avg})'
+		label += f' ({xe_curve_avg}*)'
+		color = color_dict[utils.get_cmodel_name(model_name)] if rsc=='0' else 'k'
+		ax.plot(interp_days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
+		ax.fill_between(interp_days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=alpha, fc=color)
 
+	title = f'{metric_name} v/s days - mode: {mode} - eval: {set_name}\n'
+	title += f'survey: {survey} - bands: {band_names}\n'
+	#ax.set_title(title)
+	fig.suptitle(title[:-1], va='bottom')
+
+	for kax,ax in enumerate(axs):
 		is_accuracy = 'accuracy' in metric_name
 		random_guess = 100./len(class_names)
 		if is_accuracy:
@@ -69,14 +78,13 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 		if not baselines_dict is None:
 			ax.plot(days, np.full_like(days, baselines_dict[metric_name]), ':', c='k', label='FATS+BRF baseline (complete light curves)')
 
-		title = f'{metric_name} v/s days - mode: {mode} - eval: {set_name}'
-		title += f'\nsurvey: {survey} - bands: {band_names}'
-		#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
-		ax.set_title(title)
 		ax.set_xlabel('days')
-		ax.set_ylabel(metric_name if kax==0 else None)
+		ax.set_ylabel(metric_name)
+		if kax==1:
+			ax.set_ylabel(None)
+			ax.set_yticklabels([])
 		ax.set_xlim([days.min(), days.max()])
-		ax.set_ylim([random_guess*.9, 100] if is_accuracy else [0, 1])
+		ax.set_ylim([random_guess*.95, 100] if is_accuracy else [0, 1])
 		ax.grid(alpha=0.5)
 		ax.legend(loc='lower right')
 
@@ -88,54 +96,53 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 def plot_cm(rootdir, model_names, day_to_metric,
 	figsize=C_.PLOT_FIGZISE_RECT,
 	fext='metrics',
+	mode='fine-tuning',
 	lcset_name='???',
 	):
 	for kmn,model_name in enumerate(model_names):
 		#fig, axs = plt.subplots(1, 2, figsize=figsize)
-		for kax,mode in enumerate(['pre-training', 'fine-tuning']):
-			#ax = axs[kax]
-			new_rootdir = f'{rootdir}/{mode}/{model_name}'
-			new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
-			new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
-			filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
-			print(f'[{kmn}] {model_name} (iters: {len(filedirs)})')
-			mn_dict = strings.get_dict_from_string(model_name)
-			rsc = mn_dict['rsc']
-			mdl = mn_dict['mdl']
-			is_parallel = 'Parallel' in mdl
+		#ax = axs[kax]
+		new_rootdir = f'{rootdir}/{mode}/{model_name}'
+		new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
+		new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
+		filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
+		print(f'[{kmn}][{len(filedirs)}#] {model_name}')
+		mn_dict = strings.get_dict_from_string(model_name)
+		rsc = mn_dict['rsc']
+		mdl = mn_dict['mdl']
+		is_parallel = 'Parallel' in mdl
 
-			cms = []
-			accuracy = []
-			f1score = []
-			for filedir in filedirs:
-				rdict = load_pickle(filedir, verbose=0)
-				#model_name = rdict['model_name']
-				days = rdict['days']
-				survey = rdict['survey']
-				band_names = ''.join(rdict['band_names'])
-				class_names = rdict['class_names']
-				cms += [rdict['days_cm'][day_to_metric][None,...]]
-				v, _, _ = utils.get_metric_along_day(days, rdict, 'b-accuracy', day_to_metric)
-				accuracy += [v]
-				v, _, _ = utils.get_metric_along_day(days, rdict, 'b-f1score', day_to_metric)
-				f1score += [v]
+		cms = []
+		accuracy = []
+		f1score = []
+		for filedir in filedirs:
+			rdict = load_pickle(filedir, verbose=0)
+			#model_name = rdict['model_name']
+			days = rdict['days']
+			survey = rdict['survey']
+			band_names = ''.join(rdict['band_names'])
+			class_names = rdict['class_names']
+			cms += [rdict['days_cm'][day_to_metric][None,...]]
+			v, _, _ = utils.get_metric_along_day(days, rdict, 'b-accuracy', day_to_metric)
+			accuracy += [v]
+			v, _, _ = utils.get_metric_along_day(days, rdict, 'b-f1score', day_to_metric)
+			f1score += [v]
 
-			accuracy_xe = XError(accuracy)
-			f1score_xe = XError(f1score)
-			title = ''
-			#title = f'train set: {"no-method" if train_config=="r" else train_lcset_name}'
-			title += f'{mn_dict["mdl"]} - mode: {mode} - eval: {lcset_name}\n'
-			title += f'b-accuracy: {accuracy_xe}\n'
-			title += f'b-f1score: {f1score_xe}\n'
-			cm_kwargs = {
-				#'fig':fig,
-				#'ax':ax,
-			    'title':title[:-1],
-			    'figsize':(6,5),
-			    'new_order_classes':['SNIa', 'SNIbc', 'allSNII', 'SLSN'],
-			}
-			fig, ax = plot_custom_confusion_matrix(np.concatenate(cms, axis=0), class_names, **cm_kwargs)
-			plt.show()
+		accuracy_xe = XError(accuracy)
+		f1score_xe = XError(f1score)
+		title = ''
+		title += f'{mn_dict["mdl"]} - eval: {lcset_name}\n'
+		title += f'b-f1score: {f1score_xe}\n'
+		title += f'b-accuracy: {accuracy_xe}\n'
+		cm_kwargs = {
+			#'fig':fig,
+			#'ax':ax,
+		    'title':title[:-1],
+		    'figsize':(6,5),
+		    'new_order_classes':['SNIa', 'SNIbc', 'allSNII', 'SLSN'],
+		}
+		fig, ax = plot_custom_confusion_matrix(np.concatenate(cms, axis=0), class_names, **cm_kwargs)
+		plt.show()
 
 		#title = 'log-reconstruction-wmse v/s days'
 		#title += f'\nsurvey: {survey} - bands: {band_names}'
@@ -182,10 +189,9 @@ def plot_mse(rootdir, model_names,
 		ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
 		ax.fill_between(days, xe_metric_curve.p15, xe_metric_curve.p85, alpha=0.25, fc=color)
 
-	title = 'log-reconstruction-wmse v/s days'
-	title += f'\nsurvey: {survey} - bands: {band_names}'
-	#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
-	ax.set_title(title)
+	title = 'log-reconstruction-wmse v/s days\n'
+	title += f'survey: {survey} - bands: {band_names}\n'
+	ax.set_title(title[:-1])
 	ax.set_xlabel('days')
 	ax.set_ylabel('mse')
 	ax.set_xlim([days.min(), days.max()])

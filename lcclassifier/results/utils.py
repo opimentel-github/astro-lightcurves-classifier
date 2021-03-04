@@ -57,11 +57,14 @@ def filter_models(model_names, condition_dict):
 	new_model_names = []
 	for model_name in model_names:
 		mn_dict = strings.get_dict_from_string(model_name)
+		conds = []
 		for c in condition_dict.keys():
 			value = mn_dict.get(c, None)
 			acceptable_values = condition_dict[c]
-			if value in acceptable_values:
-				new_model_names += [model_name]
+			conds += [value in acceptable_values]
+		
+		if all(conds):
+			new_model_names += [model_name]
 
 	return new_model_names
 
@@ -78,5 +81,5 @@ def get_color_dict(model_names):
 		color_dict[cmodel_name] = colors[kmn]
 		#print(f'model_name: {model_name}')
 
-	print(color_dict)
+	#print(color_dict)
 	return color_dict
