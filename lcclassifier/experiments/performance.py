@@ -120,7 +120,7 @@ def metrics_along_days(train_handler, data_loader,
 					lcobj_names = dataset.get_lcobj_names()
 					wrong_classification = ~(y_target==y_pred)
 					assert len(lcobj_names)==len(wrong_classification)
-					wrong_samples[day] = [(lcobj_names[kwc], dataset.class_names[y_target[kwc]]) for kwc,wc in enumerate(wrong_classification) if wc]
+					wrong_samples[day] = [{'lcobj_name':lcobj_names[kwc], 'y_target':dataset.class_names[y_target[kwc]], 'y_pred':dataset.class_names[y_pred[kwc]]} for kwc,wc in enumerate(wrong_classification) if wc]
 					#print('accuracy', accuracy.shape, np.mean(accuracy))
 
 					### progress bar
@@ -156,6 +156,13 @@ def metrics_along_days(train_handler, data_loader,
 		'class_names':dataset.class_names,
 		'parameters':count_parameters(train_handler.model),
 	}
+	if :
+		results.update({
+			'error_a':error_a.cpu().numpy(), # cpu-numpy
+			'error_b':error_b.cpu().numpy(), # cpu-numpy
+			'min_error':min_error,
+			'max_error':max_error,
+			})
 	for lmonitor in train_handler.lmonitors:
 		results[lmonitor.name] = {
 			'save_dict':lmonitor.get_save_dict(),

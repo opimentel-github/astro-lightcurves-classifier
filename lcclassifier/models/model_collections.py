@@ -19,6 +19,7 @@ class ModelCollections():
 		self.rnn_cell_names = GDIter('GRU', 'LSTM')
 		#self.te_features_iter = GDIter(32)
 		self.te_features_iter = GDIter(32, 4, 8, 16)
+		#self.te_features_iter = GDIter(16, 4, 64)
 		self.dropout_p = .3 # .1 .2 .25 .3
 		self.common_dict = {
 			'max_te_period':self.max_day*2,

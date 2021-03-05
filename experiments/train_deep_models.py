@@ -179,7 +179,7 @@ if __name__== '__main__':
 
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.75e-3,
+					'lr':.8e-3,
 					#'betas':(0.9999, 0.9999),
 				},
 				#'decay_kwargs':{
@@ -289,7 +289,7 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':1.1e-2,
+					'lr':1.5e-2,
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -346,8 +346,8 @@ if __name__== '__main__':
 				'classifier_key':'y.last-ft',
 			}
 			#metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **ft_exp_kwargs) # sanity check / slow
-			#metrics_along_days(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
-			metrics_along_days(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow
+			metrics_along_days(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
+			#metrics_along_days(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow
 			metrics_along_days(ft_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **ft_exp_kwargs)
 			metrics_along_days(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **ft_exp_kwargs)
 
