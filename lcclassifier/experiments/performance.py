@@ -156,13 +156,6 @@ def metrics_along_days(train_handler, data_loader,
 		'class_names':dataset.class_names,
 		'parameters':count_parameters(train_handler.model),
 	}
-	if :
-		results.update({
-			'error_a':error_a.cpu().numpy(), # cpu-numpy
-			'error_b':error_b.cpu().numpy(), # cpu-numpy
-			'min_error':min_error,
-			'max_error':max_error,
-			})
 	for lmonitor in train_handler.lmonitors:
 		results[lmonitor.name] = {
 			'save_dict':lmonitor.get_save_dict(),

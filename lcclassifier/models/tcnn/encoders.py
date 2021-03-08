@@ -38,12 +38,12 @@ class TCNNEncoderP(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'cnn_kwargs':{
-				'kernel_size':5,
+				'kernel_size':7,
 				'stride':1,
 				'dilation':1,
 			},
 			'pool_kwargs':{
-				'kernel_size':2,
+				'kernel_size':1,
 				'stride':1,
 				'dilation':1,
 			},

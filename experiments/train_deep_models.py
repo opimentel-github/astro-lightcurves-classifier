@@ -179,14 +179,14 @@ if __name__== '__main__':
 
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.8e-3,
+					'lr':.99e-3,
 					#'betas':(0.9999, 0.9999),
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
 				#}
 			}
-			pt_optimizer = LossOptimizer(model, optims.AdamW, **pt_optimizer_kwargs) # Adagrad Adadelta RMSprop Adam AdamW
+			pt_optimizer = LossOptimizer(model, optims.Adam, **pt_optimizer_kwargs) # Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -197,7 +197,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':20, # 10 15 20 25 30
+				'earlystop_epoch_duration':30, # 10 15 20 25 30
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -226,7 +226,8 @@ if __name__== '__main__':
 			pt_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			if ki==0:
 				print(pt_model_train_handler)
-			pt_model_train_handler.fit_loader(s_train_loader, s_val_loader) # main fit
+			#pt_model_train_handler.fit_loader(s_train_loader, s_val_loader) # main fit
+			pt_model_train_handler.fit_loader(s_train_loader, r_val_loader) # main fit
 
 			###################################################################################################################################################
 			import fuzzytorch
@@ -249,8 +250,8 @@ if __name__== '__main__':
 				'target_is_onehot':False,
 				'classifier_key':'y.last',
 			}
-			#reconstructions_m(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
-			#reconstructions_m(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
+			reconstructions_m(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
+			reconstructions_m(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
 			reconstructions_m(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
 			reconstructions_m(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
 			reconstructions_m(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
@@ -289,7 +290,7 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':1.5e-2,
+					'lr':5.e-2,
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -305,8 +306,8 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':150,
+				'val_epoch_counter_duration':1, # every k epochs check
+				'earlystop_epoch_duration':200,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,

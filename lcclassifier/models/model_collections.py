@@ -14,15 +14,15 @@ class ModelCollections():
 	def __init__(self, lcdataset):
 		self.lcdataset = lcdataset
 		self.max_day = C_.MAX_DAY
-		self.embd_dims = GDIter(64) # importante 60 80 100
-		self.embd_layers = GDIter(2)
+		self.embd_dims = GDIter(32) # importante 60 80 100
+		self.embd_layers = GDIter(3)
 		self.rnn_cell_names = GDIter('GRU', 'LSTM')
 		#self.te_features_iter = GDIter(32)
-		self.te_features_iter = GDIter(32, 4, 8, 16)
-		#self.te_features_iter = GDIter(16, 4, 64)
-		self.dropout_p = .3 # .1 .2 .25 .3
+		#self.te_features_iter = GDIter(32, 4, 8, 16)
+		self.te_features_iter = GDIter(16, 4, 64)
+		self.dropout_p = .2 # .1 .2 .25 .3
 		self.common_dict = {
-			'max_te_period':self.max_day*2,
+			'max_te_period':self.max_day*1.5,
 			'band_names':lcdataset['raw'].band_names,
 			'output_dims':len(lcdataset['raw'].class_names),
 		}
@@ -36,7 +36,7 @@ class ModelCollections():
 			'class_mdl_kwargs':{
 				'C':mclass.SimpleClassifier,
 				'embd_layers':1, # 1 2
-				'dropout':{'p':.5}, # .2 .25
+				'dropout':{'p':.4}, # .2 .25
 			},
 		}
 		self.reset()
@@ -82,8 +82,8 @@ class ModelCollections():
 	def update_te(self, gs):
 		gs.update({
 			'dataset_kwargs':{
-				#'in_attrs':['obs', 'obse'],
-				'in_attrs':['obs'],
+				'in_attrs':['obs', 'obse'],
+				#'in_attrs':['obs'],
 				'rec_attr':'obs',
 				'max_day':self.max_day,
 				'te_features':self.te_features_iter,
