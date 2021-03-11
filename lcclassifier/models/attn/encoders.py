@@ -56,7 +56,7 @@ class AttnTCNNEncoderP(nn.Module):
 
 		### ATTN
 		attn_kwargs = {
-			'num_heads':2,
+			'num_heads':4,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 		}
@@ -165,7 +165,7 @@ class AttnTCNNEncoderS(nn.Module):
 
 		### ATTN
 		attn_kwargs = {
-			'num_heads':2,
+			'num_heads':4,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 		}

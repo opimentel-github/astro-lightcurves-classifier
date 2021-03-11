@@ -26,7 +26,7 @@ class SimpleClassifier(nn.Module):
 		print('classifier_mlp:', self.classifier_mlp)
 
 		### MLP
-		self.embd_dims_list = [self.input_dims*3]*self.embd_layers
+		self.embd_dims_list = [self.input_dims*2]*self.embd_layers
 		self.classifier_mlp_ft = MLP(self.input_dims, self.output_dims, self.embd_dims_list, **mlp_kwargs)
 		print('classifier_mlp_ft:', self.classifier_mlp_ft)
 

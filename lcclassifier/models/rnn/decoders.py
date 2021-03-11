@@ -43,7 +43,7 @@ class RNNDecoderP(nn.Module):
 			'dropout':self.dropout['p'],
 			'activation':'linear',
 		}
-		self.dz_projection = nn.ModuleDict({b:MLP(self.rnn_embd_dims, 1, [self.rnn_embd_dims]*1, **mlp_kwargs) for b in self.band_names})
+		self.dz_projection = nn.ModuleDict({b:MLP(self.rnn_embd_dims, 1, [self.rnn_embd_dims]*0, **mlp_kwargs) for b in self.band_names})
 		print('dz_projection:', self.dz_projection)
 
 	def get_output_dims(self):

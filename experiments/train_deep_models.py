@@ -19,7 +19,7 @@ if __name__== '__main__':
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
-	parser.add_argument('-mids',  type=str, default='0-5', help='initial_id-final_id')
+	parser.add_argument('-mids',  type=str, default='0-3', help='initial_id-final_id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
 	parser.add_argument('-rsc',  type=int, default=0, help='random_subcrops')
 	parser.add_argument('-upc',  type=int, default=True, help='uses_precompute')
@@ -179,14 +179,14 @@ if __name__== '__main__':
 
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.99e-3,
+					'lr':.9e-3,
 					#'betas':(0.9999, 0.9999),
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
 				#}
 			}
-			pt_optimizer = LossOptimizer(model, optims.Adam, **pt_optimizer_kwargs) # Adagrad Adadelta RMSprop Adam AdamW
+			pt_optimizer = LossOptimizer(model, optims.Adam, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -197,7 +197,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':30, # 10 15 20 25 30
+				'earlystop_epoch_duration':18, # 10 15 20 25 30
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -290,13 +290,13 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':5.e-2,
+					'lr':.75e-3, # 5e-2
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
 				#}
 			}
-			ft_optimizer = LossOptimizer(model.get_classifier_model(), optims.SGD, **ft_optimizer_kwargs)
+			ft_optimizer = LossOptimizer(model.get_classifier_model(), optims.Adam, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -307,7 +307,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':1, # every k epochs check
-				'earlystop_epoch_duration':200,
+				'earlystop_epoch_duration':80,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
