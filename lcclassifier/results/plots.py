@@ -19,7 +19,7 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 	fext='metrics',
 	mode='fine-tuning',
 	set_name='???',
-	p=15,
+	p=C_.P_PLOT,
 	alpha=0.2,
 	):
 	fig, axs = plt.subplots(1, 2, figsize=figsize)
@@ -64,8 +64,8 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 		ax.plot(interp_days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
 		ax.fill_between(interp_days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=alpha, fc=color)
 
-	title = f'{metric_name} v/s days - mode: {mode} - eval: {set_name}\n'
-	title += f'survey: {survey} - bands: {band_names}\n'
+	title = f'{metric_name} v/s days\n'
+	title += f'mode={mode} - eval={set_name} - survey={survey} - bands={band_names}\n'
 	#ax.set_title(title)
 	fig.suptitle(title[:-1], va='bottom')
 
@@ -131,9 +131,9 @@ def plot_cm(rootdir, model_names, day_to_metric,
 		accuracy_xe = XError(accuracy)
 		f1score_xe = XError(f1score)
 		title = ''
-		title += f'{mn_dict["mdl"]} - eval: {lcset_name}\n'
-		title += f'b-f1score: {f1score_xe}\n'
-		title += f'b-accuracy: {accuracy_xe}\n'
+		title += f'{mn_dict["mdl"]} - eval={lcset_name}\n'
+		title += f'b-f1score={f1score_xe}\n'
+		title += f'b-accuracy={accuracy_xe}\n'
 		cm_kwargs = {
 			#'fig':fig,
 			#'ax':ax,

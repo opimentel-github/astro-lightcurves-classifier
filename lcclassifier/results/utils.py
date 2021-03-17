@@ -71,7 +71,8 @@ def filter_models(model_names, condition_dict):
 def get_color_dict(model_names):
 	cmodel_names = []
 	for kmn,model_name in enumerate(model_names):
-		cmodel_names += [get_cmodel_name(model_name)]
+		if 'rsc=0' in model_name:
+			cmodel_names += [get_cmodel_name(model_name)]
 
 	cmodel_names = list(set(cmodel_names))
 	colors = cc.colors()

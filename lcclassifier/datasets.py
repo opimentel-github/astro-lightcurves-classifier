@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler, QuantileTransformer
 from .scalers import LogStandardScaler, LogQuantileTransformer
 import flamingchoripan.strings as strings
 from joblib import Parallel, delayed
-from flamingchoripan.lists import get_list_chunks, get_random_subsampled_list
+from flamingchoripan.lists import get_list_chunks, get_random_subsampled_list, get_random_item
 from flamingchoripan.progress_bars import ProgressBar
 from fuzzytorch.utils import print_tdict
 import fuzzytorch.models.seq_utils as seq_utils
@@ -70,7 +70,7 @@ class CustomDataset(Dataset):
 
 	def reset(self):
 		self.training = False
-		self.precomputed_tdict = []
+		self.precomputed_dict = {}
 		self.band_names = self.lcset.band_names
 		self.class_names = self.lcset.class_names
 		self.survey = self.lcset.survey
@@ -141,7 +141,7 @@ class CustomDataset(Dataset):
 
 	def calcule_poblation_weights(self):
 		self.populations_cdict = self.lcset.get_populations_cdict()
-		self.poblation_weights = self.lcset.get_class_effective_weigths_cdict(1-self.effective_beta_eps) # get_class_freq_weights_cdict get_class_effective_weigths_cdict
+		#self.poblation_weights = self.lcset.get_class_effective_weigths_cdict(1-self.effective_beta_eps) # get_class_freq_weights_cdict get_class_effective_weigths_cdict
 
 	def generate_balanced_lcobj_names(self):
 		#print('generate_balanced_lcobj_names')
@@ -170,7 +170,6 @@ class CustomDataset(Dataset):
 			'te_periods':f'{self.te_periods}',
 			'in_attrs':self.in_attrs,
 			'rec_attr':self.rec_attr,
-			'poblation_weights':self.poblation_weights,
 			}, ', ', '=')
 		txt += ')'
 		return txt
@@ -276,7 +275,7 @@ class CustomDataset(Dataset):
 	
 	def train(self):
 		self.training = True
-		self.generate_balanced_lcobj_names()
+		self.generate_balanced_lcobj_names() # important
 
 	def eval(self):
 		self.training = False
@@ -290,12 +289,12 @@ class CustomDataset(Dataset):
 			return self.lcset.get_lcobj_names()
 
 	def has_precomputed_samples(self):
-		return len(self.precomputed_tdict)>0
+		return len(self.precomputed_dict.keys())>0
 
 	def get_random_stratified_lcobj_names(self,
 		nc=2,
 		):
-		# stratified
+		# stratified, mostly used for images in experiments
 		lcobj_names = []
 		random_ndict = self.lcset.get_random_stratified_lcobj_names(nc)
 		for c in self.class_names:
@@ -303,46 +302,70 @@ class CustomDataset(Dataset):
 		return lcobj_names
 
 	def __len__(self):
-		uses_precomputed_samples = self.has_precomputed_samples() and self.uses_precomputed_samples
 		lcobj_names = self.get_lcobj_names()
-		return len(self.precomputed_tdict) if uses_precomputed_samples else len(lcobj_names)
+		return len(lcobj_names)
 
 	def __getitem__(self, idx:int):
-		uses_precomputed_samples = self.has_precomputed_samples() and self.uses_precomputed_samples
 		lcobj_names = self.get_lcobj_names()
-		return self.precomputed_tdict[idx] if uses_precomputed_samples else self.get_item(lcobj_names[idx])
+		lcobj_name = lcobj_names[idx]
+		if self.training:
+			if self.has_precomputed_samples():
+				return get_random_item(self.precomputed_dict[lcobj_name])
+			else:
+				return self.get_item(self.lcset[lcobj_name].copy(), uses_daugm=True)
+		else:
+			return self.get_item(self.lcset[lcobj_name].copy(), uses_daugm=False)
 
-	def precompute_samples(self, precomputed_copies,
+	'''
+	def xxx(self, precomputed_copies,
 		n_jobs=C_.N_JOBS,
 		chunk_size=C_.CHUNK_SIZE,
 		backend=C_.JOBLIB_BACKEND,
 		):
 		chunk_size = n_jobs if chunk_size is None else chunk_size
 
-		def job(lcobj_name):
-			return [self.get_item(lcobj_name, uses_daugm=True) for _ in range(precomputed_copies)]
+		def job(lcobj):
+			return [self.get_item(lcobj, uses_daugm=True) for _ in range(precomputed_copies)]
 
 		lcobj_names = self.get_lcobj_names()
 		chunks = get_list_chunks(lcobj_names, chunk_size)
 		bar = ProgressBar(len(chunks))
-		for kc,chunk in enumerate(chunks):
+		for k,chunk in enumerate(chunks):
 			bar(f'{self.lcset_name} {chunk}')
-			results = Parallel(n_jobs=n_jobs, backend=backend)([delayed(job)(lcobj_name) for lcobj_name in chunk]) # None threading 
-			for r in results:
-				self.precomputed_tdict += r
+			results = Parallel(n_jobs=n_jobs, backend=backend)([delayed(job)() for lcobj_name in chunk]) # None threading
+			for lcobj_name,r in zip(chunk,results):
+				self.precomputed_dict[lcobj_name] = r
+
+		bar.done()
+	'''
+
+	def precompute_samples(self, precomputed_copies,
+		n_jobs=C_.N_JOBS,
+		backend=C_.JOBLIB_BACKEND,
+		):
+		def job(lcobj):
+			return self.get_item(lcobj, uses_daugm=True)
+
+		lcobj_names = self.get_lcobj_names()
+		bar = ProgressBar(len(lcobj_names))
+		for k,lcobj_name in enumerate(lcobj_names):
+			bar(f'{lcobj_name}')
+			results = Parallel(n_jobs=n_jobs, backend=backend)([delayed(job)(self.lcset[lcobj_name_].copy()) for lcobj_name_ in [lcobj_name]*precomputed_copies])
+			self.precomputed_dict[lcobj_name] = results
+
 		bar.done()
 
-	def get_item(self, lcobj_name,
+
+	def get_item(self, lcobj,
 		uses_daugm=False,
 		uses_len_clip=True,
 		return_lcobjs=False,
 		):
-		### get and copy object
-		lcobj = self.lcset[lcobj_name].copy() # important to copy!!!!
-
-		### apply data augmentation, this overrides obj information
-		#if uses_daugm:
-		if self.training:
+		'''
+		apply data augmentation, this overrides obj information
+		be sure to copy the input lcobj!!!!
+		'''
+		if uses_daugm:
 			for b in lcobj.bands:
 				lcobjb = lcobj.get_b(b)
 				lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise

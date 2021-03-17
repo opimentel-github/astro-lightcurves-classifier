@@ -7,11 +7,11 @@ EPS = 1e-5
 
 ### JOBLIB
 JOBLIB_BACKEND = 'threading' # loky threading
-N_JOBS = 6 # The number of jobs to use for the computation. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all CPUs but one are used.
+N_JOBS = 10 # The number of jobs to use for the computation. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all CPUs but one are used.
 CHUNK_SIZE = N_JOBS*1
 
 ### SYNTHETIC
-OBSE_STD_SCALE = 1/2 # 2 3 5 10 important
+OBSE_STD_SCALE = 1/3 # 2 3 5 10 important
 CPDS_P = 10./100. # curve points down sampling probability
 HOURS_NOISE_AMP = 5.
 
@@ -24,6 +24,7 @@ DEFAULT_MIN_DAY = 2.
 MAX_DAY = 150.
 
 ### PLOTS
+P_PLOT = 25
 DEFAULT_FIGSIZE_BOX = (10,10)
 DEFAULT_FIGSIZE_REC = (10,3)
 PLOT_FIGZISE_CM = (7,5)

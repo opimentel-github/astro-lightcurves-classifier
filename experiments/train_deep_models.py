@@ -15,14 +15,13 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=128, help='batch_size')
+	parser.add_argument('-batch_size',  type=int, default=128*2, help='batch_size')
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
-	parser.add_argument('-mids',  type=str, default='0-3', help='initial_id-final_id')
+	parser.add_argument('-mids',  type=str, default='0-10', help='initial_id-final_id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
 	parser.add_argument('-rsc',  type=int, default=0, help='random_subcrops')
-	parser.add_argument('-upc',  type=int, default=True, help='uses_precompute')
 	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
 	print_big_bar()
@@ -110,59 +109,57 @@ if __name__== '__main__':
 	from lcclassifier.datasets import CustomDataset
 	from lcclassifier.dataloaders import CustomDataLoader
 
+	### IDS
 	previous_dataset_kwargs = None
-	for mp_grid in model_collections.mps:
-		### DATASETS
-		dataset_kwargs = mp_grid['dataset_kwargs']
+	ki, kf = [int(k) for k in main_args.mids.split('-')]
+	model_ids = list(range(ki, kf))
+	for ki,model_id in enumerate(model_ids): # IDS
+		for mp_grid in model_collections.mps:
 
-		s_train_dataset = CustomDataset(lcdataset, f'{main_args.kf}@train.{main_args.method}', **dataset_kwargs)
-		s_val_dataset = CustomDataset(lcdataset, f'{main_args.kf}@val.{main_args.method}', **dataset_kwargs)
-		r_train_dataset = CustomDataset(lcdataset, f'{main_args.kf}@train', **dataset_kwargs)
-		r_val_dataset = CustomDataset(lcdataset, f'{main_args.kf}@val', **dataset_kwargs)
-		r_test_dataset = CustomDataset(lcdataset, f'{main_args.kf}@test', **dataset_kwargs)
+			### DATASETS
+			dataset_kwargs = mp_grid['dataset_kwargs']
+			s_train_dataset = CustomDataset(lcdataset, f'{main_args.kf}@train.{main_args.method}', **dataset_kwargs)
+			s_val_dataset = CustomDataset(lcdataset, f'{main_args.kf}@val.{main_args.method}', **dataset_kwargs)
+			r_train_dataset = CustomDataset(lcdataset, f'{main_args.kf}@train', **dataset_kwargs)
+			r_val_dataset = CustomDataset(lcdataset, f'{main_args.kf}@val', **dataset_kwargs)
+			r_test_dataset = CustomDataset(lcdataset, f'{main_args.kf}@test', **dataset_kwargs)
 
-		mp_grid['mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
-		mp_grid['dec_mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
-		s_train_dataset.transfer_metadata_to(s_val_dataset) # transfer metadata to val/test
-		s_train_dataset.transfer_metadata_to(r_train_dataset) # transfer metadata to val/test
-		s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
-		s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
+			mp_grid['mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
+			mp_grid['dec_mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
+			s_train_dataset.transfer_metadata_to(s_val_dataset) # transfer metadata to val/test
+			s_train_dataset.transfer_metadata_to(r_train_dataset) # transfer metadata to val/test
+			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
+			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-		print('s_train_dataset:', s_train_dataset)
-		print('s_val_dataset:', s_val_dataset)
-		print('r_train_dataset:', r_train_dataset)
-		print('r_val_dataset:', r_val_dataset)
-		print('r_test_dataset:', r_test_dataset)
-		
-		if main_args.upc and 0:
+			print('s_train_dataset:', s_train_dataset)
+			print('s_val_dataset:', s_val_dataset)
+			print('r_train_dataset:', r_train_dataset)
+			print('r_val_dataset:', r_val_dataset)
+			print('r_test_dataset:', r_test_dataset)
+			
 			if previous_dataset_kwargs is None or not dataset_kwargs==previous_dataset_kwargs:
-				synth_precomputed_samples = 1
-				real_precomputed_samples = 1
+				synth_precomputed_samples = 10
+				real_precomputed_samples = 10
 				s_train_dataset.precompute_samples(synth_precomputed_samples)
-				s_val_dataset.precompute_samples(synth_precomputed_samples)
+				#s_val_dataset.precompute_samples(synth_precomputed_samples)
 				r_train_dataset.precompute_samples(real_precomputed_samples)
-				r_val_dataset.precompute_samples(real_precomputed_samples)
-				#r_test_dataset.precompute_samples(real_precomputed_samples)
+				#r_val_dataset.precompute_samples(real_precomputed_samples)
+				#r_test_dataset.precompute_samples(real_precomputed_samples) # not used in training routine
+			previous_dataset_kwargs = dataset_kwargs.copy()
 
-		### DATALOADERS
-		loader_kwargs = {
-			'num_workers':2,
-			'pin_memory':False, # False True
-			'prefetch_factor':1,
-			'batch_size':main_args.batch_size,
-			'random_subcrops':main_args.rsc,
-		}
-		s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs)
-		s_val_loader = CustomDataLoader(s_val_dataset, shuffle=False, **loader_kwargs)
-		r_train_loader = CustomDataLoader(r_train_dataset, shuffle=True, **loader_kwargs)
-		r_val_loader = CustomDataLoader(r_val_dataset, shuffle=False, **loader_kwargs)
-		r_test_loader = CustomDataLoader(r_test_dataset, shuffle=False, **loader_kwargs)
-		previous_dataset_kwargs = dataset_kwargs.copy()
-
-		### IDS
-		ki, kf = [int(k) for k in main_args.mids.split('-')]
-		model_ids = list(range(ki, kf))
-		for ki,model_id in enumerate(model_ids): # IDS
+			### DATALOADERS
+			loader_kwargs = {
+				'num_workers':2,
+				'pin_memory':False, # False True
+				'prefetch_factor':1,
+				'batch_size':main_args.batch_size,
+				'random_subcrops':main_args.rsc,
+			}
+			s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs)
+			s_val_loader = CustomDataLoader(s_val_dataset, shuffle=False, **loader_kwargs)
+			r_train_loader = CustomDataLoader(r_train_dataset, shuffle=True, **loader_kwargs)
+			r_val_loader = CustomDataLoader(r_val_dataset, shuffle=False, **loader_kwargs)
+			r_test_loader = CustomDataLoader(r_test_dataset, shuffle=False, **loader_kwargs)
 
 			### GET MODEL
 			mdl_kwargs = mp_grid['mdl_kwargs']
@@ -226,7 +223,6 @@ if __name__== '__main__':
 			pt_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			if ki==0:
 				print(pt_model_train_handler)
-			#pt_model_train_handler.fit_loader(s_train_loader, s_val_loader) # main fit
 			pt_model_train_handler.fit_loader(s_train_loader, r_val_loader) # main fit
 
 			###################################################################################################################################################
@@ -238,7 +234,7 @@ if __name__== '__main__':
 			plot_kwargs = {
 				'save_rootdir':f'../save/train_plots',
 			}
-			ffplots.plot_loss(pt_model_train_handler, **plot_kwargs)
+			ffplots.plot_loss(pt_model_train_handler, **plot_kwargs) # use this
 			#ffplots.plot_evaluation_loss(train_handler, **plot_kwargs)
 			#ffplots.plot_evaluation_metrics(train_handler, **plot_kwargs)
 
@@ -277,7 +273,7 @@ if __name__== '__main__':
 				attn_scores_m(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
 
 				#attention_statistics(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
-				#attention_statistics(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # slow
+				#attention_statistics(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
 				attention_statistics(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
 				attention_statistics(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
 				attention_statistics(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
@@ -355,7 +351,7 @@ if __name__== '__main__':
 			###################################################################################################################################################
 			from lcclassifier.experiments.attention import attn_scores_m, attention_statistics
 
-			if 0 and model_id==model_ids[0]:
+			if model_id==model_ids[1]:
 				#attn_scores_m(ft_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **ft_exp_kwargs) # sanity check / slow
 				#attn_scores_m(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
 				attn_scores_m(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow
@@ -363,7 +359,8 @@ if __name__== '__main__':
 				attn_scores_m(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **ft_exp_kwargs)
 
 				#attention_statistics(ft_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **ft_exp_kwargs) # sanity check / slow
-				#attention_statistics(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # slow
+				#attention_statistics(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
 				attention_statistics(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow
 				attention_statistics(ft_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **ft_exp_kwargs)
 				attention_statistics(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **ft_exp_kwargs)
+				#assert 0
