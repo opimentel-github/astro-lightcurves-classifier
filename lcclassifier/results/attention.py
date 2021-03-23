@@ -76,7 +76,8 @@ def plot_attention_statistics(rootdir, model_name, x_var, y_var,
 	#title = f'{metric_name} v/s days - mode: {mode}'
 	#title += f'\nsurvey: {survey} - bands: {band_names}'
 	#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
-	#ax.set_title(title)
+	title = 'joint distribution\n'
+	ax.set_title(title[:-1])
 	ax.set_xlabel(x_var)
 	ax.set_ylabel(y_var)
 
@@ -91,7 +92,8 @@ def plot_attention_statistics(rootdir, model_name, x_var, y_var,
 	#title = f'{metric_name} v/s days - mode: {mode}'
 	#title += f'\nsurvey: {survey} - bands: {band_names}'
 	#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
-	#ax.set_title(title)
+	title = 'attention conditional joint distribution\n'
+	ax.set_title(title[:-1])
 	ax.set_xlabel(x_var)
 	ax.set_yticks([])
 

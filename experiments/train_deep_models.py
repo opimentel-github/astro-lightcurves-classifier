@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=128*2, help='batch_size')
+	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # 32 64 100 128 256
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -113,9 +113,10 @@ if __name__== '__main__':
 	previous_dataset_kwargs = None
 	ki, kf = [int(k) for k in main_args.mids.split('-')]
 	model_ids = list(range(ki, kf))
+	
 	for ki,model_id in enumerate(model_ids): # IDS
-		for mp_grid in model_collections.mps:
-
+		for mp_grid in model_collections.mps: # MODEL CONFIGS
+		
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
 			s_train_dataset = CustomDataset(lcdataset, f'{main_args.kf}@train.{main_args.method}', **dataset_kwargs)
@@ -140,16 +141,16 @@ if __name__== '__main__':
 			if previous_dataset_kwargs is None or not dataset_kwargs==previous_dataset_kwargs:
 				synth_precomputed_samples = 10
 				real_precomputed_samples = 10
-				s_train_dataset.precompute_samples(synth_precomputed_samples)
+				#s_train_dataset.precompute_samples(synth_precomputed_samples)
 				#s_val_dataset.precompute_samples(synth_precomputed_samples)
-				r_train_dataset.precompute_samples(real_precomputed_samples)
+				#r_train_dataset.precompute_samples(real_precomputed_samples)
 				#r_val_dataset.precompute_samples(real_precomputed_samples)
 				#r_test_dataset.precompute_samples(real_precomputed_samples) # not used in training routine
 			previous_dataset_kwargs = dataset_kwargs.copy()
 
 			### DATALOADERS
 			loader_kwargs = {
-				'num_workers':2,
+				'num_workers':4,
 				'pin_memory':False, # False True
 				'prefetch_factor':1,
 				'batch_size':main_args.batch_size,
@@ -176,7 +177,7 @@ if __name__== '__main__':
 
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.9e-3,
+					'lr':1.1e-3,
 					#'betas':(0.9999, 0.9999),
 				},
 				#'decay_kwargs':{
@@ -193,8 +194,8 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':18, # 10 15 20 25 30
+				'val_epoch_counter_duration':10, # every k epochs check
+				'earlystop_epoch_duration':30, # 10 15 20 25 30
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -209,7 +210,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':1e5,
+				'epochs_max':1e6,
 				'save_rootdir':f'../save/training',
 				'extra_model_name_dict':{
 					'mode':train_mode,
@@ -218,6 +219,7 @@ if __name__== '__main__':
 					'rsc':main_args.rsc,
 				},
 				'uses_train_eval_loader_methods':True,
+				'evaluate_train':False, # speed up
 			}
 			pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors, **mtrain_config)
 			pt_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
@@ -234,7 +236,7 @@ if __name__== '__main__':
 			plot_kwargs = {
 				'save_rootdir':f'../save/train_plots',
 			}
-			ffplots.plot_loss(pt_model_train_handler, **plot_kwargs) # use this
+			#ffplots.plot_loss(pt_model_train_handler, **plot_kwargs) # use this
 			#ffplots.plot_evaluation_loss(train_handler, **plot_kwargs)
 			#ffplots.plot_evaluation_metrics(train_handler, **plot_kwargs)
 
@@ -286,7 +288,7 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.75e-3, # 5e-2
+					'lr':.9e-3, # 5e-2
 				},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -302,8 +304,8 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':1, # every k epochs check
-				'earlystop_epoch_duration':80,
+				'val_epoch_counter_duration':10, # every k epochs check
+				'earlystop_epoch_duration':100,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -318,7 +320,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':1e5,
+				'epochs_max':1e6,
 				'save_rootdir':f'../save/training',
 				'extra_model_name_dict':{
 					'mode':train_mode,
@@ -327,6 +329,7 @@ if __name__== '__main__':
 					'rsc':main_args.rsc,
 				},
 				'uses_train_eval_loader_methods':True,
+				'evaluate_train':False, # speed up
 			}
 			ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
 			ft_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
@@ -351,7 +354,7 @@ if __name__== '__main__':
 			###################################################################################################################################################
 			from lcclassifier.experiments.attention import attn_scores_m, attention_statistics
 
-			if model_id==model_ids[1]:
+			if model_id==model_ids[-1]:
 				#attn_scores_m(ft_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **ft_exp_kwargs) # sanity check / slow
 				#attn_scores_m(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
 				attn_scores_m(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow

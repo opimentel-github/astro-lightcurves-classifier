@@ -6,6 +6,7 @@ import numpy as np
 from flamingchoripan.files import search_for_filedirs, load_pickle
 import flamingchoripan.strings as strings
 from flamingchoripan.cuteplots.cm_plots import plot_custom_confusion_matrix
+from flamingchoripan.cuteplots.animations import PlotAnimation
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from flamingchoripan.datascience.statistics import XError
@@ -33,7 +34,9 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 		new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
 		new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
 		filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
-		print(f'[{kmn}][{len(filedirs)}#] {model_name}')
+		model_ids = sorted([int(strings.get_dict_from_string(f.split('/')[-1])['id']) for f in filedirs])
+		print(f'[{kmn}][{"-".join([str(m) for m in model_ids])}]{len(model_ids)}#')
+		print(f'\t{model_name}')
 		mn_dict = strings.get_dict_from_string(model_name)
 		rsc = mn_dict['rsc']
 		mdl = mn_dict['mdl']
@@ -65,7 +68,7 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 		ax.fill_between(interp_days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=alpha, fc=color)
 
 	title = f'{metric_name} v/s days\n'
-	title += f'mode={mode} - eval={set_name} - survey={survey} - bands={band_names}\n'
+	title += f'survey={survey} - mode={mode} - eval={set_name} - bands={band_names}\n'
 	#ax.set_title(title)
 	fig.suptitle(title[:-1], va='bottom')
 
@@ -76,13 +79,17 @@ def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess accuracy ($100/N_c$)', alpha=.5)
 
 		if not baselines_dict is None:
-			ax.plot(days, np.full_like(days, baselines_dict[metric_name]), ':', c='k', label='FATS+BRF baseline (complete light curves)')
+			ax.plot(days, np.full_like(days, baselines_dict[metric_name]), ':', c='k', label='FATS+b-RF baseline (complete light curves)')
 
 		ax.set_xlabel('days')
-		ax.set_ylabel(metric_name)
 		if kax==1:
 			ax.set_ylabel(None)
 			ax.set_yticklabels([])
+			ax.set_title('Serial Models')
+		else:
+			ax.set_ylabel(metric_name)
+			ax.set_title('Parallel Models')
+
 		ax.set_xlim([days.min(), days.max()])
 		ax.set_ylim([random_guess*.95, 100] if is_accuracy else [0, 1])
 		ax.grid(alpha=0.5)
@@ -98,6 +105,8 @@ def plot_cm(rootdir, model_names, day_to_metric,
 	fext='metrics',
 	mode='fine-tuning',
 	lcset_name='???',
+	export_animation=False,
+	fps=15,
 	):
 	for kmn,model_name in enumerate(model_names):
 		#fig, axs = plt.subplots(1, 2, figsize=figsize)
@@ -106,51 +115,55 @@ def plot_cm(rootdir, model_names, day_to_metric,
 		new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
 		new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
 		filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
-		print(f'[{kmn}][{len(filedirs)}#] {model_name}')
+		model_ids = sorted([int(strings.get_dict_from_string(f.split('/')[-1])['id']) for f in filedirs])
+		print(f'[{kmn}][{"-".join([str(m) for m in model_ids])}]{len(model_ids)}#')
+		print(f'\t{model_name}')
 		mn_dict = strings.get_dict_from_string(model_name)
 		rsc = mn_dict['rsc']
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
 
-		cms = []
-		accuracy = []
-		f1score = []
-		for filedir in filedirs:
-			rdict = load_pickle(filedir, verbose=0)
-			#model_name = rdict['model_name']
-			days = rdict['days']
-			survey = rdict['survey']
-			band_names = ''.join(rdict['band_names'])
-			class_names = rdict['class_names']
-			cms += [rdict['days_cm'][day_to_metric][None,...]]
-			v, _, _ = utils.get_metric_along_day(days, rdict, 'b-accuracy', day_to_metric)
-			accuracy += [v]
-			v, _, _ = utils.get_metric_along_day(days, rdict, 'b-f1score', day_to_metric)
-			f1score += [v]
+		target_days = [d for d in load_pickle(filedirs[0], verbose=0)['days'] if d<=day_to_metric]
+		plot_animation = PlotAnimation(len(target_days), 10, dummy=not export_animation)
+		for kd,target_day in enumerate(target_days):
+			cms = []
+			accuracy = []
+			f1score = []
+			for filedir in filedirs:
+				rdict = load_pickle(filedir, verbose=0)
+				#model_name = rdict['model_name']
+				days = rdict['days']
+				survey = rdict['survey']
+				band_names = ''.join(rdict['band_names'])
+				class_names = rdict['class_names']
+				cms += [rdict['days_cm'][target_day][None,...]]
+				v, _, _ = utils.get_metric_along_day(days, rdict, 'b-accuracy', target_day)
+				accuracy += [v]
+				v, _, _ = utils.get_metric_along_day(days, rdict, 'b-f1score', target_day)
+				f1score += [v]
 
-		accuracy_xe = XError(accuracy)
-		f1score_xe = XError(f1score)
-		title = ''
-		title += f'{mn_dict["mdl"]} - eval={lcset_name}\n'
-		title += f'b-f1score={f1score_xe}\n'
-		title += f'b-accuracy={accuracy_xe}\n'
-		cm_kwargs = {
-			#'fig':fig,
-			#'ax':ax,
-		    'title':title[:-1],
-		    'figsize':(6,5),
-		    'new_order_classes':['SNIa', 'SNIbc', 'allSNII', 'SLSN'],
-		}
-		fig, ax = plot_custom_confusion_matrix(np.concatenate(cms, axis=0), class_names, **cm_kwargs)
-		plt.show()
+			accuracy_xe = XError(accuracy)
+			f1score_xe = XError(f1score)
+			title = ''
+			title += f'{mn_dict["mdl"]}\n'
+			title += f'eval={lcset_name} - day={target_day:.2f}/{day_to_metric:.2f}\n'
+			title += f'b-f1score={f1score_xe}\n'
+			title += f'b-accuracy={accuracy_xe}\n'
+			cm_kwargs = {
+				#'fig':fig,
+				#'ax':ax,
+				'title':title[:-1],
+				'figsize':(6,5),
+				'new_order_classes':['SNIa', 'SNIbc', 'allSNII', 'SLSN'],
+			}
+			fig, ax = plot_custom_confusion_matrix(np.concatenate(cms, axis=0), class_names, **cm_kwargs)
+			plot_animation.add_frame(fig)
+			if kd<len(target_days)-1:
+				plt.close(fig)
+			else:
+				plt.show()
 
-		#title = 'log-reconstruction-wmse v/s days'
-		#title += f'\nsurvey: {survey} - bands: {band_names}'
-		#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
-		#ax.set_title(title)
-		#ax.set_xlabel('days')
-		#ax.set_ylabel('mse')
-		
+		plot_animation.save(f'../temp/{model_name}.gif')
 
 ###################################################################################################################################################
 

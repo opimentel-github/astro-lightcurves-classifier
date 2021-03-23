@@ -142,15 +142,34 @@ class CustomDataset(Dataset):
 	def calcule_poblation_weights(self):
 		self.populations_cdict = self.lcset.get_populations_cdict()
 		#self.poblation_weights = self.lcset.get_class_effective_weigths_cdict(1-self.effective_beta_eps) # get_class_freq_weights_cdict get_class_effective_weigths_cdict
+	'''
+	def generate_balanced_lcobj_names(self):
+			max_index = np.argmax([self.populations_cdict[c] for c in self.class_names])
+			max_c = self.class_names[max_index]
+			max_c_pop = self.populations_cdict[max_c]
+			#print(min_c_pop, min_c)
+			to_fill_cdict = {c:max_c_pop-self.populations_cdict[c] for c in self.class_names}
+			self.balanced_lcobj_names = self.lcset.get_lcobj_names().copy()
+			for c in self.class_names:
+				lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c), to_fill_cdict[c])
+				self.balanced_lcobj_names += lcobj_names_c
+	'''
 
 	def generate_balanced_lcobj_names(self):
-		#print('generate_balanced_lcobj_names')
-		max_pop = max([self.populations_cdict[c] for c in self.class_names])
-		to_fill_cdict = {c:max_pop-self.populations_cdict[c] for c in self.class_names}
-		self.balanced_lcobj_names = self.lcset.get_lcobj_names().copy()
+		min_index = np.argmin([self.populations_cdict[c] for c in self.class_names])
+		min_c = self.class_names[min_index]
+		min_c_pop = self.populations_cdict[min_c]
+		#print(min_c_pop, min_c)
+		self.balanced_lcobj_names = self.lcset.get_lcobj_names(min_c).copy()
+		#print(self.balanced_lcobj_names)
+		#assert 0
+		#to_fill_cdict = {c:max_pop-self.populations_cdict[c] for c in self.class_names}
 		for c in self.class_names:
-			lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c), to_fill_cdict[c])
+			if c==min_c:
+				continue
+			lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c).copy(), min_c_pop)
 			self.balanced_lcobj_names += lcobj_names_c
+		
 
 	def get_poblation_weights(self):
 		return self.poblation_weights
@@ -317,7 +336,7 @@ class CustomDataset(Dataset):
 			return self.get_item(self.lcset[lcobj_name].copy(), uses_daugm=False)
 
 	'''
-	def xxx(self, precomputed_copies,
+	def precompute_samples(self, precomputed_copies,
 		n_jobs=C_.N_JOBS,
 		chunk_size=C_.CHUNK_SIZE,
 		backend=C_.JOBLIB_BACKEND,
@@ -340,7 +359,6 @@ class CustomDataset(Dataset):
 	'''
 
 	def precompute_samples(self, precomputed_copies,
-		n_jobs=C_.N_JOBS,
 		backend=C_.JOBLIB_BACKEND,
 		):
 		def job(lcobj):
@@ -350,8 +368,8 @@ class CustomDataset(Dataset):
 		bar = ProgressBar(len(lcobj_names))
 		for k,lcobj_name in enumerate(lcobj_names):
 			bar(f'{lcobj_name}')
-			results = Parallel(n_jobs=n_jobs, backend=backend)([delayed(job)(self.lcset[lcobj_name_].copy()) for lcobj_name_ in [lcobj_name]*precomputed_copies])
-			self.precomputed_dict[lcobj_name] = results
+			results = Parallel(n_jobs=precomputed_copies, backend=backend)([delayed(job)(self.lcset[lcobj_name_].copy()) for lcobj_name_ in [lcobj_name]*precomputed_copies])
+			self.precomputed_dict[lcobj_name] = results+[self.get_item(self.lcset[lcobj_name].copy(), uses_daugm=False)]
 
 		bar.done()
 
@@ -365,6 +383,7 @@ class CustomDataset(Dataset):
 		apply data augmentation, this overrides obj information
 		be sure to copy the input lcobj!!!!
 		'''
+		lcobj = self.lcset[lcobj].copy() if isinstance(lcobj, str) else lcobj
 		if uses_daugm:
 			for b in lcobj.bands:
 				lcobjb = lcobj.get_b(b)

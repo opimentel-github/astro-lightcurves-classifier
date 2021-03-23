@@ -11,9 +11,9 @@ N_JOBS = 10 # The number of jobs to use for the computation. If -1 all CPUs are 
 CHUNK_SIZE = N_JOBS*1
 
 ### SYNTHETIC
-OBSE_STD_SCALE = 1/3 # 2 3 5 10 important
-CPDS_P = 10./100. # curve points down sampling probability
-HOURS_NOISE_AMP = 5.
+OBSE_STD_SCALE = 1/3 # 2 2.5 3 5 10 important
+CPDS_P = 5./100. # 5 10 curve points down sampling probability
+HOURS_NOISE_AMP = 5. # 5
 
 EFFECTIVE_BETA_EPS = 0.000001 # same weight -> 0.01 0.001 0.0001 0.00001 -> 1/freq
 XENTROPY_K = 1e0
