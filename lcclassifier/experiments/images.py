@@ -13,30 +13,23 @@ import matplotlib.pyplot as plt
 
 ###################################################################################################################################################
 
-def reconstructions_m(train_handler, data_loader,
+def reconstructions(train_handler, data_loader, save_rootdir,
 	m:int=2,
 	figsize:tuple=C_.DEFAULT_FIGSIZE_BOX,
 	nc:int=1,
-	save_rootdir:str='results',
-	experiment_id:int=0,
 	**kwargs):
 	results = []
-	for experiment_id in range(m):
-		r = reconstructions(train_handler, data_loader,
+	for experiment_id in range(0, m):
+		r = _reconstructions(train_handler, data_loader, save_rootdir, str(experiment_id),
 			figsize,
 			nc,
-			save_rootdir,
-			experiment_id,
 			**kwargs)
 		results.append(r)
-
 	return results
 
-def reconstructions(train_handler, data_loader,
+def _reconstructions(train_handler, data_loader, save_rootdir, experiment_id,
 	figsize:tuple=C_.DEFAULT_FIGSIZE_BOX,
 	nc:int=1,
-	save_rootdir:str='results',
-	experiment_id:int=0,
 	**kwargs):
 	### dataloader and extract dataset - important
 	train_handler.load_model() # important, refresh to best model
@@ -56,27 +49,25 @@ def reconstructions(train_handler, data_loader,
 			for kb,b in enumerate(dataset.band_names):
 				b_len = onehot[...,kb].sum().item()
 				lcobjb = lcobj.get_b(b)
-				plot_lightcurve(ax, lcobj, b, label=f'{b} observation', max_day=dataset.max_day)
+				plot_lightcurve(ax, lcobj, b, label=f'{b} obs', max_day=dataset.max_day)
 
 				### rec plot
 				days = out_tdict['input']['time'][0,onehot[0,:,kb]].cpu().numpy()
 				p_rx_pred = out_tdict['model'][f'rec-x.{b}'][0,:,0].cpu().numpy()
 				p_rx_pred = dataset.get_rec_inverse_transform(p_rx_pred, b)
-				ax.plot(days[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} reconstruction')
+				ax.plot(days[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 
-			title = f'survey: {dataset.survey} - set: {dataset.lcset_name} - lcobj: {lcobj_names[k]} - class: {dataset.class_names[lcobj.y]}'
-			ax.set_title(title)
-			ax.set_ylabel('flux')
+			title = ''
+			title += f'survey={dataset.survey}[{dataset.lcset_name}] - lcobj={lcobj_names[k]}[{dataset.class_names[lcobj.y]}]'+'\n'
+			ax.set_title(title[:-1])
+			ax.set_ylabel('observations[flux]')
 			ax.legend(loc='upper right')
 			ax.grid(alpha=0.5)
 
-		ax.set_xlabel('days')
+		ax.set_xlabel('time[days]')
 		fig.tight_layout()
 
 	### save file
-	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
-	image_save_dir = f'{save_rootdir}/{complete_save_roodir}'
-	image_save_filedir = f'{image_save_dir}/exp_id={experiment_id}°id={train_handler.id}°set={dataset.lcset_name}.png'
-	#prints.print_green(f'> saving: {image_save_filedir}')
+	image_save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}~exp_id={experiment_id}.png'
 	save_fig(image_save_filedir, fig)
-	return image_save_filedir
+	return

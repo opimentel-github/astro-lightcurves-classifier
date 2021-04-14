@@ -10,19 +10,18 @@ from flamingchoripan.progress_bars import ProgressBar, ProgressBarMulti
 import flamingchoripan.files as files
 import flamingchoripan.datascience.metrics as fcm
 from flamingchoripan.cuteplots.utils import save_fig
+from flamingchoripan.dataframes import DFBuilder
+from flamingchoripan.dicts import update_dicts
 import matplotlib.pyplot as plt
 import fuzzytorch.models.seq_utils as seq_utils
 import pandas as pd
 
 ###################################################################################################################################################
 
-def metrics_along_days(train_handler, data_loader,
+def metrics_along_days(train_handler, data_loader, save_rootdir,
 	target_is_onehot:bool=False,
 	classifier_key='y.last',
-	
 	figsize:tuple=C_.DEFAULT_FIGSIZE_REC,
-	save_rootdir:str='results',
-	save_fext:str='metrics',
 	days_N:int=C_.DEFAULT_DAYS_N,
 	eps:float=C_.EPS,
 	**kwargs):
@@ -37,9 +36,9 @@ def metrics_along_days(train_handler, data_loader,
 	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)#[::-1]
 	bar_rows = 4
 	bar = ProgressBarMulti(len(days), bar_rows)
-	days_rec_metrics_df = []
-	days_class_metrics_df = []
-	days_class_metrics_cdf = {c:[] for c in dataset.class_names}
+	days_rec_metrics_df = DFBuilder()
+	days_class_metrics_df = DFBuilder()
+	days_class_metrics_cdf = {c:DFBuilder() for c in dataset.class_names}
 	days_cm = {}
 	wrong_samples = {}
 	with torch.no_grad():
@@ -75,11 +74,10 @@ def metrics_along_days(train_handler, data_loader,
 					mse_loss = mse_loss.cpu().numpy() # cpu-numpy
 					mse_loss = mse_loss.mean()
 
-					day_df = pd.DataFrame.from_dict({
-						'day':[day],
-						'mse':[mse_loss],
+					days_rec_metrics_df.append(day, {
+						'_day':day,
+						'mse':mse_loss,
 						})
-					days_rec_metrics_df.append(day_df)
 
 					### class prediction
 					y_target = out_tdict['target']['y']
@@ -99,19 +97,9 @@ def metrics_along_days(train_handler, data_loader,
 						'y_pred_p':y_pred_p,
 					}
 					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred, y_target, dataset.class_names, **met_kwargs)
-					
-					d = {'day':[day]}
-					for km in metrics_dict.keys():
-						d[km] = [metrics_dict[km]]
-					day_df = pd.DataFrame.from_dict(d)
-					days_class_metrics_df.append(day_df)
-
 					for c in dataset.class_names:
-						d = {'day':[day]}
-						for km in metrics_cdict.keys():
-							d[km] = [metrics_cdict[km][c]]
-						day_df = pd.DataFrame.from_dict(d)
-						days_class_metrics_cdf[c].append(day_df)
+						days_class_metrics_cdf[c].append(day, update_dicts([{'_day':day}, metrics_cdict[c]]))
+					days_class_metrics_df.append(day, update_dicts([{'_day':day}, metrics_dict]))
 
 					### cm
 					days_cm[day] = cm
@@ -124,8 +112,8 @@ def metrics_along_days(train_handler, data_loader,
 					#print('accuracy', accuracy.shape, np.mean(accuracy))
 
 					### progress bar
-					recall = metrics_cdict['recall']
-					bar([f'day: {day:.4f}/{days[-1]:.4f}', f'mse_loss: {mse_loss}', f'metrics_dict: {metrics_dict}', f'recall: {recall}'])
+					recall = {c:metrics_cdict[c]['recall'] for c in dataset.class_names}
+					bar([f'day={day:.3f}/{days[-1]:.3f}', f'mse_loss={mse_loss}', f'metrics_dict={metrics_dict}', f'recall={recall}'])
 					#break # dummy
 
 			except KeyboardInterrupt:
@@ -135,21 +123,17 @@ def metrics_along_days(train_handler, data_loader,
 	dataset.uses_precomputed_samples = True  # very important!!
 	dataset.reset_max_day() # very important!!
 
-	days_rec_metrics_df = pd.concat(days_rec_metrics_df)
-	days_class_metrics_df = pd.concat(days_class_metrics_df)
-	days_class_metrics_cdf = {c:pd.concat(days_class_metrics_cdf[c]) for c in dataset.class_names}
-
 	### more info
-	complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
+	#complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
 	results = {
 		'days':days,
-		'days_rec_metrics_df':days_rec_metrics_df,
-		'days_class_metrics_df':days_class_metrics_df,
-		'days_class_metrics_cdf':days_class_metrics_cdf,
+		'days_rec_metrics_df':days_rec_metrics_df.get_df(),
+		'days_class_metrics_df':days_class_metrics_df.get_df(),
+		'days_class_metrics_cdf':{c:days_class_metrics_cdf[c].get_df() for c in dataset.class_names},
 		'days_cm':days_cm,
 		'wrong_samples':wrong_samples,
 
-		'complete_save_roodir':complete_save_roodir,
+		#'complete_save_roodir':complete_save_roodir,
 		'model_name':train_handler.model.get_name(),
 		'survey':dataset.survey,
 		'band_names':dataset.band_names,
@@ -167,8 +151,6 @@ def metrics_along_days(train_handler, data_loader,
 		}
 
 	### save file
-	#print(results)
-	file_save_dir = f'{save_rootdir}/{complete_save_roodir}'
-	filedir = f'{file_save_dir}/id={train_handler.id}°set={dataset.lcset_name}.{save_fext}'
-	files.save_pickle(filedir, results) # save file
+	save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}.d'
+	files.save_pickle(save_filedir, results) # save file
 	return

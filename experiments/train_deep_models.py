@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # 32 64 100 128 256
+	parser.add_argument('-batch_size',  type=int, default=120, help='batch_size') # 32 64 100 128 256
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -38,13 +38,12 @@ if __name__== '__main__':
 	from flamingchoripan.files import load_pickle, save_pickle
 	from flamingchoripan.files import get_dict_from_filedir
 
-	filedir = f'../../surveys-save/alerceZTFv7.1/survey=alerceZTFv7.1°bands=gr°mode=onlySNe°method={main_args.method}.splcds'
+	filedir = f'../../surveys-save/survey=alerceZTFv7.1~bands=gr~mode=onlySNe~method={main_args.method}.splcds'
 	filedict = get_dict_from_filedir(filedir)
-	root_folder = filedict['*rootdir*']
-	cfilename = filedict['*cfilename*']
-	survey = filedict['survey']
+	rootdir = filedict['_rootdir']
+	cfilename = filedict['_cfilename']
 	lcdataset = load_pickle(filedir)
-	print(lcdataset)
+	#print(lcdataset)
 
 	###################################################################################################################################################
 	from lcclassifier.models.model_collections import ModelCollections
@@ -109,31 +108,30 @@ if __name__== '__main__':
 	from lcclassifier.datasets import CustomDataset
 	from lcclassifier.dataloaders import CustomDataLoader
 
-	### IDS
 	previous_dataset_kwargs = None
-	ki, kf = [int(k) for k in main_args.mids.split('-')]
-	model_ids = list(range(ki, kf))
-	
+
+	### IDS
+	model_ids = list(range(*[int(mi) for mi in main_args.mids.split('-')]))
 	for ki,model_id in enumerate(model_ids): # IDS
 		for mp_grid in model_collections.mps: # MODEL CONFIGS
 		
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
-			s_train_dataset = CustomDataset(lcdataset, f'{main_args.kf}@train.{main_args.method}', **dataset_kwargs)
-			s_val_dataset = CustomDataset(lcdataset, f'{main_args.kf}@val.{main_args.method}', **dataset_kwargs)
-			r_train_dataset = CustomDataset(lcdataset, f'{main_args.kf}@train', **dataset_kwargs)
-			r_val_dataset = CustomDataset(lcdataset, f'{main_args.kf}@val', **dataset_kwargs)
-			r_test_dataset = CustomDataset(lcdataset, f'{main_args.kf}@test', **dataset_kwargs)
+			s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs)
+			#s_val_dataset = CustomDataset(f'{main_args.kf}@val.{main_args.method}', lcdataset, **dataset_kwargs)
+			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs)
+			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
+			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
 			mp_grid['mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
 			mp_grid['dec_mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
-			s_train_dataset.transfer_metadata_to(s_val_dataset) # transfer metadata to val/test
+			#s_train_dataset.transfer_metadata_to(s_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_train_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
 			print('s_train_dataset:', s_train_dataset)
-			print('s_val_dataset:', s_val_dataset)
+			#print('s_val_dataset:', s_val_dataset)
 			print('r_train_dataset:', r_train_dataset)
 			print('r_val_dataset:', r_val_dataset)
 			print('r_test_dataset:', r_test_dataset)
@@ -150,14 +148,14 @@ if __name__== '__main__':
 
 			### DATALOADERS
 			loader_kwargs = {
-				'num_workers':4,
+				'num_workers':8,
 				'pin_memory':False, # False True
 				'prefetch_factor':1,
 				'batch_size':main_args.batch_size,
 				'random_subcrops':main_args.rsc,
 			}
 			s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs)
-			s_val_loader = CustomDataLoader(s_val_dataset, shuffle=False, **loader_kwargs)
+			#s_val_loader = CustomDataLoader(s_val_dataset, shuffle=False, **loader_kwargs)
 			r_train_loader = CustomDataLoader(r_train_dataset, shuffle=True, **loader_kwargs)
 			r_val_loader = CustomDataLoader(r_val_dataset, shuffle=False, **loader_kwargs)
 			r_test_loader = CustomDataLoader(r_test_dataset, shuffle=False, **loader_kwargs)
@@ -194,8 +192,8 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':10, # every k epochs check
-				'earlystop_epoch_duration':30, # 10 15 20 25 30
+				'val_epoch_counter_duration':1, # every k epochs check
+				'earlystop_epoch_duration':15, # 10 15 20 25 30
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -211,9 +209,8 @@ if __name__== '__main__':
 			mtrain_config = {
 				'id':model_id,
 				'epochs_max':1e6,
-				'save_rootdir':f'../save/training',
 				'extra_model_name_dict':{
-					'mode':train_mode,
+					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'rsc':main_args.rsc,
@@ -222,6 +219,8 @@ if __name__== '__main__':
 				'evaluate_train':False, # speed up
 			}
 			pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors, **mtrain_config)
+			complete_model_name = pt_model_train_handler.get_complete_model_name()
+			pt_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 			pt_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			if ki==0:
 				print(pt_model_train_handler)
@@ -241,18 +240,18 @@ if __name__== '__main__':
 			#ffplots.plot_evaluation_metrics(train_handler, **plot_kwargs)
 
 			###################################################################################################################################################
-			from lcclassifier.experiments.images import reconstructions_m
+			from lcclassifier.experiments.images import reconstructions
 
 			pt_exp_kwargs = {
 				'm':15,
 				'target_is_onehot':False,
 				'classifier_key':'y.last',
 			}
-			reconstructions_m(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
-			reconstructions_m(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
-			reconstructions_m(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
-			reconstructions_m(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
-			reconstructions_m(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
+			reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+			reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
+			#reconstructions(pt_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}exp=reconstruction/{cfilename}', **pt_exp_kwargs) # slow
+			reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs)
+			reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs)
 
 			'''
 			###################################################################################################################################################
@@ -304,7 +303,7 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':10, # every k epochs check
+				'val_epoch_counter_duration':1, # every k epochs check
 				'earlystop_epoch_duration':100,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
@@ -321,9 +320,9 @@ if __name__== '__main__':
 			mtrain_config = {
 				'id':model_id,
 				'epochs_max':1e6,
-				'save_rootdir':f'../save/training',
+				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
-					'mode':train_mode,
+					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'rsc':main_args.rsc,
@@ -332,6 +331,8 @@ if __name__== '__main__':
 				'evaluate_train':False, # speed up
 			}
 			ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
+			complete_model_name = ft_model_train_handler.get_complete_model_name()
+			ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 			ft_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			if ki==0:
 				print(ft_model_train_handler)
@@ -345,12 +346,13 @@ if __name__== '__main__':
 				'target_is_onehot':False,
 				'classifier_key':'y.last-ft',
 			}
-			#metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **ft_exp_kwargs) # sanity check / slow
-			metrics_along_days(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
-			#metrics_along_days(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow
-			metrics_along_days(ft_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **ft_exp_kwargs)
-			metrics_along_days(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **ft_exp_kwargs)
+			#metrics_along_days(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
+			metrics_along_days(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # sanity check
+			#metrics_along_days(ft_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # slow
+			metrics_along_days(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs)
+			metrics_along_days(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs)
 
+			'''
 			###################################################################################################################################################
 			from lcclassifier.experiments.attention import attn_scores_m, attention_statistics
 
@@ -367,3 +369,7 @@ if __name__== '__main__':
 				attention_statistics(ft_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **ft_exp_kwargs)
 				attention_statistics(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **ft_exp_kwargs)
 				#assert 0
+
+
+
+			'''

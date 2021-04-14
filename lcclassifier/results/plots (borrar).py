@@ -3,7 +3,7 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-import flamingchoripan.files as fcfiles
+from flamingchoripan.files import search_for_filedirs, load_pickle
 import flamingchoripan.strings as strings
 from flamingchoripan.cuteplots.cm_plots import plot_custom_confusion_matrix
 from flamingchoripan.cuteplots.animations import PlotAnimation
@@ -14,65 +14,81 @@ from . import utils as utils
 
 ###################################################################################################################################################
 
-def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, metric_name,
-	baselines_dict=None,
+def plot_metric(rootdir, metric_name, model_names, baselines_dict,
 	label_keys=[],
 	figsize=C_.PLOT_FIGZISE_RECT,
+	fext='metrics',
 	mode='fine-tuning',
+	set_name='???',
 	p=C_.P_PLOT,
 	alpha=0.2,
 	):
 	fig, axs = plt.subplots(1, 2, figsize=figsize)
 	color_dict = utils.get_color_dict(model_names)
 
+	#for kax,mode in enumerate(['fine-tuning']):
+	#for kax,mode in enumerate(['pre-training', 'fine-tuning']):
+	#ax = axs[kax]
 	for kmn,model_name in enumerate(model_names):
-		load_roodir = f'{rootdir}/{model_name}/{mode}/exp=performance/{cfilename}/{kf}@{lcset_name}'
-		files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
-		print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
-		survey = files[0]()['survey']
-		band_names = files[0]()['band_names']
-		class_names = files[0]()['class_names']
-
+		new_rootdir = f'{rootdir}/{mode}/{model_name}'
+		new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
+		new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
+		filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
+		model_ids = sorted([int(strings.get_dict_from_string(f.split('/')[-1])['id']) for f in filedirs])
+		print(f'[{kmn}][{"-".join([str(m) for m in model_ids])}]{len(model_ids)}#')
+		print(f'\t{model_name}')
 		mn_dict = strings.get_dict_from_string(model_name)
 		rsc = mn_dict['rsc']
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
 		ax = axs[int(not is_parallel)]
 
-		days = files[0]()['days']
-		metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
-		xe_metric_curve = XError(metric_curve)
-		xe_curve_avg = XError(np.mean(metric_curve, axis=-1))
+		metric_curve = []
+		for filedir in filedirs:
+			rdict = load_pickle(filedir, verbose=0)
+			#model_name = rdict['model_name']
+			days = rdict['days']
+			survey = rdict['survey']
+			band_names = ''.join(rdict['band_names'])
+			class_names = rdict['class_names']
+			_, vs, interp_days = utils.get_metric_along_day(days, rdict, metric_name, days[-1])
+			metric_curve += [vs[None,:]]
 
-		_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
-		label = f'{mdl} ({_label}) | {xe_curve_avg}*'
-
+		metric_curve = np.concatenate(metric_curve, axis=0)
+		xe_metric_curve = XError(metric_curve, 0)
+		xe_curve_avg = XError(np.mean(metric_curve, axis=-1), 0)
+		label = f'{mdl}'
+		for label_key in label_keys:
+			if label_key in mn_dict.keys():
+				label += f' - {label_key}={mn_dict[label_key]}'
+		#label += f' ({utils.get_mday_avg_str(metric_name, days[-1])}={xe_curve_avg})'
+		label += f' ({xe_curve_avg}*)'
 		color = color_dict[utils.get_cmodel_name(model_name)] if rsc=='0' else 'k'
-		ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
-		ax.fill_between(days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=alpha, fc=color)
+		ax.plot(interp_days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
+		ax.fill_between(interp_days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=alpha, fc=color)
 
-	title = ''
-	title += f'{metric_name} v/s days'+'\n'
-	title += f'mode={mode} - survey={survey}[{kf}@{lcset_name}] - bands={"".join(band_names)}'+'\n'
+	title = f'{metric_name} v/s days\n'
+	title += f'survey={survey} - mode={mode} - eval={set_name} - bands={band_names}\n'
+	#ax.set_title(title)
 	fig.suptitle(title[:-1], va='bottom')
 
 	for kax,ax in enumerate(axs):
 		is_accuracy = 'accuracy' in metric_name
 		random_guess = 100./len(class_names)
 		if is_accuracy:
-			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess accuracy ({random_guess:.3f}%)', alpha=.5)
+			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'random guess accuracy ($100/N_c$)', alpha=.5)
 
 		if not baselines_dict is None:
-			ax.plot(days, np.full_like(days, baselines_dict[f'{kf}@{lcset_name}'][metric_name]), ':', c='k', label='FATS & b-RF baseline (complete light curves)')
+			ax.plot(days, np.full_like(days, baselines_dict[metric_name]), ':', c='k', label='FATS+b-RF baseline (complete light curves)')
 
-		ax.set_xlabel('time[days]')
+		ax.set_xlabel('days')
 		if kax==1:
 			ax.set_ylabel(None)
 			ax.set_yticklabels([])
-			ax.set_title('serial models')
+			ax.set_title('Serial Models')
 		else:
 			ax.set_ylabel(metric_name)
-			ax.set_title('parallel models')
+			ax.set_title('Parallel Models')
 
 		ax.set_xlim([days.min(), days.max()])
 		ax.set_ylim([random_guess*.95, 100] if is_accuracy else [0, 1])

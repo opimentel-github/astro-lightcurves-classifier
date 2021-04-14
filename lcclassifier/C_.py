@@ -6,12 +6,12 @@ import lchandler.C_ as C_lchandler
 EPS = 1e-5
 
 ### JOBLIB
-JOBLIB_BACKEND = 'threading' # loky threading
+JOBLIB_BACKEND = 'threading' # loky multiprocessing threading
 N_JOBS = 10 # The number of jobs to use for the computation. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all CPUs but one are used.
 CHUNK_SIZE = N_JOBS*1
 
 ### SYNTHETIC
-OBSE_STD_SCALE = 1/3 # 2 2.5 3 5 10 important
+OBSE_STD_SCALE = 1/2.5 # 2 2.5 3 5 10 important
 CPDS_P = 5./100. # 5 10 curve points down sampling probability
 HOURS_NOISE_AMP = 5. # 5
 

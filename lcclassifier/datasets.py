@@ -33,7 +33,7 @@ def fix_new_len(tdict, uses_len_clip, max_len):
 ###################################################################################################################################################
 
 class CustomDataset(Dataset):
-	def __init__(self, lcdataset, lcset_name, in_attrs, rec_attr,
+	def __init__(self, lcset_name, lcdataset, in_attrs, rec_attr,
 		max_day:float=np.infty,
 		max_te_period:float=None,
 		max_len:int=None,
@@ -45,16 +45,19 @@ class CustomDataset(Dataset):
 		cpds_p:float=C_.CPDS_P,
 
 		uses_precomputed_samples=True,
+		training=False,
 		):
 		assert te_features%2==0
+		self.training = training
 
-		self.training = False
-		self.lcset = lcdataset[lcset_name]
 		self.lcset_name = lcset_name
+		self.lcset = lcdataset[lcset_name]
+		self.lcset_info = self.lcset.get_info()
+
 		self.in_attrs = in_attrs.copy()
 		self.rec_attr = rec_attr
 		self.max_day = self.get_max_duration() if max_day is None else max_day
-		self.__max_day__ = max_day
+		self._max_day = max_day
 		self.max_te_period = self.max_day*2 if max_te_period is None else max_te_period
 		self.max_len = self.calcule_max_len() if max_len is None else max_len
 		self.te_features = te_features
@@ -137,7 +140,7 @@ class CustomDataset(Dataset):
 			self.ddays_scaler_bdict[b] = qt
 
 	def reset_max_day(self):
-		self.max_day = self.__max_day__
+		self.max_day = self._max_day
 
 	def calcule_poblation_weights(self):
 		self.populations_cdict = self.lcset.get_populations_cdict()
@@ -155,20 +158,25 @@ class CustomDataset(Dataset):
 				self.balanced_lcobj_names += lcobj_names_c
 	'''
 
-	def generate_balanced_lcobj_names(self):
+	def generate_balanced_lcobj_names(self,
+		repeats=10,
+		):
 		min_index = np.argmin([self.populations_cdict[c] for c in self.class_names])
 		min_c = self.class_names[min_index]
-		min_c_pop = self.populations_cdict[min_c]
+		#min_c_pop = self.populations_cdict[min_c]
 		#print(min_c_pop, min_c)
-		self.balanced_lcobj_names = self.lcset.get_lcobj_names(min_c).copy()
+		self.balanced_lcobj_names = self.lcset.get_lcobj_names(min_c).copy()*repeats
+		boostrap_n = len(self.balanced_lcobj_names)
 		#print(self.balanced_lcobj_names)
 		#assert 0
 		#to_fill_cdict = {c:max_pop-self.populations_cdict[c] for c in self.class_names}
 		for c in self.class_names:
 			if c==min_c:
 				continue
-			lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c).copy(), min_c_pop)
+			lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c).copy(), boostrap_n)
 			self.balanced_lcobj_names += lcobj_names_c
+
+		#self.balanced_lcobj_names = balanced_lcobj_names*repeats
 		
 
 	def get_poblation_weights(self):
