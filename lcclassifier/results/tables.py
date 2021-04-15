@@ -3,118 +3,58 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-from flamingchoripan.files import search_for_filedirs, load_pickle
+import flamingchoripan.files as fcfiles
 import flamingchoripan.strings as strings
-import flamingchoripan.datascience.statistics as dstats
+from flamingchoripan.dataframes import DFBuilder
+from flamingchoripan.datascience.statistics import XError
 from . import utils as utils
 import pandas as pd
+from scipy.interpolate import interp1d
 
 ###################################################################################################################################################
 
-def get_query_df_table(rootdir, metric_names, model_names, day_to_metric, query_key, query_values,
-	fext='metrics',
-	mode='fine-tuning',
+def get_parallel_serial_df(rootdir, cfilename, kf, lcset_name, model_names, metric_names,
+	day_to_metric=None,
+	train_mode='fine-tuning',
 	arch_modes=['Parallel', 'Serial'],
+	n=1e3,
+	#override_model_name=True,
+	label_keys=[],
 	):
-	index_df = []
-	info_df = {}
-	for arch_mode in arch_modes:
-		for query_value in query_values:
-			info_df[f'{query_value} [{arch_mode}]'] = []
+	info_df = DFBuilder()
+	for km,metric_name in enumerate(metric_names):
+		for uses_avg in [False, True]:
+			d = {}
+			for arch_mode in arch_modes:
+				for kmn,model_name in enumerate(model_names):
+					_model_name = model_name.replace('Serial', arch_mode).replace('Parallel', arch_mode)
+					load_roodir = f'{rootdir}/{_model_name}/{train_mode}/exp=performance/{cfilename}/{kf}@{lcset_name}'
+					files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
+					#print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
+					if len(files)==0:
+						continue
 
-	for kmn,model_name in enumerate(model_names):
-		new_rootdir = f'{rootdir}/{mode}/{model_name}'
-		new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
-		new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
-		filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
-		print(f'[{kmn}][{len(filedirs)}#] {model_name}')
-		mn_dict = strings.get_dict_from_string(model_name)
-		rsc = mn_dict['rsc']
-		mdl = mn_dict['mdl']
-		is_parallel = 'Parallel' in mdl
-		arch_mode = 'Parallel' if is_parallel else 'Serial'
+					survey = files[0]()['survey']
+					band_names = files[0]()['band_names']
+					class_names = files[0]()['class_names']
+					days = files[0]()['days']
+					mn_dict = strings.get_dict_from_string(model_name)
+					rsc = mn_dict['rsc']
+					mdl = mn_dict['mdl']
+					is_parallel = 'Parallel' in mdl
 
-		if arch_mode in arch_modes:
-			for km,metric_name in enumerate(metric_names):
-				day_metric = []
-				day_metric_avg = []
-				for filedir in filedirs:
-					rdict = load_pickle(filedir, verbose=0)
-					#model_name = rdict['model_name']
-					days = rdict['days']
-					survey = rdict['survey']
-					band_names = ''.join(rdict['band_names'])
-					class_names = rdict['class_names']
-					v, vs, _ = utils.get_metric_along_day(days, rdict, metric_name, day_to_metric)
-					day_metric += [v]
-					day_metric_avg += [vs.mean()]
+					metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
+					interp_days = np.linspace(days.min(), day_to_metric, int(n))
+					interp_metric_curve = interp1d(days, metric_curve)(interp_days)
+					xe_metric_curve = XError(interp_metric_curve[:,-1])
+					xe_metric_curve_avg = XError(np.mean(interp_metric_curve, axis=-1))
 
-				xe_day_metric = dstats.XError(day_metric, 0)
-				xe_day_metric_avg = dstats.XError(day_metric_avg, 0)
-				key = f'{mn_dict[query_key]} [{arch_mode}]'
-				info_df[key] += [xe_day_metric]
-				info_df[key] += [xe_day_metric_avg]
+					_d_key = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
+					d_key = f'{mdl} ({_d_key})'
+					#d_key = f'{mdl} [{arch_mode}]' if override_model_name else f'{label} [{arch_mode}]'
+					d[d_key] = xe_metric_curve_avg if uses_avg else xe_metric_curve
 
-				key = f'metric={utils.get_mday_str(metric_name, day_to_metric)}'
-				if not key in index_df:
-					index_df += [key]
-					index_df += [f'metric={utils.get_mday_avg_str(metric_name, day_to_metric)}']
+			index = f'metric={utils.get_mday_avg_str(metric_name, day_to_metric) if uses_avg else utils.get_mday_str(metric_name, day_to_metric)}' 
+			info_df.append(index, d)
 
-	info_df = pd.DataFrame.from_dict(info_df)
-	info_df.index = index_df
-	return info_df
-
-###################################################################################################################################################
-
-def get_df_table(rootdir, metric_names, model_names, day_to_metric, format_f,
-	fext='metrics',
-	mode='fine-tuning',
-	arch_modes=['Parallel', 'Serial'],
-	):
-	index_df = []
-	info_df = {}
-	for arch_mode in arch_modes:
-		for model_name in model_names:
-			info_df[f'{format_f(model_name)} [{arch_mode}]'] = []
-
-	for kmn,model_name in enumerate(model_names):
-		new_rootdir = f'{rootdir}/{mode}/{model_name}'
-		new_rootdir = new_rootdir.replace('mode=pre-training', f'mode={mode}') # patch
-		new_rootdir = new_rootdir.replace('mode=fine-tuning', f'mode={mode}') # patch
-		filedirs = search_for_filedirs(new_rootdir, fext=fext, verbose=0)
-		print(f'[{kmn}][{len(filedirs)}#] {model_name}')
-		mn_dict = strings.get_dict_from_string(model_name)
-		rsc = mn_dict['rsc']
-		mdl = mn_dict['mdl']
-		is_parallel = 'Parallel' in mdl
-		arch_mode = 'Parallel' if is_parallel else 'Serial'
-
-		if arch_mode in arch_modes:
-			for km,metric_name in enumerate(metric_names):
-				day_metric = []
-				day_metric_avg = []
-				for filedir in filedirs:
-					rdict = load_pickle(filedir, verbose=0)
-					#model_name = rdict['model_name']
-					days = rdict['days']
-					survey = rdict['survey']
-					band_names = ''.join(rdict['band_names'])
-					class_names = rdict['class_names']
-					v, vs, _ = utils.get_metric_along_day(days, rdict, metric_name, day_to_metric)
-					day_metric += [v]
-					day_metric_avg += [vs.mean()]
-
-				xe_day_metric = dstats.XError(day_metric, 0)
-				xe_day_metric_avg = dstats.XError(day_metric_avg, 0)
-				key = f'{format_f(model_name)} [{arch_mode}]'
-				info_df[key] += [xe_day_metric]
-				info_df[key] += [xe_day_metric_avg]
-
-				key = f'metric={utils.get_mday_str(metric_name, day_to_metric)}'
-				if not key in index_df:
-					index_df += [key]
-					index_df += [f'metric={utils.get_mday_avg_str(metric_name, day_to_metric)}']
-
-	info_df = pd.DataFrame.from_dict(info_df)
-	info_df.index = index_df
-	return info_df
+	return info_df()

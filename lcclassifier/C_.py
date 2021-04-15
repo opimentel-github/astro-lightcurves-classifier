@@ -15,7 +15,6 @@ OBSE_STD_SCALE = 1/2.5 # 2 2.5 3 5 10 important
 CPDS_P = 5./100. # 5 10 curve points down sampling probability
 HOURS_NOISE_AMP = 5. # 5
 
-EFFECTIVE_BETA_EPS = 0.000001 # same weight -> 0.01 0.001 0.0001 0.00001 -> 1/freq
 XENTROPY_K = 1e0
 MSE_K = 1e-1 # important
 

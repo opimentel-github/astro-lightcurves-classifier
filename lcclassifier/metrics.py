@@ -25,7 +25,7 @@ class LCAccuracy(FTMetric):
 			)
 
 	def __call__(self, tdict, **kwargs):
-		epoch = kwargs['__epoch__']
+		epoch = kwargs['_epoch']
 		input_tdict = tdict['input']
 		target_tdict = tdict['target']
 		model_tdict = tdict['model']
@@ -54,7 +54,7 @@ class LCXEntropyMetric(FTMetric):
 		self.k = k
 
 	def __call__(self, tdict, **kwargs):
-		epoch = kwargs['__epoch__']
+		epoch = kwargs['_epoch']
 		input_tdict = tdict['input']
 		target_tdict = tdict['target']
 		model_tdict = tdict['model']

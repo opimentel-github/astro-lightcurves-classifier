@@ -58,13 +58,13 @@ def _reconstructions(train_handler, data_loader, save_rootdir, experiment_id,
 				ax.plot(days[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 
 			title = ''
-			title += f'survey={dataset.survey}[{dataset.lcset_name}] - lcobj={lcobj_names[k]}[{dataset.class_names[lcobj.y]}]'+'\n'
+			title += f'survey={dataset.survey} [{dataset.lcset_name}] - lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 			ax.set_title(title[:-1])
-			ax.set_ylabel('observations[flux]')
+			ax.set_ylabel('observations [flux]')
 			ax.legend(loc='upper right')
 			ax.grid(alpha=0.5)
 
-		ax.set_xlabel('time[days]')
+		ax.set_xlabel('time [days]')
 		fig.tight_layout()
 
 	### save file

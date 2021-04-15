@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=120, help='batch_size') # 32 64 100 128 256
+	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # 32 64 100 128 256
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -107,6 +107,7 @@ if __name__== '__main__':
 	### GRID
 	from lcclassifier.datasets import CustomDataset
 	from lcclassifier.dataloaders import CustomDataLoader
+	import torch
 
 	previous_dataset_kwargs = None
 
@@ -147,12 +148,14 @@ if __name__== '__main__':
 			previous_dataset_kwargs = dataset_kwargs.copy()
 
 			### DATALOADERS
+			worker_init_fn = lambda id:np.random.seed(torch.initial_seed() // 2**32+id) # num_workers-numpy bug
 			loader_kwargs = {
-				'num_workers':8,
-				'pin_memory':False, # False True
-				'prefetch_factor':1,
+				'num_workers':2,
+				'pin_memory':True, # False True
+				#'prefetch_factor':1, # only if num_workers>0
 				'batch_size':main_args.batch_size,
 				'random_subcrops':main_args.rsc,
+				'worker_init_fn':worker_init_fn,
 			}
 			s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs)
 			#s_val_loader = CustomDataLoader(s_val_dataset, shuffle=False, **loader_kwargs)
@@ -193,7 +196,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':1, # every k epochs check
-				'earlystop_epoch_duration':15, # 10 15 20 25 30
+				'earlystop_epoch_duration':8, # 10 15 20 25 30
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -240,18 +243,29 @@ if __name__== '__main__':
 			#ffplots.plot_evaluation_metrics(train_handler, **plot_kwargs)
 
 			###################################################################################################################################################
-			from lcclassifier.experiments.images import reconstructions
-
 			pt_exp_kwargs = {
 				'm':15,
 				'target_is_onehot':False,
 				'classifier_key':'y.last',
-			}
+				}
+
+			###################################################################################################################################################
+			from lcclassifier.experiments.images import reconstructions
+
 			reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
 			reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
 			#reconstructions(pt_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}exp=reconstruction/{cfilename}', **pt_exp_kwargs) # slow
 			reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs)
 			reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs)
+
+			###################################################################################################################################################
+			from lcclassifier.experiments.performance import metrics_along_days
+
+			#metrics_along_days(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+			metrics_along_days(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs) # sanity check
+			#metrics_along_days(pt_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs) # slow
+			metrics_along_days(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs)
+			metrics_along_days(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs)
 
 			'''
 			###################################################################################################################################################
@@ -339,14 +353,16 @@ if __name__== '__main__':
 			ft_model_train_handler.fit_loader(r_train_loader, r_val_loader) # main fit
 
 			###################################################################################################################################################
-			from lcclassifier.experiments.performance import metrics_along_days
-			
 			ft_exp_kwargs = {
 				'm':15,
 				'target_is_onehot':False,
 				'classifier_key':'y.last-ft',
-			}
-			#metrics_along_days(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
+				}
+
+			###################################################################################################################################################
+			from lcclassifier.experiments.performance import metrics_along_days
+			
+			#metrics_along_days(ft_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
 			metrics_along_days(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # sanity check
 			#metrics_along_days(ft_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # slow
 			metrics_along_days(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs)

@@ -14,12 +14,16 @@ class ModelCollections():
 	def __init__(self, lcdataset):
 		self.lcdataset = lcdataset
 		self.max_day = C_.MAX_DAY
+
 		self.embd_dims = GDIter(32) # importante 16 32
 		self.embd_layers = GDIter(2)
-		self.rnn_cell_names = GDIter('GRU', 'LSTM')
-		#self.te_features_iter = GDIter(8, 4, 16)
-		self.te_features_iter = GDIter(4, 16)
-		#self.te_features_iter = GDIter(16)
+		self.rnn_cell_names = GDIter('GRU')
+		#self.rnn_cell_names = GDIter('GRU', 'LSTM')
+		self.te_features_iter = GDIter(8)
+		#self.te_features_iter = GDIter(4, 8, 16)
+		self.cnn_aggregation = GDIter('avg')
+		#self.cnn_aggregation = GDIter('max', 'avg')
+
 		self.dropout_p = .2 # .1 .2 .25 .3
 		self.common_dict = {
 			'max_te_period':self.max_day*1.2,
@@ -129,7 +133,7 @@ class ModelCollections():
 				'tcnn_embd_dims':self.embd_dims,
 				'tcnn_layers':self.embd_layers,
 				'dropout':{'p':self.dropout_p},
-				'aggregation':GDIter('max', 'avg'),
+				'aggregation':self.cnn_aggregation,
 			},
 		})
 		self.add_gs(self.update_dt(gs))
@@ -141,7 +145,7 @@ class ModelCollections():
 				'tcnn_embd_dims':self.embd_dims,
 				'tcnn_layers':self.embd_layers,
 				'dropout':{'p':self.dropout_p},
-				'aggregation':GDIter('max', 'avg'),
+				'aggregation':self.cnn_aggregation,
 			},
 		})
 		self.add_gs(self.update_dt(gs))

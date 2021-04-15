@@ -38,7 +38,6 @@ class CustomDataset(Dataset):
 		max_te_period:float=None,
 		max_len:int=None,
 		te_features:int=6,
-		effective_beta_eps=C_.EFFECTIVE_BETA_EPS,
 
 		hours_noise_amp:float=C_.HOURS_NOISE_AMP,
 		std_scale:float=C_.OBSE_STD_SCALE,
@@ -61,7 +60,6 @@ class CustomDataset(Dataset):
 		self.max_te_period = self.max_day*2 if max_te_period is None else max_te_period
 		self.max_len = self.calcule_max_len() if max_len is None else max_len
 		self.te_features = te_features
-		self.effective_beta_eps = effective_beta_eps
 
 		self.hours_noise_amp = hours_noise_amp
 		self.std_scale = std_scale
@@ -159,7 +157,7 @@ class CustomDataset(Dataset):
 	'''
 
 	def generate_balanced_lcobj_names(self,
-		repeats=10,
+		repeats=20, # 10 15 20
 		):
 		min_index = np.argmin([self.populations_cdict[c] for c in self.class_names])
 		min_c = self.class_names[min_index]
@@ -426,7 +424,6 @@ class CustomDataset(Dataset):
 		### target
 		target = {
 			'y':torch.as_tensor(lcobj.y),
-			#'poblation_weights':torch.as_tensor([self.poblation_weights[c] for c in self.class_names], dtype=torch.float32),
 			'rec-x':torch.as_tensor(rec_x, dtype=torch.float32),
 		}
 

@@ -15,7 +15,7 @@ class LCMSEReconstruction(FTLoss):
 	def __init__(self, name, band_names,
 		**kwargs):
 		self.name = name
-		self.band_names = band_names.copy()
+		self.band_names = band_names
 
 	def __call__(self, tdict, **kwargs):
 		input_tdict = tdict['input']
@@ -89,7 +89,7 @@ class LCCompleteLoss(FTLoss):
 		self.mse_k = mse_k
 
 	def __call__(self, tdict, **kwargs):
-		epoch = kwargs['__epoch__']
+		epoch = kwargs['_epoch']
 		input_tdict = tdict['input']
 		target_tdict = tdict['target']
 		model_tdict = tdict['model']

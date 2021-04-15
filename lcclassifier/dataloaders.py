@@ -14,6 +14,8 @@ from fuzzytorch.models.seq_utils import seq_clean, get_seq_onehot_mask
 
 class CustomDataLoader(DataLoader):
 	def __init__(self, dataset,
+		random_subcrops:int=2,
+		min_length:int=5,
 		batch_size=1,
 		shuffle=False,
 		sampler=None,
@@ -26,9 +28,6 @@ class CustomDataLoader(DataLoader):
 		worker_init_fn=None,
 		multiprocessing_context=None,
 		prefetch_factor=1,
-
-		random_subcrops:int=2,
-		min_length:int=5,
 		):
 		super().__init__(dataset,
 			batch_size=batch_size,
@@ -68,7 +67,7 @@ class CustomDataLoader(DataLoader):
 			# add subcrops
 			new_batch_dicts = []
 			for tdict in batch:
-				length = tdict['input']['onehot'].sum().item()
+				length = tdict['input']['onehot'].detach().sum().item()
 				assert length>=0
 				new_lengths = [length if k==0 else random.randint(self.min_length, max(self.min_length, length-1)) for k in range(0, self.random_subcrops+1)]
 				#print(length, new_lengths)

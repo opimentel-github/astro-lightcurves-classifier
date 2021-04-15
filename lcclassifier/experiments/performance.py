@@ -22,7 +22,7 @@ def metrics_along_days(train_handler, data_loader, save_rootdir,
 	target_is_onehot:bool=False,
 	classifier_key='y.last',
 	figsize:tuple=C_.DEFAULT_FIGSIZE_REC,
-	days_N:int=C_.DEFAULT_DAYS_N,
+	days_n:int=C_.DEFAULT_DAYS_N,
 	eps:float=C_.EPS,
 	**kwargs):
 	### dataloader and extract dataset - important
@@ -33,7 +33,7 @@ def metrics_along_days(train_handler, data_loader, save_rootdir,
 	dataset.reset_max_day() # always reset max day
 	dataset.uses_precomputed_samples = False
 
-	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_N)#[::-1]
+	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_n)#[::-1]
 	bar_rows = 4
 	bar = ProgressBarMulti(len(days), bar_rows)
 	days_rec_metrics_df = DFBuilder()
@@ -139,9 +139,10 @@ def metrics_along_days(train_handler, data_loader, save_rootdir,
 		'band_names':dataset.band_names,
 		'class_names':dataset.class_names,
 		'parameters':count_parameters(train_handler.model),
+		'monitors':{}
 	}
 	for lmonitor in train_handler.lmonitors:
-		results[lmonitor.name] = {
+		results['monitors'][lmonitor.name] = {
 			'save_dict':lmonitor.get_save_dict(),
 			'best_epoch':lmonitor.get_best_epoch(),
 			'time_per_iteration':lmonitor.get_time_per_iteration(),
