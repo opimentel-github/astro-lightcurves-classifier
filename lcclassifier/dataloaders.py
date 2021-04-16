@@ -64,7 +64,7 @@ class CustomDataLoader(DataLoader):
 
 	def custom_collate_fn(self, batch):
 		if self.random_subcrops>0 and self.training:
-			# add subcrops
+			# add subcrops - it's slow
 			new_batch_dicts = []
 			for tdict in batch:
 				length = tdict['input']['onehot'].detach().sum().item()

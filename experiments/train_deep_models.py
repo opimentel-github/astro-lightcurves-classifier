@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # 32 64 100 128 256
+	parser.add_argument('-batch_size',  type=int, default=200, help='batch_size') # 32 64 100 128 256
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -178,7 +178,7 @@ if __name__== '__main__':
 
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':1.1e-3,
+					'lr':1.e-3,
 					#'betas':(0.9999, 0.9999),
 				},
 				#'decay_kwargs':{
@@ -196,7 +196,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':1, # every k epochs check
-				'earlystop_epoch_duration':8, # 10 15 20 25 30
+				'earlystop_epoch_duration':20, # 5 10 15 20 25 30
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,

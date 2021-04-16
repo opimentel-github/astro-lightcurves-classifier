@@ -14,7 +14,7 @@ from scipy.interpolate import interp1d
 ###################################################################################################################################################
 
 def get_parallel_serial_df(rootdir, cfilename, kf, lcset_name, model_names, metric_names,
-	day_to_metric=None,
+	day=None,
 	train_mode='fine-tuning',
 	arch_modes=['Parallel', 'Serial'],
 	n=1e3,
@@ -44,8 +44,7 @@ def get_parallel_serial_df(rootdir, cfilename, kf, lcset_name, model_names, metr
 					is_parallel = 'Parallel' in mdl
 
 					metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
-					interp_days = np.linspace(days.min(), day_to_metric, int(n))
-					interp_metric_curve = interp1d(days, metric_curve)(interp_days)
+					interp_metric_curve = interp1d(days, metric_curve)(np.linspace(days.min(), day, int(n)))
 					xe_metric_curve = XError(interp_metric_curve[:,-1])
 					xe_metric_curve_avg = XError(np.mean(interp_metric_curve, axis=-1))
 
@@ -54,7 +53,7 @@ def get_parallel_serial_df(rootdir, cfilename, kf, lcset_name, model_names, metr
 					#d_key = f'{mdl} [{arch_mode}]' if override_model_name else f'{label} [{arch_mode}]'
 					d[d_key] = xe_metric_curve_avg if uses_avg else xe_metric_curve
 
-			index = f'metric={utils.get_mday_avg_str(metric_name, day_to_metric) if uses_avg else utils.get_mday_str(metric_name, day_to_metric)}' 
+			index = f'metric={utils.get_mday_avg_str(metric_name, day) if uses_avg else utils.get_mday_str(metric_name, day)}' 
 			info_df.append(index, d)
 
 	return info_df()

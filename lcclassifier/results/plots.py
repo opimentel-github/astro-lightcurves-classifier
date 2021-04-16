@@ -92,6 +92,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 	export_animation=False,
 	animation_duration=10,
 	new_order_classes=['SNIa', 'SNIbc', 'allSNII', 'SLSN'],
+	n=1e3,
 	):
 	for kmn,model_name in enumerate(model_names):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/exp=performance/{cfilename}/{kf}@{lcset_name}'
@@ -109,26 +110,27 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
 
-		xe_dict = {}
-		for metric_name in ['b-accuracy', 'b-f1score']:
-			metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
-			xe_metric_curve = XError(metric_curve)
-			xe_metric_curve_avg = XError(np.mean(metric_curve, axis=-1))
-			xe_dict[metric_name] = (xe_metric_curve, xe_metric_curve_avg)
-
-		_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
-		label = f'{mdl} ({_label})'
-
 		plot_animation = PlotAnimation(len(days), animation_duration, dummy=not export_animation)
 		for kd,day in enumerate(days):
-			f1score_xe = xe_dict['b-f1score'][0]
-			accuracy_xe = xe_dict['b-accuracy'][0]
+			xe_dict = {}
+			for metric_name in ['b-accuracy', 'b-f1score']:
+				metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
+				interp_metric_curve = interp1d(days, metric_curve)(np.linspace(days.min(), day, int(n)))
+				xe_metric_curve = XError(interp_metric_curve[:,-1])
+				xe_metric_curve_avg = XError(np.mean(interp_metric_curve, axis=-1))
+				xe_dict[metric_name] = xe_metric_curve_avg
+
+			_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
+			label = f'{mdl} ({_label})'
+
+			f1score_xe = xe_dict['b-f1score']
+			accuracy_xe = xe_dict['b-accuracy']
 			title = ''
 			title += f'{label}'+'\n'
 			title += f'train-mode={train_mode} - survey={survey} [{kf}@{lcset_name}] - bands={"".join(band_names)}'+'\n'
 			title += f'b-f1score={f1score_xe}'+'\n'
-			title += f'b-accuracy={accuracy_xe}'+'\n'
-			title += f'day={target_day:.3f}/{day_to_metric:.3f}'+'\n'
+			title += f'b-accuracy={accuracy_xe} %'+'\n'
+			title += f'time={day:.3f}/{days[-1]:.3f} [days]'+'\n'
 			cm_kwargs = {
 				#'fig':fig,
 				#'ax':ax,
@@ -137,8 +139,6 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 				'new_order_classes':new_order_classes,
 			}
 			cms = np.concatenate([f()['days_cm'][day][None] for f in files], axis=0)
-			print(cms.shape)
-			assert 0
 			fig, ax = plot_custom_confusion_matrix(cms, class_names, **cm_kwargs)
 			plot_animation.add_frame(fig)
 			if kd<len(days)-1:

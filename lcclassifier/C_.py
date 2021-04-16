@@ -12,7 +12,7 @@ CHUNK_SIZE = N_JOBS*1
 
 ### SYNTHETIC
 OBSE_STD_SCALE = 1/2.5 # 2 2.5 3 5 10 important
-CPDS_P = 5./100. # 5 10 curve points down sampling probability
+CPDS_P = 1./100. # curve points down sampling probability
 HOURS_NOISE_AMP = 5. # 5
 
 XENTROPY_K = 1e0
