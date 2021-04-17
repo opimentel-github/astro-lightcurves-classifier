@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from flamingchoripan.datascience.xerror import XError
 from . import utils as utils
+from flamingchoripan.progress_bars import ProgressBar
 
 ###################################################################################################################################################
 
@@ -26,7 +27,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, metric_name,
 	color_dict = utils.get_color_dict(model_names)
 
 	for kmn,model_name in enumerate(model_names):
-		load_roodir = f'{rootdir}/{model_name}/{train_mode}/exp=performance/{cfilename}/{kf}@{lcset_name}'
+		load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}/{kf}@{lcset_name}'
 		files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
 		print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
 		if len(files)==0:
@@ -90,12 +91,12 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 	figsize=C_.PLOT_FIGZISE_RECT,
 	train_mode='fine-tuning',
 	export_animation=False,
-	animation_duration=10,
+	animation_duration=12,
 	new_order_classes=['SNIa', 'SNIbc', 'allSNII', 'SLSN'],
 	n=1e3,
 	):
 	for kmn,model_name in enumerate(model_names):
-		load_roodir = f'{rootdir}/{model_name}/{train_mode}/exp=performance/{cfilename}/{kf}@{lcset_name}'
+		load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}/{kf}@{lcset_name}'
 		files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
 		print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
 		if len(files)==0:
@@ -110,8 +111,15 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
 
-		plot_animation = PlotAnimation(len(days), animation_duration, dummy=not export_animation)
+		plot_animation = PlotAnimation(animation_duration,
+			is_dummy=not export_animation,
+			save_init_frame=True,
+			save_end_frame=True,
+			)
+
+		bar = ProgressBar(len(days), bar_format='{l_bar}{bar}{postfix}')
 		for kd,day in enumerate(days):
+			bar(f'{day:.1f}/{days[-1]:.1f} [days]')
 			xe_dict = {}
 			for metric_name in ['b-accuracy', 'b-f1score']:
 				metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
@@ -128,21 +136,23 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			title += f'{label}'+'\n'
 			title += f'train-mode={train_mode} - survey={survey} [{kf}@{lcset_name}] - bands={"".join(band_names)}'+'\n'
 			title += f'b-f1score={f1score_xe}'+'\n'
-			title += f'b-accuracy={accuracy_xe} %'+'\n'
-			title += f'time={day:.3f}/{days[-1]:.3f} [days]'+'\n'
+			title += f'b-accuracy={accuracy_xe}%'+'\n'
+			title += str(bar.get_bar_obj())+'\n'
+			#title += f'time={day:.3f}/{days[-1]:.3f} [days]'+'\n'
 			cm_kwargs = {
 				#'fig':fig,
 				#'ax':ax,
 				'title':title[:-1],
 				'figsize':(6,5),
 				'new_order_classes':new_order_classes,
-			}
+				}
 			cms = np.concatenate([f()['days_cm'][day][None] for f in files], axis=0)
 			fig, ax = plot_custom_confusion_matrix(cms, class_names, **cm_kwargs)
-			plot_animation.add_frame(fig)
+			plot_animation.append(fig)
 			if kd<len(days)-1:
 				plt.close(fig)
 			else:
 				plt.show()
 
+		bar.done()
 		plot_animation.save(f'../temp/{model_name}.gif')

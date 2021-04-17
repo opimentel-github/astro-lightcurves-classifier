@@ -44,6 +44,8 @@ class CustomDataset(Dataset):
 		cpds_p:float=C_.CPDS_P,
 
 		uses_precomputed_samples=True,
+		balanced_repeats=25, # 10 15 20
+
 		training=False,
 		):
 		assert te_features%2==0
@@ -66,6 +68,7 @@ class CustomDataset(Dataset):
 		self.cpds_p = cpds_p
 
 		self.uses_precomputed_samples = uses_precomputed_samples
+		self.balanced_repeats = balanced_repeats
 
 		self.reset()
 
@@ -156,14 +159,12 @@ class CustomDataset(Dataset):
 				self.balanced_lcobj_names += lcobj_names_c
 	'''
 
-	def generate_balanced_lcobj_names(self,
-		repeats=20, # 10 15 20
-		):
+	def generate_balanced_lcobj_names(self):
 		min_index = np.argmin([self.populations_cdict[c] for c in self.class_names])
 		min_c = self.class_names[min_index]
 		#min_c_pop = self.populations_cdict[min_c]
 		#print(min_c_pop, min_c)
-		self.balanced_lcobj_names = self.lcset.get_lcobj_names(min_c).copy()*repeats
+		self.balanced_lcobj_names = self.lcset.get_lcobj_names(min_c).copy()*self.balanced_repeats
 		boostrap_n = len(self.balanced_lcobj_names)
 		#print(self.balanced_lcobj_names)
 		#assert 0
@@ -390,7 +391,7 @@ class CustomDataset(Dataset):
 		be sure to copy the input lcobj!!!!
 		'''
 		lcobj = self.lcset[lcobj].copy() if isinstance(lcobj, str) else lcobj
-		self.cpdsw_rooted = False
+		self.cpdsw_rooted = True
 		self.cpdsw = .5
 		if uses_daugm:
 			for b in lcobj.bands:

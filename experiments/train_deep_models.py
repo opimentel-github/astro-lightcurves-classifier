@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # 32 64 100 128 256
+	parser.add_argument('-batch_size',  type=int, default=32, help='batch_size') # 32 64 100 128 256
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -180,11 +180,11 @@ if __name__== '__main__':
 				'opt_kwargs':{
 					'lr':1.e-3,
 					#'betas':(0.9999, 0.9999),
-				},
+					},
 				#'decay_kwargs':{
 				#	'lr':.95,
 				#}
-			}
+				}
 			pt_optimizer = LossOptimizer(model, optims.Adam, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
@@ -195,8 +195,8 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':1, # every k epochs check
-				'earlystop_epoch_duration':20, # 5 10 15 20 25 30
+				'val_epoch_counter_duration':0, # every k epochs check
+				'earlystop_epoch_duration':30, # 5 10 15 20 25 30
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -204,7 +204,7 @@ if __name__== '__main__':
 				#'save_mode':C_.SM_ONLY_INF_METRIC,
 				#'save_mode':C_.SM_ONLY_INF_LOSS,
 				'save_mode':C_.SM_ONLY_SUP_METRIC,
-			}
+				}
 			pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics, **monitor_config)
 
 			### TRAIN
@@ -217,10 +217,10 @@ if __name__== '__main__':
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'rsc':main_args.rsc,
-				},
+					},
 				'uses_train_eval_loader_methods':True,
 				'evaluate_train':False, # speed up
-			}
+				}
 			pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors, **mtrain_config)
 			complete_model_name = pt_model_train_handler.get_complete_model_name()
 			pt_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
@@ -237,7 +237,7 @@ if __name__== '__main__':
 			### training plots
 			plot_kwargs = {
 				'save_rootdir':f'../save/train_plots',
-			}
+				}
 			#ffplots.plot_loss(pt_model_train_handler, **plot_kwargs) # use this
 			#ffplots.plot_evaluation_loss(train_handler, **plot_kwargs)
 			#ffplots.plot_evaluation_metrics(train_handler, **plot_kwargs)
@@ -295,12 +295,13 @@ if __name__== '__main__':
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
 					'lr':.9e-3, # 5e-2
-				},
+					},
 				#'decay_kwargs':{
 				#	'lr':.95,
 				#}
-			}
-			ft_optimizer = LossOptimizer(model.get_classifier_model(), optims.Adam, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+				}
+			freeze_autencoder = True # True False
+			ft_optimizer = LossOptimizer(model.get_classifier_model() if freeze_autencoder else model, optims.Adam, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -310,7 +311,7 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':1, # every k epochs check
+				'val_epoch_counter_duration':2, # every k epochs check
 				'earlystop_epoch_duration':100,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
@@ -319,7 +320,7 @@ if __name__== '__main__':
 				#'save_mode':C_.SM_ONLY_INF_METRIC,
 				#'save_mode':C_.SM_ONLY_INF_LOSS,
 				'save_mode':C_.SM_ONLY_SUP_METRIC,
-			}
+				}
 			ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics, **monitor_config)
 
 			### TRAIN
@@ -333,10 +334,10 @@ if __name__== '__main__':
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'rsc':main_args.rsc,
-				},
+					},
 				'uses_train_eval_loader_methods':True,
 				'evaluate_train':False, # speed up
-			}
+				}
 			ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
 			complete_model_name = ft_model_train_handler.get_complete_model_name()
 			ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
