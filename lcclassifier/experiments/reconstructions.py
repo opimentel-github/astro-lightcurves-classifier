@@ -3,7 +3,7 @@ from __future__ import division
 from . import C_
 
 import torch
-from fuzzytorch.utils import get_model_name, TDictHolder
+from fuzzytorch.utils import get_model_name, TDictHolder, tensor_to_numpy
 import numpy as np
 from lchandler import C_ as C_lchandler
 from lchandler.plots.lc import plot_lightcurve
@@ -13,21 +13,21 @@ import matplotlib.pyplot as plt
 
 ###################################################################################################################################################
 
-def reconstructions(train_handler, data_loader, save_rootdir,
+def save_reconstructions(train_handler, data_loader, save_rootdir,
 	m:int=2,
 	figsize:tuple=C_.DEFAULT_FIGSIZE_BOX,
 	nc:int=1,
 	**kwargs):
 	results = []
 	for experiment_id in range(0, m):
-		r = _reconstructions(train_handler, data_loader, save_rootdir, str(experiment_id),
+		r = _save_reconstructions(train_handler, data_loader, save_rootdir, str(experiment_id),
 			figsize,
 			nc,
 			**kwargs)
 		results.append(r)
 	return results
 
-def _reconstructions(train_handler, data_loader, save_rootdir, experiment_id,
+def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_id,
 	figsize:tuple=C_.DEFAULT_FIGSIZE_BOX,
 	nc:int=1,
 	**kwargs):
@@ -52,8 +52,8 @@ def _reconstructions(train_handler, data_loader, save_rootdir, experiment_id,
 				plot_lightcurve(ax, lcobj, b, label=f'{b} obs', max_day=dataset.max_day)
 
 				### rec plot
-				days = out_tdict['input']['time'][0,onehot[0,:,kb]].cpu().numpy()
-				p_rx_pred = out_tdict['model'][f'rec-x.{b}'][0,:,0].cpu().numpy()
+				days = tensor_to_numpy(out_tdict['input']['time'][0,onehot[0,:,kb]])
+				p_rx_pred = tensor_to_numpy(out_tdict['model'][f'rec-x.{b}'][0,:,0])
 				p_rx_pred = dataset.get_rec_inverse_transform(p_rx_pred, b)
 				ax.plot(days[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 

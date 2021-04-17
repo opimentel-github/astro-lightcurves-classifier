@@ -390,12 +390,14 @@ class CustomDataset(Dataset):
 		be sure to copy the input lcobj!!!!
 		'''
 		lcobj = self.lcset[lcobj].copy() if isinstance(lcobj, str) else lcobj
+		self.cpdsw_rooted = False
+		self.cpdsw = .5
 		if uses_daugm:
 			for b in lcobj.bands:
 				lcobjb = lcobj.get_b(b)
 				lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
 				lcobjb.add_obs_noise_gaussian(0., self.std_scale) # add obs noise
-				lcobjb.apply_downsampling_window(False, .5) # curve points downsampling
+				lcobjb.apply_downsampling_window(self.cpdsw_rooted, self.cpdsw) # curve points downsampling
 				lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling
 
 		### remove day offset!

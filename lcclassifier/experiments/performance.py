@@ -3,7 +3,7 @@ from __future__ import division
 from . import C_
 
 import torch
-from fuzzytorch.utils import get_model_name, TDictHolder, minibatch_dict_collate
+from fuzzytorch.utils import get_model_name, TDictHolder, tensor_to_numpy, minibatch_dict_collate
 from fuzzytorch.models.utils import count_parameters
 import numpy as np
 from flamingchoripan.progress_bars import ProgressBar, ProgressBarMulti
@@ -18,14 +18,12 @@ import pandas as pd
 
 ###################################################################################################################################################
 
-def metrics_along_days(train_handler, data_loader, save_rootdir,
+def save_performance(train_handler, data_loader, save_rootdir,
 	target_is_onehot:bool=False,
 	classifier_key='y.last',
-	figsize:tuple=C_.DEFAULT_FIGSIZE_REC,
 	days_n:int=C_.DEFAULT_DAYS_N,
 	eps:float=C_.EPS,
 	**kwargs):
-	### dataloader and extract dataset - important
 	train_handler.load_model() # important, refresh to best model
 	train_handler.model.eval() # model eval
 	data_loader.eval() # set mode
@@ -71,7 +69,7 @@ def metrics_along_days(train_handler, data_loader, save_rootdir,
 						mse_loss_bdict[b] = mse_loss_b[...,0] # (b,1) > (b)
 
 					mse_loss = torch.cat([mse_loss_bdict[b][...,None] for b in dataset.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
-					mse_loss = mse_loss.cpu().numpy() # cpu-numpy
+					mse_loss = tensor_to_numpy(mse_loss)
 					mse_loss = mse_loss.mean()
 
 					days_rec_metrics_df.append(day, {
@@ -87,8 +85,8 @@ def metrics_along_days(train_handler, data_loader, save_rootdir,
 						assert y_pred_.shape==y_target.shape
 						y_target = torch.argmax(y_target, dim=-1)
 
-					y_target = y_target.cpu().numpy() # cpu-numpy
-					y_pred_p = y_pred_p.cpu().numpy() # cpu-numpy
+					y_target = tensor_to_numpy(y_target)
+					y_pred_p = tensor_to_numpy(y_pred_p)
 					y_pred = np.argmax(y_pred_p, axis=-1)
 
 					met_kwargs = {
@@ -123,33 +121,19 @@ def metrics_along_days(train_handler, data_loader, save_rootdir,
 	dataset.uses_precomputed_samples = True  # very important!!
 	dataset.reset_max_day() # very important!!
 
-	### more info
-	#complete_save_roodir = train_handler.complete_save_roodir.split('/')[-1] # train_handler.get_complete_save_roodir().split('/')[-1]
 	results = {
+		'model_name':train_handler.model.get_name(),
+		'survey':dataset.survey,
+		'band_names':dataset.band_names,
+		'class_names':dataset.class_names,
+
 		'days':days,
 		'days_rec_metrics_df':days_rec_metrics_df.get_df(),
 		'days_class_metrics_df':days_class_metrics_df.get_df(),
 		'days_class_metrics_cdf':{c:days_class_metrics_cdf[c].get_df() for c in dataset.class_names},
 		'days_cm':days_cm,
 		'wrong_samples':wrong_samples,
-
-		#'complete_save_roodir':complete_save_roodir,
-		'model_name':train_handler.model.get_name(),
-		'survey':dataset.survey,
-		'band_names':dataset.band_names,
-		'class_names':dataset.class_names,
-		'parameters':count_parameters(train_handler.model),
-		'monitors':{}
 	}
-	for lmonitor in train_handler.lmonitors:
-		results['monitors'][lmonitor.name] = {
-			'save_dict':lmonitor.get_save_dict(),
-			'best_epoch':lmonitor.get_best_epoch(),
-			'time_per_iteration':lmonitor.get_time_per_iteration(),
-			#'time_per_epoch_set':{set_name:lmonitor.get_time_per_epoch_set(set_name) for set_name in ['train', 'val']},
-			'time_per_epoch':lmonitor.get_time_per_epoch(),
-			'total_time':lmonitor.get_total_time(),
-		}
 
 	### save file
 	save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}.d'

@@ -16,11 +16,13 @@ class AttnTCNNEncoderP(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()
-
 		### ATTRIBUTES
+		self.add_extra_return = False
 		for name, val in kwargs.items():
 			setattr(self, name, val)
+		self.reset()
 
+	def reset(self):
 		### PRE-INPUT
 		linear_kwargs = {
 			'activation':'linear',
@@ -61,7 +63,6 @@ class AttnTCNNEncoderP(nn.Module):
 			'dropout':self.dropout['p'],
 		}
 		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeErrorSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1), self.te_features, self.max_te_period, **attn_kwargs) for b in self.band_names})
-		self.return_scores = False
 		print('ml_attn:', self.ml_attn)
 
 		#self.attn_te_film = FILM(self.te_features, self.tcnn_embd_dims)
@@ -73,6 +74,12 @@ class AttnTCNNEncoderP(nn.Module):
 		}
 		self.z_projection = Linear(self.tcnn_embd_dims*len(self.band_names), self.tcnn_embd_dims, **linear_kwargs)
 		print('z_projection:', self.z_projection)
+
+	def get_info(self):
+		d = {}
+		for kb,b in enumerate(self.band_names):
+			d[f'ml_attn.{b}'] = self.ml_attn[b].get_info()
+		return d
 
 	def get_output_dims(self):
 		return self.tcnn_embd_dims#*len(self.band_names)
@@ -87,7 +94,7 @@ class AttnTCNNEncoderP(nn.Module):
 		onehot = model_input['onehot']
 
 		last_z_dic = {}
-		layer_scores = {}
+		scores = {}
 		for kb,b in enumerate(self.band_names):
 			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
 			p_x = seq_utils.serial_to_parallel(x, onehot[...,kb])
@@ -100,14 +107,14 @@ class AttnTCNNEncoderP(nn.Module):
 			#p_z = self.ml_cnn[b](p_z.permute(0,2,1)).permute(0,2,1)
 
 			#p_z = self.attn_te_film(p_z, p_te) if self.te_features>0 else p_z
-			p_z, p_layer_scores, extra_infos = self.ml_attn[b](p_z, p_onehot, p_time[...,0], p_error[...,0])
+			p_z, p_scores = self.ml_attn[b](p_z, p_onehot, p_time[...,0], p_error[...,0])
+			scores[b] = p_scores
 
 			### representative element
 			last_z_dic[b] = seq_utils.seq_last_element(p_z, p_onehot) # last element
 			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot) # max pooling
 			#last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot) # avg pooling
 			#tdict['model'].update({f'z.{b}.last':p_z})
-			layer_scores[b] = p_layer_scores
 		
 		last_z = torch.cat([last_z_dic[b] for b in self.band_names], dim=-1)
 		last_z = self.z_projection(last_z)
@@ -115,8 +122,10 @@ class AttnTCNNEncoderP(nn.Module):
 			#'z':z, # not used
 			'z.last':last_z,
 		})
-		if self.return_scores:
-			tdict['model'].update({'layer_scores':layer_scores})
+		if self.add_extra_return:
+			tdict['model'].update({
+				'scores':scores,
+				})
 		return tdict
 
 ###################################################################################################################################################
@@ -125,11 +134,13 @@ class AttnTCNNEncoderS(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()
-
 		### ATTRIBUTES
+		self.add_extra_return = False
 		for name, val in kwargs.items():
 			setattr(self, name, val)
+		self.reset()
 
+	def reset(self):
 		### PRE-INPUT
 		linear_kwargs = {
 			'activation':'linear',
@@ -170,11 +181,16 @@ class AttnTCNNEncoderS(nn.Module):
 			'dropout':self.dropout['p'],
 		}
 		self.ml_attn = ft_attn.MLTimeErrorSelfAttn(self.tcnn_embd_dims, self.tcnn_embd_dims, [self.tcnn_embd_dims]*(self.tcnn_layers-1), self.te_features, self.max_te_period, **attn_kwargs)
-		self.return_scores = False
 		print('ml_attn:', self.ml_attn)
 
 		#self.attn_te_film = FILM(self.te_features, self.tcnn_embd_dims)
 		#print('attn_te_film:', self.attn_te_film)
+
+	def get_info(self):
+		d = {
+			'ml_attn':self.ml_attn.get_info(),
+			}
+		return d
 
 	def get_output_dims(self):
 		return self.tcnn_embd_dims
@@ -194,7 +210,7 @@ class AttnTCNNEncoderS(nn.Module):
 		#z = self.ml_cnn(z.permute(0,2,1)).permute(0,2,1)
 
 		#z = self.attn_te_film(z, model_input['te']) if self.te_features>0 else z
-		z, layer_scores, extra_infos = self.ml_attn(z, s_onehot, model_input['time'][...,0], model_input['error'][...,0])
+		z, scores = self.ml_attn(z, s_onehot, model_input['time'][...,0], model_input['error'][...,0])
 
 		### representative element
 		last_z = seq_utils.seq_last_element(z, s_onehot) # last element
@@ -204,6 +220,8 @@ class AttnTCNNEncoderS(nn.Module):
 			#'z':z, # not used
 			'z.last':last_z,
 		})
-		if self.return_scores:
-			tdict['model'].update({'layer_scores':layer_scores})
+		if self.add_extra_return:
+			tdict['model'].update({
+				'scores':scores,
+				})
 		return tdict

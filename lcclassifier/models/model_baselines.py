@@ -237,6 +237,12 @@ class ParallelAttnTCNNClassifier(ModelBaseline):
 		self.class_mdl_kwargs.update({'input_dims':embd_dims})
 		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)
 
+	def get_info(self):
+		d = {
+			'encoder':self.autoencoder['encoder'].get_info(),
+			}
+		return d
+
 	def get_name(self):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
@@ -276,6 +282,12 @@ class SerialAttnTCNNClassifier(ModelBaseline):
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
 		self.class_mdl_kwargs.update({'input_dims':embd_dims})
 		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)
+
+	def get_info(self):
+		d = {
+			'encoder':self.autoencoder['encoder'].get_info(),
+			}
+		return d
 
 	def get_name(self):
 		encoder = self.autoencoder['encoder']

@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=200, help='batch_size') # 32 64 100 128 256
+	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # 32 64 100 128 256
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -243,30 +243,23 @@ if __name__== '__main__':
 			#ffplots.plot_evaluation_metrics(train_handler, **plot_kwargs)
 
 			###################################################################################################################################################
+			from lcclassifier.experiments.reconstructions import save_reconstructions
+			from lcclassifier.experiments.model_info import save_model_info
+			from lcclassifier.experiments.temporal_encoding import save_temporal_encoding
+
 			pt_exp_kwargs = {
 				'm':15,
 				'target_is_onehot':False,
 				'classifier_key':'y.last',
 				}
-
-			###################################################################################################################################################
-			from lcclassifier.experiments.images import reconstructions
-
-			reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-			reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
-			#reconstructions(pt_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}exp=reconstruction/{cfilename}', **pt_exp_kwargs) # slow
-			reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs)
-			reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/exp=reconstruction/{cfilename}', **pt_exp_kwargs)
-
-			###################################################################################################################################################
-			from lcclassifier.experiments.performance import metrics_along_days
-
-			#metrics_along_days(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-			metrics_along_days(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs) # sanity check
-			#metrics_along_days(pt_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs) # slow
-			metrics_along_days(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs)
-			metrics_along_days(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **pt_exp_kwargs)
-
+			save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+			save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
+			#save_reconstructions(pt_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}reconstruction/{cfilename}', **pt_exp_kwargs) # slow
+			save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
+			save_reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
+			
+			save_model_info(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs)
+			save_temporal_encoding(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/temporal_encoding/{cfilename}', **pt_exp_kwargs)
 			'''
 			###################################################################################################################################################
 			from lcclassifier.experiments.performance import metrics_along_days
@@ -353,21 +346,20 @@ if __name__== '__main__':
 			ft_model_train_handler.fit_loader(r_train_loader, r_val_loader) # main fit
 
 			###################################################################################################################################################
+			from lcclassifier.experiments.performance import save_performance
+		
 			ft_exp_kwargs = {
 				'm':15,
 				'target_is_onehot':False,
 				'classifier_key':'y.last-ft',
-				}
+				}	
+			#save_performance(ft_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
+			save_performance(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check
+			#save_performance(ft_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # slow
+			save_performance(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
+			save_performance(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 
-			###################################################################################################################################################
-			from lcclassifier.experiments.performance import metrics_along_days
-			
-			#metrics_along_days(ft_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
-			metrics_along_days(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # sanity check
-			#metrics_along_days(ft_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs) # slow
-			metrics_along_days(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs)
-			metrics_along_days(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/exp=performance/{cfilename}', **ft_exp_kwargs)
-
+			save_model_info(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs)
 			'''
 			###################################################################################################################################################
 			from lcclassifier.experiments.attention import attn_scores_m, attention_statistics

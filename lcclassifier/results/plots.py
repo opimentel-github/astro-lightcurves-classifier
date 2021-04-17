@@ -9,7 +9,7 @@ from flamingchoripan.cuteplots.cm_plots import plot_custom_confusion_matrix
 from flamingchoripan.cuteplots.animations import PlotAnimation
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-from flamingchoripan.datascience.statistics import XError
+from flamingchoripan.datascience.xerror import XError
 from . import utils as utils
 
 ###################################################################################################################################################
@@ -117,8 +117,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 				metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
 				interp_metric_curve = interp1d(days, metric_curve)(np.linspace(days.min(), day, int(n)))
 				xe_metric_curve = XError(interp_metric_curve[:,-1])
-				xe_metric_curve_avg = XError(np.mean(interp_metric_curve, axis=-1))
-				xe_dict[metric_name] = xe_metric_curve_avg
+				xe_dict[metric_name] = xe_metric_curve
 
 			_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
 			label = f'{mdl} ({_label})'
