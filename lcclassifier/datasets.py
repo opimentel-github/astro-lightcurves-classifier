@@ -44,7 +44,7 @@ class CustomDataset(Dataset):
 		std_scale:float=C_.OBSE_STD_SCALE,
 		cpds_p:float=C_.CPDS_P,
 
-		balanced_repeats=20, # 10 15 20 30
+		balanced_repeats=10, # 10 15 20 30
 
 		training=False,
 		):
@@ -308,9 +308,9 @@ class CustomDataset(Dataset):
 	###################################################################################################################################################
 
 	def get_lcobj_names(self):
-		if self.training:
+		if self.training: # training
 			return self.balanced_lcobj_names
-		else:
+		else: # eval
 			return self.lcset.get_lcobj_names()
 
 	def has_precomputed_samples(self):

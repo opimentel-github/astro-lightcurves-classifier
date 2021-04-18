@@ -19,6 +19,7 @@ import pandas as pd
 ###################################################################################################################################################
 
 def save_temporal_encoding(train_handler, data_loader, save_rootdir,
+	days_n:int=C_.DEFAULT_DAYS_N,
 	**kwargs):
 	train_handler.load_model() # important, refresh to best model
 	train_handler.model.eval() # model eval
@@ -27,8 +28,8 @@ def save_temporal_encoding(train_handler, data_loader, save_rootdir,
 	if not hasattr(train_handler.model, 'get_info'):
 		return
 
+	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_n)#[::-1]
 	temporal_encoding = train_handler.model.get_info()
-	#print(temporal_encoding)
 
 	results = {
 		'model_name':train_handler.model.get_name(),
@@ -36,6 +37,7 @@ def save_temporal_encoding(train_handler, data_loader, save_rootdir,
 		'band_names':dataset.band_names,
 		'class_names':dataset.class_names,
 
+		'days':days,
 		'temporal_encoding':temporal_encoding,
 	}
 

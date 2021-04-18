@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=32, help='batch_size') # 32 64 100 128 256
+	parser.add_argument('-batch_size',  type=int, default=32, help='batch_size') # 32* 64
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -110,37 +110,39 @@ if __name__== '__main__':
 	from torch.utils.data import DataLoader
 	import torch
 
-	for mp_grid in model_collections.mps: # MODEL CONFIGS
-		### DATASETS
-		dataset_kwargs = mp_grid['dataset_kwargs']
-		s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs)
-		#s_val_dataset = CustomDataset(f'{main_args.kf}@val.{main_args.method}', lcdataset, **dataset_kwargs)
-		r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs)
-		r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
-		r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
+	model_ids = list(range(*[int(mi) for mi in main_args.mids.split('-')])) # IDS
+	for ki,model_id in enumerate(model_ids):
 
-		mp_grid['mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
-		mp_grid['dec_mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
-		s_train_dataset.transfer_metadata_to(r_train_dataset) # transfer metadata to val/test
-		s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
-		s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
+		for mp_grid in model_collections.mps: # MODEL CONFIGS
+			### DATASETS
+			dataset_kwargs = mp_grid['dataset_kwargs']
+			s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs)
+			#s_val_dataset = CustomDataset(f'{main_args.kf}@val.{main_args.method}', lcdataset, **dataset_kwargs)
+			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs)
+			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
+			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
-		s_precomputed_samples = 20 # 10 20
-		r_precomputed_samples = s_precomputed_samples*32 # 1000
-		s_train_dataset.precompute_samples(s_precomputed_samples)
-		r_train_dataset.precompute_samples(r_precomputed_samples)
+			mp_grid['mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
+			mp_grid['dec_mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
+			s_train_dataset.transfer_metadata_to(r_train_dataset) # transfer metadata to val/test
+			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
+			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-		print('s_train_dataset:', s_train_dataset)
-		print('r_train_dataset:', r_train_dataset)
-		print('r_val_dataset:', r_val_dataset)
-		print('r_test_dataset:', r_test_dataset)
+			s_precomputed_samples = 2 # 0 2*
+			r_precomputed_samples = s_precomputed_samples*32 # 0 s_precomputed_samples*32
+			s_train_dataset.precompute_samples(s_precomputed_samples)
+			r_train_dataset.precompute_samples(r_precomputed_samples)
 
-		model_ids = list(range(*[int(mi) for mi in main_args.mids.split('-')]))
-		for ki,model_id in enumerate(model_ids): # IDS
+			print('s_train_dataset:', s_train_dataset)
+			print('r_train_dataset:', r_train_dataset)
+			print('r_val_dataset:', r_val_dataset)
+			print('r_test_dataset:', r_test_dataset)
+
+
 			### DATALOADERS
 			worker_init_fn = lambda id:np.random.seed(torch.initial_seed() // 2**32+id) # num_workers-numpy bug
 			loader_kwargs = {
-				'num_workers':4, # 0 2 4
+				'num_workers':2, # 0 2 4
 				'pin_memory':True, # False True
 				#'prefetch_factor':1, # only if num_workers>0
 				'batch_size':main_args.batch_size,
@@ -167,7 +169,7 @@ if __name__== '__main__':
 
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':1.e-3,
+					'lr':1.1e-3,
 					#'betas':(0.9999, 0.9999),
 					},
 				#'decay_kwargs':{
@@ -283,7 +285,7 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':.9e-3, # 5e-2
+					'lr':1.2e-3, # 5e-2
 					},
 				#'decay_kwargs':{
 				#	'lr':.95,
@@ -300,7 +302,7 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':2, # every k epochs check
+				'val_epoch_counter_duration':4, # every k epochs check
 				'earlystop_epoch_duration':100,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
@@ -316,7 +318,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':1e3,
+				'epochs_max':1e4,
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,
