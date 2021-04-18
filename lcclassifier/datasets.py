@@ -44,7 +44,7 @@ class CustomDataset(Dataset):
 		std_scale:float=C_.OBSE_STD_SCALE,
 		cpds_p:float=C_.CPDS_P,
 
-		balanced_repeats=25, # 10 15 20
+		balanced_repeats=20, # 10 15 20 30
 
 		training=False,
 		):

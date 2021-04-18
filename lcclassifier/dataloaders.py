@@ -27,7 +27,7 @@ class CustomDataLoader(DataLoader):
 		timeout=0,
 		worker_init_fn=None,
 		multiprocessing_context=None,
-		prefetch_factor=1,
+		#prefetch_factor=1,
 		):
 		super().__init__(dataset,
 			batch_size=batch_size,
@@ -41,7 +41,7 @@ class CustomDataLoader(DataLoader):
 			timeout=timeout,
 			worker_init_fn=worker_init_fn,
 			multiprocessing_context=multiprocessing_context,
-			prefetch_factor=prefetch_factor,
+			#prefetch_factor=prefetch_factor,
 			)
 		assert random_subcrops>=0
 		assert min_length>0
