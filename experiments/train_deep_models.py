@@ -107,9 +107,8 @@ if __name__== '__main__':
 	### GRID
 	from lcclassifier.datasets import CustomDataset
 	from lcclassifier.dataloaders import CustomDataLoader
+	from torch.utils.data import DataLoader
 	import torch
-
-	previous_dataset_kwargs = None
 
 	### IDS
 	model_ids = list(range(*[int(mi) for mi in main_args.mids.split('-')]))
@@ -136,32 +135,28 @@ if __name__== '__main__':
 			print('r_train_dataset:', r_train_dataset)
 			print('r_val_dataset:', r_val_dataset)
 			print('r_test_dataset:', r_test_dataset)
-			
-			if previous_dataset_kwargs is None or not dataset_kwargs==previous_dataset_kwargs:
-				synth_precomputed_samples = 10
-				real_precomputed_samples = 10
-				#s_train_dataset.precompute_samples(synth_precomputed_samples)
-				#s_val_dataset.precompute_samples(synth_precomputed_samples)
-				#r_train_dataset.precompute_samples(real_precomputed_samples)
-				#r_val_dataset.precompute_samples(real_precomputed_samples)
-				#r_test_dataset.precompute_samples(real_precomputed_samples) # not used in training routine
-			previous_dataset_kwargs = dataset_kwargs.copy()
 
 			### DATALOADERS
 			worker_init_fn = lambda id:np.random.seed(torch.initial_seed() // 2**32+id) # num_workers-numpy bug
 			loader_kwargs = {
-				'num_workers':2,
+				'num_workers':2, # 0 2 4
 				'pin_memory':True, # False True
-				#'prefetch_factor':1, # only if num_workers>0
+				'prefetch_factor':1, # only if num_workers>0
 				'batch_size':main_args.batch_size,
-				'random_subcrops':main_args.rsc,
 				'worker_init_fn':worker_init_fn,
+				#'random_subcrops':main_args.rsc,
 			}
-			s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs)
-			#s_val_loader = CustomDataLoader(s_val_dataset, shuffle=False, **loader_kwargs)
-			r_train_loader = CustomDataLoader(r_train_dataset, shuffle=True, **loader_kwargs)
-			r_val_loader = CustomDataLoader(r_val_dataset, shuffle=False, **loader_kwargs)
-			r_test_loader = CustomDataLoader(r_test_dataset, shuffle=False, **loader_kwargs)
+			s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader
+			#s_val_loader = CustomDataLoader(s_val_dataset, shuffle=False, **loader_kwargs) # DataLoader CustomDataLoader
+			r_train_loader = CustomDataLoader(r_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader
+			r_val_loader = CustomDataLoader(r_val_dataset, shuffle=False, **loader_kwargs) # DataLoader CustomDataLoader
+			r_test_loader = CustomDataLoader(r_test_dataset, shuffle=False, **loader_kwargs) # DataLoader CustomDataLoader
+
+			s_precomputed_samples = 20
+			r_precomputed_samples = 1000
+			precomputed_device = 'cpu' # cpu pt_model_train_handler.device
+			s_train_dataset.precompute_samples(s_precomputed_samples, precomputed_device)
+			r_train_dataset.precompute_samples(r_precomputed_samples, precomputed_device)
 
 			### GET MODEL
 			mdl_kwargs = mp_grid['mdl_kwargs']
@@ -211,7 +206,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':1e6,
+				'epochs_max':500, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -327,7 +322,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':1e6,
+				'epochs_max':1e3,
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,

@@ -16,6 +16,7 @@ from flamingchoripan.lists import get_list_chunks, get_random_subsampled_list, g
 from flamingchoripan.progress_bars import ProgressBar
 from fuzzytorch.utils import print_tdict
 import fuzzytorch.models.seq_utils as seq_utils
+from fuzzytorch.utils import TDictHolder
 
 ###################################################################################################################################################
 
@@ -43,7 +44,6 @@ class CustomDataset(Dataset):
 		std_scale:float=C_.OBSE_STD_SCALE,
 		cpds_p:float=C_.CPDS_P,
 
-		uses_precomputed_samples=True,
 		balanced_repeats=25, # 10 15 20
 
 		training=False,
@@ -67,7 +67,6 @@ class CustomDataset(Dataset):
 		self.std_scale = std_scale
 		self.cpds_p = cpds_p
 
-		self.uses_precomputed_samples = uses_precomputed_samples
 		self.balanced_repeats = balanced_repeats
 
 		self.reset()
@@ -338,50 +337,59 @@ class CustomDataset(Dataset):
 			if self.has_precomputed_samples():
 				return get_random_item(self.precomputed_dict[lcobj_name])
 			else:
-				return self.get_item(self.lcset[lcobj_name].copy(), uses_daugm=True)
+				return self.get_item(self.lcset[lcobj_name], uses_daugm=True)
 		else:
-			return self.get_item(self.lcset[lcobj_name].copy(), uses_daugm=False)
-
-	'''
-	def precompute_samples(self, precomputed_copies,
-		n_jobs=C_.N_JOBS,
-		chunk_size=C_.CHUNK_SIZE,
-		backend=C_.JOBLIB_BACKEND,
-		):
-		chunk_size = n_jobs if chunk_size is None else chunk_size
-
-		def job(lcobj):
-			return [self.get_item(lcobj, uses_daugm=True) for _ in range(precomputed_copies)]
-
-		lcobj_names = self.get_lcobj_names()
-		chunks = get_list_chunks(lcobj_names, chunk_size)
-		bar = ProgressBar(len(chunks))
-		for k,chunk in enumerate(chunks):
-			bar(f'{self.lcset_name} {chunk}')
-			results = Parallel(n_jobs=n_jobs, backend=backend)([delayed(job)() for lcobj_name in chunk]) # None threading
-			for lcobj_name,r in zip(chunk,results):
-				self.precomputed_dict[lcobj_name] = r
-
-		bar.done()
-	'''
+			return self.get_item(self.lcset[lcobj_name], uses_daugm=False)
 
 	def precompute_samples(self, precomputed_copies,
-		backend=C_.JOBLIB_BACKEND,
+		device='cpu',
 		):
-		def job(lcobj):
-			return self.get_item(lcobj, uses_daugm=True)
+		if precomputed_copies<=0:
+			return
+		if not self.has_precomputed_samples():
+			lcobj_names = self.get_lcobj_names()
+			bar = ProgressBar(len(lcobj_names))
+			for k,lcobj_name in enumerate(lcobj_names):
+				bar(f'precomputed_copies={precomputed_copies} - device={device} - lcobj_name={lcobj_name}')
+				self.precomputed_dict[lcobj_name] = []
+				for _k,_lcobj_name in enumerate([lcobj_name]*precomputed_copies):
+					r = self.get_item(self.lcset[_lcobj_name], _k>0)
+					self.precomputed_dict[lcobj_name] += [r if device=='cpu' else TDictHolder(r).to(device)]
 
-		lcobj_names = self.get_lcobj_names()
-		bar = ProgressBar(len(lcobj_names))
-		for k,lcobj_name in enumerate(lcobj_names):
-			bar(f'{lcobj_name}')
-			results = Parallel(n_jobs=precomputed_copies, backend=backend)([delayed(job)(self.lcset[lcobj_name_].copy()) for lcobj_name_ in [lcobj_name]*precomputed_copies])
-			self.precomputed_dict[lcobj_name] = results+[self.get_item(self.lcset[lcobj_name].copy(), uses_daugm=False)]
+			bar.done()
 
-		bar.done()
+	def precompute_samples_joblib(self, precomputed_copies,
+		device='cpu',
+		backend='threading',
+		n_jobs=1,
+		):
+		# don't use this!
+		if precomputed_copies<=0:
+			return
+		if not self.has_precomputed_samples():
+			def job(lcobj, uses_daugm):
+				return self.get_item(lcobj, uses_daugm=uses_daugm)
+
+			lcobj_names = self.get_lcobj_names()
+			bar = ProgressBar(len(lcobj_names))
+			for k,lcobj_name in enumerate(lcobj_names):
+				bar(f'precomputed_copies={precomputed_copies} - device={device} - lcobj_name={lcobj_name}')
+				self.precomputed_dict[lcobj_name] = []
+				jobs = []
+				for _k,_lcobj_name in enumerate([lcobj_name]*precomputed_copies):
+					jobs.append(delayed(job)(
+						self.lcset[_lcobj_name],
+						_k>0,
+					))
+				results = Parallel(n_jobs=n_jobs, backend=backend)(jobs)
+				#self.precomputed_dict[lcobj_name] = results+[self.get_item(self.lcset[lcobj_name].copy(), uses_daugm=False)]
+				for r in results:
+					self.precomputed_dict[lcobj_name] += [r if device=='cpu' else TDictHolder(r).to(device)]
+
+			bar.done()
 
 
-	def get_item(self, lcobj,
+	def get_item(self, _lcobj,
 		uses_daugm=False,
 		uses_len_clip=True,
 		return_lcobjs=False,
@@ -390,7 +398,7 @@ class CustomDataset(Dataset):
 		apply data augmentation, this overrides obj information
 		be sure to copy the input lcobj!!!!
 		'''
-		lcobj = self.lcset[lcobj].copy() if isinstance(lcobj, str) else lcobj
+		lcobj = self.lcset[_lcobj].copy() if isinstance(_lcobj, str) else _lcobj.copy()
 		self.cpdsw_rooted = True
 		self.cpdsw = .5
 		if uses_daugm:
