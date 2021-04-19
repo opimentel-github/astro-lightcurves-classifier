@@ -128,7 +128,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 2 # 0 2*
+			s_precomputed_samples = 0 # 0 2*
 			r_precomputed_samples = s_precomputed_samples*32 # 0 s_precomputed_samples*32
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
@@ -142,7 +142,7 @@ if __name__== '__main__':
 			### DATALOADERS
 			worker_init_fn = lambda id:np.random.seed(torch.initial_seed() // 2**32+id) # num_workers-numpy bug
 			loader_kwargs = {
-				'num_workers':2, # 0 2 4
+				'num_workers':2, # 0 2* 4
 				'pin_memory':True, # False True
 				#'prefetch_factor':1, # only if num_workers>0
 				'batch_size':main_args.batch_size,

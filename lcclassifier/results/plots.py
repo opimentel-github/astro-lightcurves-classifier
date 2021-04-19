@@ -160,8 +160,8 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 	label_keys=[],
 	train_mode='pre-training',
-	ids_to_show=2,
-	figsize=(12,8),
+	layers=2,
+	figsize=(12,12),
 	n=1e3,
 	):
 	for kmn,model_name in enumerate(model_names):
@@ -179,16 +179,23 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
 		days = files[0]()['days']
-		days = np.linspace(days[0], days[-1], int(n))
-
-		fig, axs = plt.subplots(ids_to_show, 1, figsize=figsize)
+		#days = np.linspace(days[0], days[-1], int(n))
+		days = np.linspace(0, 40, int(n))
+		
+		fig, axs = plt.subplots(layers+1, 1, figsize=figsize)
 		for kax,ax in enumerate(axs):
 			b = 'g'
-			layer = kax
-			d = files[0]()['temporal_encoding']['encoder'][f'ml_attn.{b}']['te_mod'][layer]
-			te_ws = d['te_ws']
-			te_phases = d['te_phases']
-			te_scales = d['te_scales']
+			if kax==0:
+				d = files[0]()['temporal_encoding']['encoder'][f'ml_attn.{b}']['te_mod'][0]
+				te_ws = d['initial_ws']
+				te_phases = np.zeros_like(te_ws)
+				te_scales = np.ones_like(te_ws)
+			else:
+				d = files[0]()['temporal_encoding']['encoder'][f'ml_attn.{b}']['te_mod'][kax-1]
+				te_ws = d['te_ws']
+				te_phases = d['te_phases']
+				te_scales = d['te_scales']
+
 			for k in range(0, len(te_ws)):
 				w = te_ws[k]
 				phase = te_phases[k]
