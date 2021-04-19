@@ -128,7 +128,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 0 # 0 2*
+			s_precomputed_samples = 2 # 0 2*
 			r_precomputed_samples = s_precomputed_samples*32 # 0 s_precomputed_samples*32
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
