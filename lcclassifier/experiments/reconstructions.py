@@ -53,7 +53,7 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 
 				### rec plot
 				days = tensor_to_numpy(out_tdict['input']['time'][0,onehot[0,:,kb]])
-				p_rx_pred = tensor_to_numpy(out_tdict['model'][f'rec-x.{b}'][0,:,0])
+				p_rx_pred = tensor_to_numpy(out_tdict['model'][f'rec_x.{b}'][0,:,0])
 				p_rx_pred = dataset.get_rec_inverse_transform(p_rx_pred, b)
 				ax.plot(days[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 

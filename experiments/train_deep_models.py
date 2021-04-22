@@ -15,13 +15,13 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=32, help='batch_size') # 32* 64
+	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # 32 64 100
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
 	parser.add_argument('-mids',  type=str, default='0-10', help='initial_id-final_id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
-	parser.add_argument('-rsc',  type=int, default=0, help='random_subcrops')
+	parser.add_argument('-rsc',  type=int, default=1, help='random_subcrops')
 	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
 	print_big_bar()
@@ -75,7 +75,7 @@ if __name__== '__main__':
 		'model_output_is_with_softmax':False,
 		'target_is_onehot':False,
 		'uses_poblation_weights':False, # False True
-		'classifier_key':'y.last',
+		'classifier_key':'y_last_pt',
 	}
 	pt_loss = LCCompleteLoss('wmse-xentropy', lcdataset['raw'].band_names, **pt_loss_kwargs)
 	pt_metrics = [
@@ -88,7 +88,7 @@ if __name__== '__main__':
 		'model_output_is_with_softmax':False,
 		'target_is_onehot':False,
 		'uses_poblation_weights':False, # False True
-		'classifier_key':'y.last-ft',
+		'classifier_key':'y_last_ft',
 	}
 	ft_loss = LCXEntropy('xentropy', **ft_loss_kwargs)
 	ft_metrics = [
@@ -123,13 +123,12 @@ if __name__== '__main__':
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
 			mp_grid['mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
-			mp_grid['dec_mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
 			s_train_dataset.transfer_metadata_to(r_train_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 2 # 0 2*
-			r_precomputed_samples = s_precomputed_samples*32 # 0 s_precomputed_samples*32
+			s_precomputed_samples = 0 # 0 2*
+			r_precomputed_samples = s_precomputed_samples*32
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
 
@@ -138,16 +137,15 @@ if __name__== '__main__':
 			print('r_val_dataset:', r_val_dataset)
 			print('r_test_dataset:', r_test_dataset)
 
-
 			### DATALOADERS
 			worker_init_fn = lambda id:np.random.seed(torch.initial_seed() // 2**32+id) # num_workers-numpy bug
 			loader_kwargs = {
-				'num_workers':2, # 0 2* 4
+				'num_workers':2, # 0 2*
 				'pin_memory':True, # False True
 				#'prefetch_factor':1, # only if num_workers>0
-				'batch_size':main_args.batch_size,
+				'batch_size':main_args.batch_size//(1+main_args.rsc),
 				'worker_init_fn':worker_init_fn,
-				#'random_subcrops':main_args.rsc,
+				'random_subcrops':main_args.rsc,
 			}
 			s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader
 			r_train_loader = CustomDataLoader(r_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader
@@ -155,12 +153,8 @@ if __name__== '__main__':
 			r_test_loader = CustomDataLoader(r_test_dataset, shuffle=False, **loader_kwargs) # DataLoader CustomDataLoader
 
 			### GET MODEL
-			mdl_kwargs = mp_grid['mdl_kwargs']
-			for k_ in ['mdl_kwargs', 'dec_mdl_kwargs']:
-				mp_grid[k_]['input_dims'] = s_train_loader.dataset.get_output_dims()
-				mp_grid[k_]['te_features'] = s_train_loader.dataset.get_te_features_dims()
-				#mp_grid[k_]['curvelength_max'] = s_train_dataset.get_max_len()
-			model = mdl_kwargs['C'](**mp_grid)
+			mp_grid['mdl_kwargs']['input_dims'] = s_train_loader.dataset.get_output_dims()
+			model = mp_grid['mdl_kwargs']['C'](**mp_grid)
 
 			### pre-training
 			### OPTIMIZER
@@ -187,14 +181,14 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':30, # 5 10 15 20 25 30
+				'earlystop_epoch_duration':100, # 5 10 15 20 25 30
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
 				#'save_mode':C_.SM_ONLY_ALL,
 				#'save_mode':C_.SM_ONLY_INF_METRIC,
-				#'save_mode':C_.SM_ONLY_INF_LOSS,
-				'save_mode':C_.SM_ONLY_SUP_METRIC,
+				'save_mode':C_.SM_ONLY_INF_LOSS,
+				#'save_mode':C_.SM_ONLY_SUP_METRIC,
 				}
 			pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics, **monitor_config)
 
@@ -202,11 +196,12 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':500, # limit this as the pre-training is very time consuming
+				'epochs_max':1e3, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
+					'b':main_args.batch_size,
 					'rsc':main_args.rsc,
 					},
 				'uses_train_eval_loader_methods':True,
@@ -237,12 +232,20 @@ if __name__== '__main__':
 			from lcclassifier.experiments.reconstructions import save_reconstructions
 			from lcclassifier.experiments.model_info import save_model_info
 			from lcclassifier.experiments.temporal_encoding import save_temporal_encoding
+			from lcclassifier.experiments.performance import metrics_along_days
 
 			pt_exp_kwargs = {
 				'm':15,
 				'target_is_onehot':False,
-				'classifier_key':'y.last',
+				'classifier_key':'y_last_pt',
 				}
+			'''
+			#metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
+			#metrics_along_days(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
+			metrics_along_days(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
+			metrics_along_days(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
+			metrics_along_days(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
+			'''
 			save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
 			save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
 			#save_reconstructions(pt_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}reconstruction/{cfilename}', **pt_exp_kwargs) # slow
@@ -251,16 +254,11 @@ if __name__== '__main__':
 			
 			save_model_info(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs)
 			save_temporal_encoding(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/temporal_encoding/{cfilename}', **pt_exp_kwargs)
-			'''
+			
 			###################################################################################################################################################
-			from lcclassifier.experiments.performance import metrics_along_days
+			
 
-			#metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
-			#metrics_along_days(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
-			metrics_along_days(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
-			metrics_along_days(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
-			metrics_along_days(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
-
+			'''
 			###################################################################################################################################################
 			from lcclassifier.experiments.attention import attn_scores_m, attention_statistics
 
@@ -302,8 +300,8 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':4, # every k epochs check
-				'earlystop_epoch_duration':100,
+				'val_epoch_counter_duration':0, # every k epochs check
+				'earlystop_epoch_duration':500,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -324,6 +322,7 @@ if __name__== '__main__':
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
+					'b':main_args.batch_size,
 					'rsc':main_args.rsc,
 					},
 				'uses_train_eval_loader_methods':True,
@@ -343,7 +342,7 @@ if __name__== '__main__':
 			ft_exp_kwargs = {
 				'm':15,
 				'target_is_onehot':False,
-				'classifier_key':'y.last-ft',
+				'classifier_key':'y_last_ft',
 				}	
 			#save_performance(ft_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
 			save_performance(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check
@@ -352,24 +351,3 @@ if __name__== '__main__':
 			save_performance(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 
 			save_model_info(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs)
-			'''
-			###################################################################################################################################################
-			from lcclassifier.experiments.attention import attn_scores_m, attention_statistics
-
-			if model_id==model_ids[-1]:
-				#attn_scores_m(ft_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **ft_exp_kwargs) # sanity check / slow
-				#attn_scores_m(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
-				attn_scores_m(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow
-				attn_scores_m(ft_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **ft_exp_kwargs)
-				attn_scores_m(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **ft_exp_kwargs)
-
-				#attention_statistics(ft_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **ft_exp_kwargs) # sanity check / slow
-				#attention_statistics(ft_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **ft_exp_kwargs) # sanity check
-				attention_statistics(ft_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **ft_exp_kwargs) # slow
-				attention_statistics(ft_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **ft_exp_kwargs)
-				attention_statistics(ft_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **ft_exp_kwargs)
-				#assert 0
-
-
-
-			'''

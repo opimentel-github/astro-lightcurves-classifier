@@ -13,28 +13,31 @@ import math
 
 class LCMSEReconstruction(FTLoss):
 	def __init__(self, name, band_names,
+		eps=1, # important
 		**kwargs):
 		self.name = name
 		self.band_names = band_names
+		self.eps = eps
 
 	def __call__(self, tdict, **kwargs):
 		input_tdict = tdict['input']
 		target_tdict = tdict['target']
 		model_tdict = tdict['model']
+
 		onehot = input_tdict['onehot']
-		error = input_tdict['error']
+		error = target_tdict['error']
 		assert torch.all(error>=0)
 
 		t = onehot.shape[1]
 		mse_loss_bdict = {}
 		for kb,b in enumerate(self.band_names):
+			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
 			p_error = seq_utils.serial_to_parallel(error, onehot[...,kb]) # (b,t,1)
-			p_rx = seq_utils.serial_to_parallel(target_tdict['rec-x'], onehot[...,kb]) # (b,t,1)
-			p_rx_pred = model_tdict[f'rec-x.{b}'] # (b,t,1)
+			p_rx = seq_utils.serial_to_parallel(target_tdict['rec_x'], onehot[...,kb]) # (b,t,1)
+			p_rx_pred = model_tdict[f'rec_x.{b}'] # (b,t,1)
 
-			mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+C_.EPS) # (b,t,1)
-			dummy_p_onehot = seq_utils.get_seq_onehot_mask(onehot[...,kb].sum(dim=-1), t)
-			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, dummy_p_onehot)[...,0] # (b,t,1) > (b)
+			mse_loss_b = (p_rx-p_rx_pred)**2/(p_error+self.eps) # (b,t,1)
+			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 			mse_loss_bdict[b] = mse_loss_b
 
 		mse_loss = torch.cat([mse_loss_bdict[b][...,None] for b in self.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
@@ -46,7 +49,7 @@ class LCXEntropy(FTLoss):
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
 		uses_poblation_weights:bool=True,
-		classifier_key='y.last',
+		classifier_key='y_last_pt',
 		**kwargs):
 		self.name = name
 		self.model_out_uses_softmax = model_out_uses_softmax
@@ -73,7 +76,7 @@ class LCCompleteLoss(FTLoss):
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
 		uses_poblation_weights:bool=True,
-		classifier_key='y.last',
+		classifier_key='y_last_pt',
 		xentropy_k=C_.XENTROPY_K,
 		mse_k=C_.MSE_K,
 		**kwargs):

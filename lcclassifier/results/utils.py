@@ -29,6 +29,7 @@ def get_cmodel_name(model_name):
 	mn_dict = strings.get_dict_from_string(model_name)
 	mn_dict.pop('enc-emb')
 	mn_dict.pop('dec-emb')
+	#mn_dict.pop('rsc')
 	cmodel_name = '~'.join([f'{k}={mn_dict[k]}' for k in mn_dict.keys()])
 	cmodel_name = cmodel_name.replace('Parallel', '').replace('Serial', '')
 	return cmodel_name
@@ -51,8 +52,8 @@ def filter_models(model_names, condition_dict):
 def get_color_dict(model_names):
 	cmodel_names = []
 	for kmn,model_name in enumerate(model_names):
-		if 'rsc=0' in model_name:
-			cmodel_names += [get_cmodel_name(model_name)]
+		#if 'rsc=0' in model_name:
+		cmodel_names += [get_cmodel_name(model_name)]
 
 	cmodel_names = list(set(cmodel_names))
 	colors = cc.colors()

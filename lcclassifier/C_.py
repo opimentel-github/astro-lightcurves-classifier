@@ -16,8 +16,8 @@ OBSE_STD_SCALE = 1/2.5 # 2.5 # 2 2.5 3 5 10 important
 CPDS_P = 10./100. # curve points down sampling probability
 HOURS_NOISE_AMP = 5. # 5
 
-XENTROPY_K = 1e0
-MSE_K = 1e-1 # important
+XENTROPY_K = 1
+MSE_K = 1e3 # important
 
 DEFAULT_DAYS_N = 100
 DEFAULT_MIN_DAY = 2.

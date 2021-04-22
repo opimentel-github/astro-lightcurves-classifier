@@ -12,6 +12,8 @@ from scipy.interpolate import interp1d
 from flamingchoripan.datascience.xerror import XError
 from . import utils as utils
 from flamingchoripan.progress_bars import ProgressBar
+import math
+from matplotlib import cm
 
 ###################################################################################################################################################
 
@@ -49,7 +51,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, metric_name,
 		ax = axs[int(not is_parallel)]
 		_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
 		label = f'{mdl} ({_label}) | {xe_metric_curve_avg}*'
-		color = color_dict[utils.get_cmodel_name(model_name)] if rsc=='0' else 'k'
+		color = color_dict[utils.get_cmodel_name(model_name)]# if rsc=='0' else 'k'
 		ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
 		ax.fill_between(days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=alpha, fc=color)
 
@@ -161,7 +163,7 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 	label_keys=[],
 	train_mode='pre-training',
 	layers=2,
-	figsize=(12,12),
+	figsize=(12,10),
 	n=1e3,
 	):
 	for kmn,model_name in enumerate(model_names):
@@ -182,27 +184,50 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 		#days = np.linspace(days[0], days[-1], int(n))
 		days = np.linspace(0, 40, int(n))
 		
-		fig, axs = plt.subplots(layers+1, 1, figsize=figsize)
-		for kax,ax in enumerate(axs):
-			b = 'g'
-			if kax==0:
-				d = files[0]()['temporal_encoding']['encoder'][f'ml_attn.{b}']['te_mod'][0]
-				te_ws = d['initial_ws']
-				te_phases = np.zeros_like(te_ws)
-				te_scales = np.ones_like(te_ws)
-			else:
-				d = files[0]()['temporal_encoding']['encoder'][f'ml_attn.{b}']['te_mod'][kax-1]
+		###
+		b = 'r'
+		fig, axs = plt.subplots(1+layers, 1, figsize=figsize)
+		cmap = cm.get_cmap('viridis', 100)
+
+		ax = axs[0]
+		d = files[0]()['temporal_encoding']['encoder'][f'ml_attn.{b}' if is_parallel else f'ml_attn']['te_mod'][0]
+		te_ws = d['initial_ws']
+		te_phases = np.zeros_like(te_ws)
+		te_scales = np.ones_like(te_ws)
+
+		for k in range(0, len(te_ws)):
+			w = te_ws[k]
+			p = 2*math.pi/w
+			phase = te_phases[k]
+			scale = te_scales[k]
+			ntime = days*d['ktime']
+			ax.plot(p, 0, 'o', c=cmap(k/len(te_ws)))
+			ax.grid(alpha=0.5, axis='x')
+			ax.set_ylabel(f'initial condition')
+			ax.set_yticklabels([])
+
+		for layer in range(0, layers):
+			ax = axs[1+layer]
+			for kfile,file in enumerate(files):
+				d = file()['temporal_encoding']['encoder'][f'ml_attn.{b}' if is_parallel else f'ml_attn']['te_mod'][layer]
 				te_ws = d['te_ws']
 				te_phases = d['te_phases']
 				te_scales = d['te_scales']
+				ktime = d['ktime']
 
-			for k in range(0, len(te_ws)):
-				w = te_ws[k]
-				phase = te_phases[k]
-				scale = te_scales[k]
-				ntime = days*d['ktime']
-				axplot = ax.plot(days, scale*np.sin(w*ntime+phase), '-')
-				#ax.plot(days, scale*np.cos(w*days+phase), '--', c=axplot[0].get_color())
+				for k in range(0, len(te_ws)):
+					w = te_ws[k]
+					p = 2*math.pi/w
+					phase = te_phases[k]
+					scale = te_scales[k]
+					ntime = days*d['ktime']
+					ax.plot(p, kfile+np.random.uniform(0, 0.1), 'o', c=cmap(k/len(te_ws)))
+					ax.grid(alpha=0.5, axis='x')
+					label = f'layer={layer} - b={b}' if is_parallel else f'layer={layer}'
+					ax.set_ylabel(label)
+					ax.set_yticklabels([])
+
+		ax.set_xlabel('temporal-encoding periods [days]')
 
 		_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
 		label = f'{mdl} ({_label})'

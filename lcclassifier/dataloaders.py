@@ -14,7 +14,7 @@ from fuzzytorch.models.seq_utils import seq_clean, get_seq_onehot_mask
 
 class CustomDataLoader(DataLoader):
 	def __init__(self, dataset,
-		random_subcrops:int=2,
+		random_subcrops:int=0,
 		min_length:int=5,
 		batch_size=1,
 		shuffle=False,

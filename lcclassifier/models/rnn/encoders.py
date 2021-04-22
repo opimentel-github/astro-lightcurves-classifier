@@ -15,13 +15,14 @@ import fuzzytorch.models.seq_utils as seq_utils
 class RNNEncoderP(nn.Module):
 	def __init__(self, **kwargs):
 		super().__init__()
-
 		### ATTRIBUTES
 		setattr(self, 'uses_batchnorm', False)
 		setattr(self, 'bidirectional', False)
 		for name, val in kwargs.items():
 			setattr(self, name, val)
+		self.reset()
 
+	def reset(self):
 		### PRE-INPUT
 		linear_kwargs = {
 			'activation':'linear',
@@ -29,10 +30,6 @@ class RNNEncoderP(nn.Module):
 		extra_dims = 0
 		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:', self.x_projection)
-
-		### TE
-		self.te_film = FILM(self.te_features, self.rnn_embd_dims)
-		print('te_film:', self.te_film)
 
 		### RNN STACK
 		rnn_kwargs = {
@@ -63,27 +60,22 @@ class RNNEncoderP(nn.Module):
 		x = model_input['x']
 		onehot = model_input['onehot']
 
-		last_z_dic = {}
+		z_bdict = {}
 		for kb,b in enumerate(self.band_names):
 			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
 			p_x = seq_utils.serial_to_parallel(x, onehot[...,kb])
 			p_z = self.x_projection[b](p_x)
-
-			p_z = self.te_film(p_z, seq_utils.serial_to_parallel(model_input['te'], onehot[...,kb])) if self.te_features>0 else p_z
-			p_z, p_extra_info_rnn = self.ml_rnn[b](p_z, p_onehot, **kwargs) # out, (ht, ct)
+			p_zs, _ = self.ml_rnn[b](p_z, p_onehot, **kwargs) # out, (ht, ct)
 
 			### representative element
-			last_z_dic[b] = seq_utils.seq_last_element(p_z, p_onehot) # last element
-			#last_z_dic[b] = seq_utils.seq_max_pooling(p_z, p_onehot) # max pooling
-			#last_z_dic[b] = seq_utils.seq_avg_pooling(p_z, p_onehot) # avg pooling
-			#tdict['model'].update({f'z.{b}.last':p_z})
+			for layer in range(0, self.rnn_layers):
+				z_bdict[f'z-{layer}.{b}'] = seq_utils.seq_last_element(p_zs[layer], p_onehot) # last element
 
-		last_z = torch.cat([last_z_dic[b] for b in self.band_names], dim=-1)
-		last_z = self.z_projection(last_z)
-		tdict['model'].update({
-			#'z':z, # not used
-			'z.last':last_z,
-		})
+		### BUILD OUT
+		z_last = torch.cat([z_bdict[f'z-{self.rnn_layers-1}.{b}'] for b in self.band_names], dim=-1)
+		tdict['model']['z_last'] = self.z_projection(z_last)
+		for layer in range(0, self.rnn_layers):
+			tdict['model'][f'z-{layer}'] = torch.max(torch.cat([z_bdict[f'z-{layer}.{b}'][...,None] for b in self.band_names], dim=-1), dim=-1)[0]
 		return tdict
 
 ###################################################################################################################################################
@@ -107,10 +99,6 @@ class RNNEncoderS(nn.Module):
 		self.x_projection = Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 
-		### TE
-		self.te_film = FILM(self.te_features, self.rnn_embd_dims)
-		print('te_film:', self.te_film)
-
 		### RNN STACK
 		rnn_kwargs = {
 			'in_dropout':self.dropout['p'],
@@ -132,14 +120,7 @@ class RNNEncoderS(nn.Module):
 		model_input = tdict['input']
 		x = model_input['x']
 		onehot = model_input['onehot']
-
 		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
-
-		if self.te_features>0:
-			te = model_input['te']
-			z = self.te_film(z, te)
-		else:
-			pass
 
 		s_onehot = onehot.sum(dim=-1).bool()
 		z, extra_info_rnn = self.ml_rnn(z, s_onehot, **kwargs) # out, (ht, ct)

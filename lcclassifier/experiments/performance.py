@@ -20,9 +20,9 @@ import pandas as pd
 
 def save_performance(train_handler, data_loader, save_rootdir,
 	target_is_onehot:bool=False,
-	classifier_key='y.last',
+	classifier_key='y_last_pt',
 	days_n:int=C_.DEFAULT_DAYS_N,
-	eps:float=C_.EPS,
+	eps:float=1,
 	**kwargs):
 	train_handler.load_model() # important, refresh to best model
 	train_handler.model.eval() # model eval
@@ -60,11 +60,11 @@ def save_performance(train_handler, data_loader, save_rootdir,
 					mse_loss_bdict = {}
 					for kb,b in enumerate(dataset.band_names):
 						p_onehot = onehot[...,kb]
-						p_error = seq_utils.serial_to_parallel(out_tdict['input']['error'], onehot[...,kb]) # (b,t,1)
-						p_rx = seq_utils.serial_to_parallel(out_tdict['target']['rec-x'], onehot[...,kb]) # (b,t,1)
-						p_rx_pred = out_tdict['model'][f'rec-x.{b}'] # (b,t,1)
+						p_error = seq_utils.serial_to_parallel(out_tdict['target']['error'], onehot[...,kb]) # (b,t,1)
+						p_rx = seq_utils.serial_to_parallel(out_tdict['target']['rec_x'], onehot[...,kb]) # (b,t,1)
+						p_rx_pred = out_tdict['model'][f'rec_x.{b}'] # (b,t,1)
 
-						mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+eps) # (b,t,1)
+						mse_loss_b = (p_rx-p_rx_pred)**2/(p_error+eps) # (b,t,1)
 						mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, seq_utils.get_seq_onehot_mask(p_onehot.sum(dim=-1), onehot.shape[1])) # (b,t,1) > (b,1)
 						mse_loss_bdict[b] = mse_loss_b[...,0] # (b,1) > (b)
 
@@ -111,7 +111,7 @@ def save_performance(train_handler, data_loader, save_rootdir,
 
 					### progress bar
 					recall = {c:metrics_cdict[c]['recall'] for c in dataset.class_names}
-					bar([f'day={day:.3f}/{days[-1]:.3f}', f'mse_loss={mse_loss}', f'metrics_dict={metrics_dict}', f'recall={recall}'])
+					bar([f'lcset_name={dataset.lcset_name} - day={day:.3f}/{days[-1]:.3f}', f'mse_loss={mse_loss}', f'metrics_dict={metrics_dict}', f'recall={recall}'])
 					#break # dummy
 
 			except KeyboardInterrupt:
