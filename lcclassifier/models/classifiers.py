@@ -26,8 +26,8 @@ class SimpleClassifier(nn.Module):
 		print('classifier_mlp:', self.classifier_mlp)
 
 		### MLP
-		layers = 2
-		self.embd_dims_list = [self.input_dims*(1+layers)]*1
+		self.encoder_layers = 2 # fixme
+		self.embd_dims_list = [self.input_dims*(1+self.encoder_layers)]*1
 		self.classifier_mlp_ft = MLP(self.embd_dims_list[0], self.output_dims, self.embd_dims_list, **mlp_kwargs)
 		print('classifier_mlp_ft:', self.classifier_mlp_ft)
 
@@ -40,8 +40,7 @@ class SimpleClassifier(nn.Module):
 		z_last = tdict['model']['z_last']
 		tdict['model']['y_last_pt'] = self.classifier_mlp(z_last)
 
-		layers = 2
-		complete_z = [z_last]+[tdict['model'][f'z-{layer}'] for layer in range(0, layers)]
+		complete_z = [z_last]+[tdict['model'][f'z-{layer}'] for layer in range(0, self.encoder_layers)]
 		complete_z = torch.cat(complete_z, dim=-1)
 		tdict['model']['y_last_ft'] = self.classifier_mlp_ft(complete_z)
 		return tdict

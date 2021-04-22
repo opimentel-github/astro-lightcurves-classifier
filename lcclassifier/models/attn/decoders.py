@@ -93,7 +93,7 @@ class TimeSelfAttnDecoderS(nn.Module):
 			'activation':'linear',
 		}
 		extra_dims = len(self.band_names)+0
-		self.x_projection = Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs)
+		self.x_projection = Linear(self.input_dims+extra_dims, self.attn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 
 
@@ -112,7 +112,7 @@ class TimeSelfAttnDecoderS(nn.Module):
 			'dropout':self.dropout['p'],
 			'activation':'linear',
 		}
-		self.dz_projection = MLP(self.rnn_embd_dims, 1, [self.rnn_embd_dims]*1, **mlp_kwargs)
+		self.dz_projection = MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*1, **mlp_kwargs)
 		print('dz_projection:', self.dz_projection)
 
 	def get_output_dims(self):
@@ -134,7 +134,8 @@ class TimeSelfAttnDecoderS(nn.Module):
 		s_onehot = onehot.sum(dim=-1).bool()
 		
 		rx = self.x_projection(dz)
-		rx, _ = self.ml_attn(rx, s_onehot, time, **kwargs) # out, (ht, ct)
+		rx, _ = self.ml_attn(rx, s_onehot, time[...,0], **kwargs)
+		rx = rx[-1]
 		rx = self.dz_projection(rx)
 			
 		for kb,b in enumerate(self.band_names):

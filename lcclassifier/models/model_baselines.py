@@ -287,11 +287,16 @@ class SerialTimeSelfAttn(ModelBaseline):
 		self.te_features = self.mdl_kwargs['te_features']
 		self.band_names = self.mdl_kwargs['band_names']
 
-		### MODEL DEFINITION
-		encoder = attn_encoders.TimeAttnEncoderS(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
-		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
-		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
+		### ENCODER
+		encoder = attn_encoders.TimeSelfAttnEncoderS(**self.mdl_kwargs)
+		embd_dims = self.mdl_kwargs['attn_embd_dims']
+		
+		### DECODER
+		dec_mdl_kwargs = self.mdl_kwargs.copy()
+		dec_mdl_kwargs['input_dims'] = embd_dims
+		decoder = attn_decoders.TimeSelfAttnDecoderS(**dec_mdl_kwargs)
+
+		### MODEL
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
 		self.class_mdl_kwargs.update({'input_dims':embd_dims})
 		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)

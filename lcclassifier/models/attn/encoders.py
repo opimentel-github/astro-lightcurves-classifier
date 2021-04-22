@@ -145,9 +145,13 @@ class TimeSelfAttnEncoderS(nn.Module):
 		}
 		self.ml_attn = ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs)
 		print('ml_attn:', self.ml_attn)
-
-		#self.attn_te_film = FILM(self.te_features, self.attn_embd_dims)
-		#print('attn_te_film:', self.attn_te_film)
+		
+		### POST-PROJECTION
+		linear_kwargs = {
+			'activation':'linear',
+		}
+		self.z_projection = Linear(self.attn_embd_dims, self.attn_embd_dims, **linear_kwargs)
+		print('z_projection:', self.z_projection)
 
 	def get_info(self):
 		d = {
@@ -167,24 +171,24 @@ class TimeSelfAttnEncoderS(nn.Module):
 		x = model_input['x']
 		onehot = model_input['onehot']
 		s_onehot = onehot.sum(dim=-1).bool()
+		time = model_input['time']
+
 		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
+		zs, scores = self.ml_attn(z, s_onehot, time[...,0], return_only_actual_scores=True)
 
-		#z = self.te_film(z, model_input['te']) if self.te_features>0  else z
-		#z = self.ml_cnn(z.permute(0,2,1)).permute(0,2,1)
-
-		#z = self.attn_te_film(z, model_input['te']) if self.te_features>0 else z
-		z, scores = self.ml_attn(z, s_onehot, model_input['time'][...,0])
-
+		z_bdict = {}
+		attn_scores = {}
 		### representative element
-		last_z = seq_utils.seq_last_element(z, s_onehot) # last element
-		#last_z = seq_utils.seq_max_pooling(z, s_onehot) # max pooling
-		#last_z = seq_utils.seq_avg_pooling(z, s_onehot) # avg pooling
-		tdict['model'].update({
-			#'z':z, # not used
-			'z.last':last_z,
-		})
+		for layer in range(0, self.attn_layers):
+			z_bdict[f'z-{layer}'] = seq_utils.seq_last_element(zs[layer], s_onehot) # last element
+			attn_scores[f'z-{layer}'] = scores[layer]
+
+		### BUILD OUT
+		tdict['model']['z_last'] = self.z_projection(z_bdict[f'z-{self.attn_layers-1}'])
+		for layer in range(0, self.attn_layers):
+			tdict['model'][f'z-{layer}'] = z_bdict[f'z-{layer}']
 		if self.add_extra_return:
 			tdict['model'].update({
-				'scores':scores,
+				'attn_scores':attn_scores,
 				})
 		return tdict
