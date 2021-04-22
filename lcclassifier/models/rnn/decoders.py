@@ -31,7 +31,7 @@ class RNNDecoderP(nn.Module):
 		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:',self.x_projection)
 
-		### RNN STACK
+		### RNN
 		rnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -46,7 +46,7 @@ class RNNDecoderP(nn.Module):
 			'dropout':self.dropout['p'],
 			'activation':'linear',
 		}
-		self.dz_projection = nn.ModuleDict({b:MLP(self.rnn_embd_dims, 1, [self.rnn_embd_dims]*0, **mlp_kwargs) for b in self.band_names})
+		self.dz_projection = nn.ModuleDict({b:MLP(self.rnn_embd_dims, 1, [self.rnn_embd_dims]*1, **mlp_kwargs) for b in self.band_names})
 		print('dz_projection:', self.dz_projection)
 
 	def get_output_dims(self):
@@ -85,12 +85,13 @@ class RNNDecoderS(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()
-
 		### ATTRIBUTES
 		setattr(self, 'bidirectional', False)
 		for name, val in kwargs.items():
 			setattr(self, name, val)
-
+		self.reset()
+		
+	def reset(self):
 		### PRE-INPUT
 		linear_kwargs = {
 			'activation':'linear',
@@ -99,7 +100,7 @@ class RNNDecoderS(nn.Module):
 		self.x_projection = Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 
-		### RNN STACK
+		### RNN
 		rnn_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -108,6 +109,7 @@ class RNNDecoderS(nn.Module):
 		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs)
 		print('ml_rnn:', self.ml_rnn)
 
+		### DEC MLP
 		mlp_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -129,18 +131,18 @@ class RNNDecoderS(nn.Module):
 		onehot = model_input['onehot']
 
 		b,t,_ = onehot.size()
-		dz = tdict['model']['z.last'][:,None,:].repeat(1,t,1) # dz: decoder z
-		dz = torch.cat([dz, onehot.float()], dim=-1)
-		
-		dz = torch.cat([dz, model_input['dtime']], dim=-1) # cat dtime
-		rx = self.x_projection(dz)
-
+		dz = tdict['model']['z_last'][:,None,:].repeat(1,t,1) # dz: decoder z
+		dtime = model_input['dtime']
+		dz = torch.cat([dz, onehot.float(), dtime], dim=-1) # cat bands & dtime
 		s_onehot = onehot.sum(dim=-1).bool()
-		rx, extra_info_rnn = self.ml_rnn(rx, s_onehot, **kwargs) # out, (ht, ct)
+		
+		rx = self.x_projection(dz)
+		rx, _ = self.ml_rnn(rx, s_onehot, **kwargs) # out, (ht, ct)
+		rx = rx[-1]
 		rx = self.dz_projection(rx)
 			
 		for kb,b in enumerate(self.band_names):
 			p_rx = seq_utils.serial_to_parallel(rx, onehot[...,kb])
-			tdict['model'].update({f'rec-x.{b}':p_rx})
+			tdict['model'].update({f'rec_x.{b}':p_rx})
 
 		return tdict

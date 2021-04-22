@@ -232,7 +232,7 @@ if __name__== '__main__':
 			from lcclassifier.experiments.reconstructions import save_reconstructions
 			from lcclassifier.experiments.model_info import save_model_info
 			from lcclassifier.experiments.temporal_encoding import save_temporal_encoding
-			from lcclassifier.experiments.performance import metrics_along_days
+			from lcclassifier.experiments.performance import save_performance
 
 			pt_exp_kwargs = {
 				'm':15,
@@ -240,11 +240,11 @@ if __name__== '__main__':
 				'classifier_key':'y_last_pt',
 				}
 			'''
-			#metrics_along_days(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
-			#metrics_along_days(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
-			metrics_along_days(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
-			metrics_along_days(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
-			metrics_along_days(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
+			#save_performance(pt_model_train_handler, s_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_train/{train_mode}', **pt_exp_kwargs) # sanity check / slow
+			#save_performance(pt_model_train_handler, r_train_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_train/{train_mode}', **pt_exp_kwargs) # sanity check
+			save_performance(pt_model_train_handler, s_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@s_val/{train_mode}', **pt_exp_kwargs) # slow
+			save_performance(pt_model_train_handler, r_val_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_val/{train_mode}', **pt_exp_kwargs)
+			save_performance(pt_model_train_handler, r_test_loader, save_rootdir=f'../save/experiments/{main_args.kf}@r_test/{train_mode}', **pt_exp_kwargs)
 			'''
 			save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
 			save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check

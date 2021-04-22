@@ -17,8 +17,8 @@ class ModelCollections():
 
 		self.embd_dims = GDIter(16) # importante 16 32
 		self.embd_layers = GDIter(2)
-		self.rnn_cell_names = GDIter('GRU')
-		#self.rnn_cell_names = GDIter('GRU', 'LSTM')
+		#self.rnn_cell_names = GDIter('GRU')
+		self.rnn_cell_names = GDIter('GRU', 'LSTM')
 		self.te_features_iter = GDIter(8)
 		#self.te_features_iter = GDIter(4, 8, 16)
 		self.cnn_aggregation = GDIter('avg')

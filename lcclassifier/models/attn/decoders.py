@@ -11,10 +11,9 @@ import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
 
-class AttnTCNNDecoderP(nn.Module):
+class TimeSeltAttnDecoderP(nn.Module):
 	def __init__(self, **kwargs):
 		super().__init__()
-
 		### ATTRIBUTES
 		for name, val in kwargs.items():
 			setattr(self, name, val)
@@ -78,33 +77,36 @@ class AttnTCNNDecoderP(nn.Module):
 
 ###################################################################################################################################################
 
-class AttnTCNNDecoderS(nn.Module):
+class TimeSelfAttnDecoderS(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()
-
 		### ATTRIBUTES
-		setattr(self, 'bidirectional', False)
 		for name, val in kwargs.items():
 			setattr(self, name, val)
+		assert self.te_features>0, 'attn needs to work with temporal encoding'
+		self.reset()
 
+	def reset(self):
 		### PRE-INPUT
 		linear_kwargs = {
 			'activation':'linear',
 		}
-		extra_dims = len(self.band_names)+1
+		extra_dims = len(self.band_names)+0
 		self.x_projection = Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 
-		### RNN STACK
-		rnn_kwargs = {
+
+		### ATTN
+		attn_kwargs = {
+			'num_heads':4,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
-			'bidirectional':self.bidirectional,
 		}
-		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs)
-		print('ml_rnn:', self.ml_rnn)
+		self.ml_attn = ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs)
+		print('ml_attn:', self.ml_attn)
 
+		### DEC MLP
 		mlp_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -117,7 +119,7 @@ class AttnTCNNDecoderS(nn.Module):
 		return self.dz_projection.get_output_dims()
 
 	def get_embd_dims_list(self):
-		return self.ml_rnn.get_embd_dims_list()
+		return self.ml_attn.get_embd_dims_list()
 		
 	def forward(self, tdict:dict, **kwargs):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
@@ -126,18 +128,17 @@ class AttnTCNNDecoderS(nn.Module):
 		onehot = model_input['onehot']
 
 		b,t,_ = onehot.size()
-		dz = tdict['model']['z.last'][:,None,:].repeat(1,t,1) # dz: decoder z
-		dz = torch.cat([dz, onehot.float()], dim=-1)
-		
-		dz = torch.cat([dz, model_input['dtime']], dim=-1) # cat dtime
-		rx = self.x_projection(dz)
-
+		dz = tdict['model']['z_last'][:,None,:].repeat(1,t,1) # dz: decoder z
+		dz = torch.cat([dz, onehot.float()], dim=-1) # cat bands
+		time = model_input['time']
 		s_onehot = onehot.sum(dim=-1).bool()
-		rx, extra_info_rnn = self.ml_rnn(rx, s_onehot, **kwargs) # out, (ht, ct)
+		
+		rx = self.x_projection(dz)
+		rx, _ = self.ml_attn(rx, s_onehot, time, **kwargs) # out, (ht, ct)
 		rx = self.dz_projection(rx)
 			
 		for kb,b in enumerate(self.band_names):
 			p_rx = seq_utils.serial_to_parallel(rx, onehot[...,kb])
-			tdict['model'].update({f'rec-x.{b}':p_rx})
+			tdict['model'].update({f'rec_x.{b}':p_rx})
 
 		return tdict

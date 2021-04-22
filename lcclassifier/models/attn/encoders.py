@@ -11,7 +11,7 @@ import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
 
-class AttnTCNNEncoderP(nn.Module):
+class TimeSelfAttnEncoderP(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()
@@ -40,7 +40,7 @@ class AttnTCNNEncoderP(nn.Module):
 		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs) for b in self.band_names})
 		print('ml_attn:', self.ml_attn)
 
-		### PARALLEL PATCH
+		### POST-PROJECTION
 		linear_kwargs = {
 			'activation':'linear',
 		}
@@ -93,7 +93,7 @@ class AttnTCNNEncoderP(nn.Module):
 
 ###################################################################################################################################################
 
-class AttnTCNNEncoderS(nn.Module):
+class TimeSelfAttnEncoderS(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()

@@ -41,7 +41,7 @@ class RNNEncoderP(nn.Module):
 		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs) for b in self.band_names})
 		print('ml_rnn:', self.ml_rnn)
 
-		### PARALLEL PATCH
+		### POST-PROJECTION
 		linear_kwargs = {
 			'activation':'linear',
 		}
@@ -109,6 +109,13 @@ class RNNEncoderS(nn.Module):
 		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs)
 		print('ml_rnn:', self.ml_rnn)
 
+		### POST-PROJECTION
+		linear_kwargs = {
+			'activation':'linear',
+		}
+		self.z_projection = Linear(self.rnn_embd_dims, self.rnn_embd_dims, **linear_kwargs)
+		print('z_projection:', self.z_projection)
+
 	def get_output_dims(self):
 		return self.rnn_embd_dims
 	
@@ -120,17 +127,18 @@ class RNNEncoderS(nn.Module):
 		model_input = tdict['input']
 		x = model_input['x']
 		onehot = model_input['onehot']
-		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
-
 		s_onehot = onehot.sum(dim=-1).bool()
-		z, extra_info_rnn = self.ml_rnn(z, s_onehot, **kwargs) # out, (ht, ct)
 
+		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
+		zs, _ = self.ml_rnn(z, s_onehot, **kwargs) # out, (ht, ct)
+
+		z_bdict = {}
 		### representative element
-		last_z = seq_utils.seq_last_element(z, s_onehot) # last element
-		#last_z = seq_utils.seq_max_pooling(z, s_onehot) # max pooling
-		#last_z = seq_utils.seq_avg_pooling(z, s_onehot) # avg pooling
-		tdict['model'].update({
-			#'z':z, # not used
-			'z.last':last_z,
-		})
+		for layer in range(0, self.rnn_layers):
+			z_bdict[f'z-{layer}'] = seq_utils.seq_last_element(zs[layer], s_onehot) # last element
+
+		### BUILD OUT
+		tdict['model']['z_last'] = self.z_projection(z_bdict[f'z-{self.rnn_layers-1}'])
+		for layer in range(0, self.rnn_layers):
+			tdict['model'][f'z-{layer}'] = z_bdict[f'z-{layer}']
 		return tdict

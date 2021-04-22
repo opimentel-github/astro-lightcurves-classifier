@@ -95,15 +95,19 @@ class SerialRNNClassifier(ModelBaseline):
 			setattr(self, name, val)
 
 		self.input_dims = self.mdl_kwargs['input_dims']
-		self.te_features = self.mdl_kwargs['te_features']
 		self.band_names = self.mdl_kwargs['band_names']
 		self.rnn_cell_name = self.mdl_kwargs['rnn_cell_name']
 
-		### MODEL DEFINITION
+		### ENCODER
 		encoder = rnn_encoders.RNNEncoderS(**self.mdl_kwargs)
 		embd_dims = self.mdl_kwargs['rnn_embd_dims']
-		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
-		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
+
+		### DECODER
+		dec_mdl_kwargs = self.mdl_kwargs.copy()
+		dec_mdl_kwargs['input_dims'] = embd_dims
+		decoder = rnn_decoders.RNNDecoderS(**dec_mdl_kwargs)
+		
+		### MODEL
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
 		self.class_mdl_kwargs.update({'input_dims':embd_dims})
 		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)
@@ -233,13 +237,13 @@ class ParallelTimeSelfAttn(ModelBaseline):
 		self.band_names = self.mdl_kwargs['band_names']
 
 		### ENCODER
-		encoder = attn_encoders.AttnTCNNEncoderP(**self.mdl_kwargs)
+		encoder = attn_encoders.TimeSelfAttnEncoderP(**self.mdl_kwargs)
 		embd_dims = self.mdl_kwargs['attn_embd_dims']
 			
 		### DECODER
 		dec_mdl_kwargs = self.mdl_kwargs.copy()
 		dec_mdl_kwargs['input_dims'] = embd_dims
-		decoder = attn_decoders.AttnTCNNDecoderP(**dec_mdl_kwargs)
+		decoder = attn_decoders.TimeSelfAttnDecoderP(**dec_mdl_kwargs)
 		
 		### MODEL
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
@@ -284,7 +288,7 @@ class SerialTimeSelfAttn(ModelBaseline):
 		self.band_names = self.mdl_kwargs['band_names']
 
 		### MODEL DEFINITION
-		encoder = attn_encoders.AttnTCNNEncoderS(**self.mdl_kwargs)
+		encoder = attn_encoders.TimeAttnEncoderS(**self.mdl_kwargs)
 		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
 		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
 		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
