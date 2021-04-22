@@ -11,7 +11,7 @@ import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
 
-class TimeSeltAttnDecoderP(nn.Module):
+class TimeSelfAttnDecoderP(nn.Module):
 	def __init__(self, **kwargs):
 		super().__init__()
 		### ATTRIBUTES

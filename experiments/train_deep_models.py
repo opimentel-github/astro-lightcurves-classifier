@@ -235,7 +235,7 @@ if __name__== '__main__':
 			from lcclassifier.experiments.performance import save_performance
 
 			pt_exp_kwargs = {
-				'm':15,
+				'm':20,
 				'target_is_onehot':False,
 				'classifier_key':'y_last_pt',
 				}
