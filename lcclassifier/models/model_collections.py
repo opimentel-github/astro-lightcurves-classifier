@@ -19,14 +19,16 @@ class ModelCollections():
 		self.embd_layers = GDIter(2)
 		#self.rnn_cell_names = GDIter('GRU')
 		self.rnn_cell_names = GDIter('GRU', 'LSTM')
-		self.te_features_iter = GDIter(8) # important????
-		#self.te_features_iter = GDIter(4, 8, 16)
+		self.te_features_gd = GDIter(32) # important????
+		#self.te_features_gd = GDIter(4, 8, 16)
+		self.scale_mode_gd = GDIter('hardsigmoid')
+		#self.scale_mode_gd = GDIter('softmax', 'hardsigmoid', 'softmax')
 		self.cnn_aggregation = GDIter('avg')
 		#self.cnn_aggregation = GDIter('max', 'avg')
 
-		self.dropout_p = .05
+		self.dropout_p = .01
 		self.common_dict = {
-			'max_period':self.max_day*2,
+			'max_period':self.max_day*1.25,
 			'band_names':lcdataset['raw'].band_names,
 			'output_dims':len(lcdataset['raw'].class_names),
 			}
@@ -34,7 +36,10 @@ class ModelCollections():
 			'class_mdl_kwargs':{
 				'C':mclass.SimpleClassifier,
 				'embd_layers':2, # 1 2
-				'dropout':{'p':.5}, # .1 .2 .25 .5
+				'dropout':{
+					'p_pt':self.dropout_p,
+					'p_ft':.5, # .5 # important!
+					},
 				},
 			}
 		self.reset()
@@ -153,7 +158,8 @@ class ModelCollections():
 				'attn_embd_dims':self.embd_dims,
 				'attn_layers':self.embd_layers,
 				'dropout':{'p':self.dropout_p},
-				'te_features':self.te_features_iter,
+				'te_features':self.te_features_gd,
+				'scale_mode':self.scale_mode_gd,
 			},
 		})
 		self.add_gs(self.update_te(gs))
@@ -165,7 +171,8 @@ class ModelCollections():
 				'attn_embd_dims':self.embd_dims,
 				'attn_layers':self.embd_layers,
 				'dropout':{'p':self.dropout_p},
-				'te_features':self.te_features_iter,
+				'te_features':self.te_features_gd,
+				'scale_mode':self.scale_mode_gd,
 			},
 		})
 		self.add_gs(self.update_te(gs))

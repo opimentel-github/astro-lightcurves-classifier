@@ -25,6 +25,7 @@ class LCMSEReconstruction(FTLoss):
 		model_tdict = tdict['model']
 
 		onehot = input_tdict['onehot']
+		time = input_tdict['time']
 		error = target_tdict['error']
 		assert torch.all(error>=0)
 
@@ -32,6 +33,7 @@ class LCMSEReconstruction(FTLoss):
 		mse_loss_bdict = {}
 		for kb,b in enumerate(self.band_names):
 			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
+			p_time = seq_utils.serial_to_parallel(time, onehot[...,kb]) # (b,t,1)
 			p_error = seq_utils.serial_to_parallel(error, onehot[...,kb]) # (b,t,1)
 			p_rx = seq_utils.serial_to_parallel(target_tdict['rec_x'], onehot[...,kb]) # (b,t,1)
 			p_rx_pred = model_tdict[f'rec_x.{b}'] # (b,t,1)

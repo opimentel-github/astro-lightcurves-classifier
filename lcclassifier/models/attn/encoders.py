@@ -34,16 +34,19 @@ class TimeSelfAttnEncoderP(nn.Module):
 		### ATTN
 		attn_kwargs = {
 			'num_heads':4,
+			'scale_mode':self.scale_mode,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
-		}
+			'activation':'relu',
+			'last_activation':'relu',
+			}
 		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs) for b in self.band_names})
 		print('ml_attn:', self.ml_attn)
 
 		### POST-PROJECTION
 		linear_kwargs = {
 			'activation':'linear',
-		}
+			}
 		self.z_projection = Linear(self.attn_embd_dims*len(self.band_names), self.attn_embd_dims, **linear_kwargs)
 		print('z_projection:', self.z_projection)
 
@@ -83,7 +86,7 @@ class TimeSelfAttnEncoderP(nn.Module):
 		z_last = torch.cat([z_bdict[f'z-{self.attn_layers-1}.{b}'] for b in self.band_names], dim=-1)
 		tdict['model']['z_last'] = self.z_projection(z_last)
 		for layer in range(0, self.attn_layers):
-			tdict['model'][f'z-{layer}'] = torch.max(torch.cat([z_bdict[f'z-{layer}.{b}'][...,None] for b in self.band_names], dim=-1), dim=-1)[0]
+			tdict['model'][f'z-{layer}'] = torch.mean(torch.cat([z_bdict[f'z-{layer}.{b}'][...,None] for b in self.band_names], dim=-1), dim=-1)
 
 		if self.add_extra_return:
 			tdict['model'].update({
@@ -101,48 +104,27 @@ class TimeSelfAttnEncoderS(nn.Module):
 		self.add_extra_return = False
 		for name, val in kwargs.items():
 			setattr(self, name, val)
+		assert self.te_features>0, 'attn needs to work with temporal encoding'
 		self.reset()
 
 	def reset(self):
 		### PRE-INPUT
 		linear_kwargs = {
 			'activation':'linear',
-		}
+			}
 		extra_dims = len(self.band_names)
 		self.x_projection = Linear(self.input_dims+extra_dims, self.attn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
-
-		### TE
-		assert self.te_features>0
-		#self.te_film = FILM(self.te_features, self.attn_embd_dims)
-		#print('te_film:', self.te_film)
-
-		### CNN STACK
-		cnn_args = [self.attn_embd_dims, [None], self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1)] # input_dims:int, input_space:list, output_dims:int, embd_dims_list
-		cnn_kwargs = {
-			'in_dropout':self.dropout['p'],
-			'dropout':self.dropout['p'],
-			'cnn_kwargs':{
-				'kernel_size':5,
-				'stride':1,
-				'dilation':1,
-			},
-			'pool_kwargs':{
-				'kernel_size':2,
-				'stride':1,
-				'dilation':1,
-			},
-			'padding_mode':'causal',
-		}
-		#self.ml_cnn = ft_cnn.MLConv1D(*cnn_args, **cnn_kwargs)
-		#print('ml_cnn:', self.ml_cnn)
-
+		
 		### ATTN
 		attn_kwargs = {
 			'num_heads':4,
+			'scale_mode':self.scale_mode,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
-		}
+			'activation':'relu',
+			'last_activation':'relu',
+			}
 		self.ml_attn = ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs)
 		print('ml_attn:', self.ml_attn)
 		

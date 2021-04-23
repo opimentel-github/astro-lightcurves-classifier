@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=64, help='batch_size') # 32 64 128
+	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # 32 64 128
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -170,7 +170,7 @@ if __name__== '__main__':
 				#	'lr':.95,
 				#}
 				}
-			pt_optimizer = LossOptimizer(model, optims.Adam, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			pt_optimizer = LossOptimizer(model, optims.AdamW, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -179,11 +179,10 @@ if __name__== '__main__':
 			from fuzzytorch import C_
 			import math
 
-			val_epoch_counter_duration = 0
-			epochs_max = 100 # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+			epochs_max = 500 # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 			monitor_config = {
-				'val_epoch_counter_duration':val_epoch_counter_duration, # every k epochs check
-				'earlystop_epoch_duration':epochs_max,
+				'val_epoch_counter_duration':2, # every k epochs check
+				'earlystop_epoch_duration':1e6,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -198,7 +197,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':epochs_max*(val_epoch_counter_duration+1),
+				'epochs_max':epochs_max,
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -242,10 +241,10 @@ if __name__== '__main__':
 				'target_is_onehot':False,
 				'classifier_key':'y_last_pt',
 				}
-			save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-			save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
-			save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-			save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+			#save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+			#save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
+			#save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+			#save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
 
 			save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
 			save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
@@ -270,7 +269,7 @@ if __name__== '__main__':
 				#}
 				}
 			freeze_autencoder = True # True False
-			ft_optimizer = LossOptimizer(model.get_classifier_model() if freeze_autencoder else model, optims.Adam, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			ft_optimizer = LossOptimizer(model.get_classifier_model() if freeze_autencoder else model, optims.AdamW, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -280,7 +279,7 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':0, # every k epochs check
+				'val_epoch_counter_duration':1, # every k epochs check
 				'earlystop_epoch_duration':500,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,

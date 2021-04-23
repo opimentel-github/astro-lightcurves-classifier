@@ -24,7 +24,7 @@ class TimeSelfAttnDecoderP(nn.Module):
 		### PRE-INPUT
 		linear_kwargs = {
 			'activation':'linear',
-		}
+			}
 		extra_dims = 0
 		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.attn_embd_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:',self.x_projection)
@@ -32,9 +32,12 @@ class TimeSelfAttnDecoderP(nn.Module):
 		### ATTN
 		attn_kwargs = {
 			'num_heads':4,
+			'scale_mode':self.scale_mode,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
-		}
+			'activation':'relu',
+			'last_activation':'relu',
+			}
 		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs) for b in self.band_names})
 		print('ml_attn:', self.ml_attn)
 
@@ -44,7 +47,7 @@ class TimeSelfAttnDecoderP(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'activation':'linear',
-		}
+			}
 		self.dz_projection = nn.ModuleDict({b:MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*layers, **mlp_kwargs) for b in self.band_names})
 		print('dz_projection:', self.dz_projection)
 
@@ -101,9 +104,12 @@ class TimeSelfAttnDecoderS(nn.Module):
 		### ATTN
 		attn_kwargs = {
 			'num_heads':4,
+			'scale_mode':self.scale_mode,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
-		}
+			'activation':'relu',
+			'last_activation':'relu',
+			}
 		self.ml_attn = ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs)
 		print('ml_attn:', self.ml_attn)
 
@@ -113,7 +119,7 @@ class TimeSelfAttnDecoderS(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'activation':'linear',
-		}
+			}
 		self.dz_projection = MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*layers, **mlp_kwargs)
 		print('dz_projection:', self.dz_projection)
 
