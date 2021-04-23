@@ -134,93 +134,6 @@ class SerialRNNClassifier(ModelBaseline):
 
 ###################################################################################################################################################
 
-from .tcnn import encoders as tcnn_encoders
-
-class ParallelTCNNClassifier(ModelBaseline):
-	def __init__(self, **raw_kwargs):
-		super().__init__()
-
-		### ATTRIBUTES
-		for name, val in raw_kwargs.items():
-			setattr(self, name, val)
-
-		self.input_dims = self.mdl_kwargs['input_dims']
-		self.band_names = self.mdl_kwargs['band_names']
-		self.aggregation = self.mdl_kwargs['aggregation']
-
-		### MODEL DEFINITION
-		encoder = tcnn_encoders.TCNNEncoderP(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
-		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
-		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
-		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
-		self.class_mdl_kwargs.update({'input_dims':embd_dims})
-		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)
-
-	def get_name(self):
-		encoder = self.autoencoder['encoder']
-		decoder = self.autoencoder['decoder']
-		return get_model_name({
-			'mdl':f'ParallelTCNN',
-			'in-dims':f'{self.input_dims}',
-			'te-dims':f'0',
-			'enc-emb':get_enc_emb_str(encoder, self.band_names),
-			'dec-emb':get_enc_emb_str(decoder, self.band_names),
-			'aggr':f'{self.aggregation}',
-		})
-
-	def forward(self, tdict, **kwargs):
-		encoder = self.autoencoder['encoder']
-		decoder = self.autoencoder['decoder']
-		encoder_tdict = encoder(tdict, **kwargs)
-		decoder_tdict = decoder(encoder_tdict)
-		classifier_tdict = self.classifier(encoder_tdict)
-		#print_tdict(encoder_tdict)
-		return classifier_tdict
-
-class SerialTCNNClassifier(ModelBaseline):
-	def __init__(self, **raw_kwargs):
-		super().__init__()
-
-		### ATTRIBUTES
-		for name, val in raw_kwargs.items():
-			setattr(self, name, val)
-
-		self.input_dims = self.mdl_kwargs['input_dims']
-		self.band_names = self.mdl_kwargs['band_names']
-		self.aggregation = self.mdl_kwargs['aggregation']
-
-		### MODEL DEFINITION
-		encoder = tcnn_encoders.TCNNEncoderS(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
-		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
-		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
-		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
-		self.class_mdl_kwargs.update({'input_dims':embd_dims})
-		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)
-
-	def get_name(self):
-		encoder = self.autoencoder['encoder']
-		decoder = self.autoencoder['decoder']
-		return get_model_name({
-			'mdl':f'SerialTCNN',
-			'in-dims':f'{self.input_dims}',
-			'te-dims':f'0',
-			'enc-emb':get_enc_emb_str(encoder, self.band_names),
-			'dec-emb':get_enc_emb_str(decoder, self.band_names),
-			'aggr':f'{self.aggregation}',
-		})
-
-	def forward(self, tdict:dict, **kwargs):
-		encoder = self.autoencoder['encoder']
-		decoder = self.autoencoder['decoder']
-		encoder_tdict = encoder(tdict, **kwargs)
-		decoder_tdict = decoder(encoder_tdict)
-		classifier_tdict = self.classifier(encoder_tdict)
-		return classifier_tdict
-
-###################################################################################################################################################
-
 from .attn import encoders as attn_encoders
 from .attn import decoders as attn_decoders
 
@@ -316,6 +229,93 @@ class SerialTimeSelfAttn(ModelBaseline):
 			'te-dims':f'{self.te_features}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
+		})
+
+	def forward(self, tdict:dict, **kwargs):
+		encoder = self.autoencoder['encoder']
+		decoder = self.autoencoder['decoder']
+		encoder_tdict = encoder(tdict, **kwargs)
+		decoder_tdict = decoder(encoder_tdict)
+		classifier_tdict = self.classifier(encoder_tdict)
+		return classifier_tdict
+
+###################################################################################################################################################
+
+from .tcnn import encoders as tcnn_encoders
+
+class ParallelTCNNClassifier(ModelBaseline):
+	def __init__(self, **raw_kwargs):
+		super().__init__()
+
+		### ATTRIBUTES
+		for name, val in raw_kwargs.items():
+			setattr(self, name, val)
+
+		self.input_dims = self.mdl_kwargs['input_dims']
+		self.band_names = self.mdl_kwargs['band_names']
+		self.aggregation = self.mdl_kwargs['aggregation']
+
+		### MODEL DEFINITION
+		encoder = tcnn_encoders.TCNNEncoderP(**self.mdl_kwargs)
+		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
+		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
+		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
+		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
+		self.class_mdl_kwargs.update({'input_dims':embd_dims})
+		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)
+
+	def get_name(self):
+		encoder = self.autoencoder['encoder']
+		decoder = self.autoencoder['decoder']
+		return get_model_name({
+			'mdl':f'ParallelTCNN',
+			'in-dims':f'{self.input_dims}',
+			'te-dims':f'0',
+			'enc-emb':get_enc_emb_str(encoder, self.band_names),
+			'dec-emb':get_enc_emb_str(decoder, self.band_names),
+			'aggr':f'{self.aggregation}',
+		})
+
+	def forward(self, tdict, **kwargs):
+		encoder = self.autoencoder['encoder']
+		decoder = self.autoencoder['decoder']
+		encoder_tdict = encoder(tdict, **kwargs)
+		decoder_tdict = decoder(encoder_tdict)
+		classifier_tdict = self.classifier(encoder_tdict)
+		#print_tdict(encoder_tdict)
+		return classifier_tdict
+
+class SerialTCNNClassifier(ModelBaseline):
+	def __init__(self, **raw_kwargs):
+		super().__init__()
+
+		### ATTRIBUTES
+		for name, val in raw_kwargs.items():
+			setattr(self, name, val)
+
+		self.input_dims = self.mdl_kwargs['input_dims']
+		self.band_names = self.mdl_kwargs['band_names']
+		self.aggregation = self.mdl_kwargs['aggregation']
+
+		### MODEL DEFINITION
+		encoder = tcnn_encoders.TCNNEncoderS(**self.mdl_kwargs)
+		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
+		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
+		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
+		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
+		self.class_mdl_kwargs.update({'input_dims':embd_dims})
+		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)
+
+	def get_name(self):
+		encoder = self.autoencoder['encoder']
+		decoder = self.autoencoder['decoder']
+		return get_model_name({
+			'mdl':f'SerialTCNN',
+			'in-dims':f'{self.input_dims}',
+			'te-dims':f'0',
+			'enc-emb':get_enc_emb_str(encoder, self.band_names),
+			'dec-emb':get_enc_emb_str(decoder, self.band_names),
+			'aggr':f'{self.aggregation}',
 		})
 
 	def forward(self, tdict:dict, **kwargs):

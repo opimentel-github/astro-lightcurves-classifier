@@ -32,24 +32,22 @@ def save_performance(train_handler, data_loader, save_rootdir,
 	dataset.uses_precomputed_samples = False
 
 	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_n)#[::-1]
-	bar_rows = 4
-	bar = ProgressBarMulti(len(days), bar_rows)
 	days_rec_metrics_df = DFBuilder()
 	days_class_metrics_df = DFBuilder()
 	days_class_metrics_cdf = {c:DFBuilder() for c in dataset.class_names}
 	days_cm = {}
 	wrong_samples = {}
+	bar_rows = 4
+	bar = ProgressBarMulti(len(days), bar_rows)
 	with torch.no_grad():
 		can_be_in_loop = True
 		for day in days: # along days
+			dataset.set_max_day(day)
 			try:
 				if can_be_in_loop:
-					dataset.set_max_day(day)
 					out_tdict = []
 					for ki,in_tdict in enumerate(data_loader):
-						#print(f'  ({ki}) - {TDictHolder(in_tdict)}')
 						out_tdict_ = train_handler.model(TDictHolder(in_tdict).to(train_handler.device))
-						#print(f'  ({ki}) - {TDictHolder(out_tdict)}')
 						out_tdict_ = TDictHolder(out_tdict_).to('cpu') # cpu to save gpu memory
 						out_tdict.append(out_tdict_)
 
@@ -118,7 +116,6 @@ def save_performance(train_handler, data_loader, save_rootdir,
 				can_be_in_loop = False
 
 	bar.done()
-	dataset.uses_precomputed_samples = True  # very important!!
 	dataset.reset_max_day() # very important!!
 
 	results = {

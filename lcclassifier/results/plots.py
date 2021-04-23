@@ -193,13 +193,11 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 		d = files[0]()['temporal_encoding']['encoder'][f'ml_attn.{b}' if is_parallel else f'ml_attn']['te_mod'][0]
 		te_ws = d['initial_ws']
 		te_phases = np.zeros_like(te_ws)
-		te_scales = np.ones_like(te_ws)
 
 		for k in range(0, len(te_ws)):
 			w = te_ws[k]
 			p = 2*math.pi/w
 			phase = te_phases[k]
-			scale = te_scales[k]
 			ntime = days*d['ktime']
 			ax.plot(p, 0, 'o', c=cmap(k/len(te_ws)))
 			ax.grid(alpha=0.5, axis='x')
@@ -212,20 +210,19 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 				d = file()['temporal_encoding']['encoder'][f'ml_attn.{b}' if is_parallel else f'ml_attn']['te_mod'][layer]
 				te_ws = d['te_ws']
 				te_phases = d['te_phases']
-				te_scales = d['te_scales']
 				ktime = d['ktime']
 
 				for k in range(0, len(te_ws)):
 					w = te_ws[k]
 					p = 2*math.pi/w
 					phase = te_phases[k]
-					scale = te_scales[k]
 					ntime = days*d['ktime']
 					ax.plot(p, kfile+np.random.uniform(0, 0.1), 'o', c=cmap(k/len(te_ws)))
 					ax.grid(alpha=0.5, axis='x')
 					label = f'layer={layer} - b={b}' if is_parallel else f'layer={layer}'
 					ax.set_ylabel(label)
 					ax.set_yticklabels([])
+					#ax.set_xlim([0,1000])
 
 		ax.set_xlabel('temporal-encoding periods [days]')
 

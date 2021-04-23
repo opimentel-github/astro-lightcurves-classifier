@@ -19,12 +19,12 @@ class ModelCollections():
 		self.embd_layers = GDIter(2)
 		#self.rnn_cell_names = GDIter('GRU')
 		self.rnn_cell_names = GDIter('GRU', 'LSTM')
-		self.te_features_iter = GDIter(8)
+		self.te_features_iter = GDIter(8) # important????
 		#self.te_features_iter = GDIter(4, 8, 16)
 		self.cnn_aggregation = GDIter('avg')
 		#self.cnn_aggregation = GDIter('max', 'avg')
 
-		self.dropout_p = .01
+		self.dropout_p = .05
 		self.common_dict = {
 			'max_period':self.max_day*2,
 			'band_names':lcdataset['raw'].band_names,
@@ -34,9 +34,9 @@ class ModelCollections():
 			'class_mdl_kwargs':{
 				'C':mclass.SimpleClassifier,
 				'embd_layers':2, # 1 2
-				'dropout':{'p':.25}, # .1 .2 .25 .5
+				'dropout':{'p':.5}, # .1 .2 .25 .5
 				},
-		}
+			}
 		self.reset()
 
 	def reset(self):

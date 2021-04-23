@@ -42,7 +42,7 @@ class CustomDataset(Dataset):
 		std_scale:float=C_.OBSE_STD_SCALE,
 		cpds_p:float=C_.CPDS_P,
 
-		balanced_repeats=10, # 1 5 10 20* 30
+		balanced_repeats=2, # 1 5 10 20* 30
 
 		training=False,
 		):
@@ -291,7 +291,7 @@ class CustomDataset(Dataset):
 		return len(self.precomputed_dict.keys())>0
 
 	def get_random_stratified_lcobj_names(self,
-		nc=2,
+		nc=1,
 		):
 		# stratified, mostly used for images in experiments
 		lcobj_names = []
@@ -309,6 +309,7 @@ class CustomDataset(Dataset):
 		lcobj_name = lcobj_names[idx]
 		if self.training:
 			if self.has_precomputed_samples():
+				print('get_random_item')
 				return get_random_item(self.precomputed_dict[lcobj_name])
 			else:
 				return self.get_item(self.lcset[lcobj_name], uses_daugm=True)
