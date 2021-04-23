@@ -146,7 +146,6 @@ class ParallelTimeSelfAttn(ModelBaseline):
 			setattr(self, name, val)
 
 		self.input_dims = self.mdl_kwargs['input_dims']
-		self.te_features = self.mdl_kwargs['te_features']
 		self.band_names = self.mdl_kwargs['band_names']
 
 		### ENCODER
@@ -175,7 +174,8 @@ class ParallelTimeSelfAttn(ModelBaseline):
 		return get_model_name({
 			'mdl':f'ParallelTimeSelfAttn',
 			'in-dims':f'{self.input_dims}',
-			'te-dims':f'{self.te_features}',
+			'te-dims':self.mdl_kwargs['te_features'],
+			'scale':self.mdl_kwargs['scale_mode'],
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
 		})
@@ -197,7 +197,6 @@ class SerialTimeSelfAttn(ModelBaseline):
 			setattr(self, name, val)
 
 		self.input_dims = self.mdl_kwargs['input_dims']
-		self.te_features = self.mdl_kwargs['te_features']
 		self.band_names = self.mdl_kwargs['band_names']
 
 		### ENCODER
@@ -226,7 +225,8 @@ class SerialTimeSelfAttn(ModelBaseline):
 		return get_model_name({
 			'mdl':f'SerialTimeSelfAttn',
 			'in-dims':f'{self.input_dims}',
-			'te-dims':f'{self.te_features}',
+			'te-dims':self.mdl_kwargs['te_features'],
+			'scale':self.mdl_kwargs['scale_mode'],
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
 		})
