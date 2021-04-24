@@ -282,8 +282,8 @@ if __name__== '__main__':
 				#'save_mode':C_.SM_ALL,
 				#'save_mode':C_.SM_ONLY_ALL,
 				#'save_mode':C_.SM_ONLY_INF_METRIC,
-				'save_mode':C_.SM_ONLY_INF_LOSS,
-				#'save_mode':C_.SM_ONLY_SUP_METRIC,
+				#'save_mode':C_.SM_ONLY_INF_LOSS,
+				'save_mode':C_.SM_ONLY_SUP_METRIC,
 				}
 			ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics, **monitor_config)
 

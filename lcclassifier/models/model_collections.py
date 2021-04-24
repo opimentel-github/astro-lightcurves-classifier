@@ -19,9 +19,9 @@ class ModelCollections():
 		self.embd_layers = GDIter(2)
 		#self.rnn_cell_names = GDIter('GRU')
 		self.rnn_cell_names = GDIter('GRU', 'LSTM')
-		self.te_features_gd = GDIter(16) # important????
+		self.te_features_gd = GDIter(8) # important????
 		#self.te_features_gd = GDIter(4, 8, 16)
-		self.scale_mode_gd = GDIter('hardsigmoid')
+		self.scale_mode_gd = GDIter(None) # None 'softmax', 'hardsigmoid', 'softmax'
 		#self.scale_mode_gd = GDIter('softmax', 'hardsigmoid', 'softmax')
 		self.cnn_aggregation = GDIter('avg')
 		#self.cnn_aggregation = GDIter('max', 'avg')
