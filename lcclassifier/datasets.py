@@ -403,14 +403,14 @@ class CustomDataset(Dataset):
 			'x':torch.as_tensor(in_x, dtype=torch.float32),
 			'time':torch.as_tensor(days, dtype=torch.float32),
 			'dtime':torch.as_tensor(d_days, dtype=torch.float32),
-		}
+			}
 
 		### target
 		target = {
 			'y':torch.as_tensor(lcobj.y),
 			'rec_x':torch.as_tensor(rec_x, dtype=torch.float32),
 			'error':torch.as_tensor(error, dtype=torch.float32),
-		}
+			}
 
 		tdict = {
 			'input':fix_new_len(model_input, uses_len_clip, self.max_len),

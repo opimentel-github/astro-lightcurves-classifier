@@ -77,7 +77,7 @@ class RNNEncoderP(nn.Module):
 		z_last = torch.cat([z_bdict[f'z-{self.rnn_layers-1}.{b}'] for b in self.band_names], dim=-1)
 		tdict['model']['z_last'] = self.z_projection(z_last)
 		for layer in range(0, self.rnn_layers):
-			tdict['model'][f'z-{layer}'] = torch.max(torch.cat([z_bdict[f'z-{layer}.{b}'][...,None] for b in self.band_names], dim=-1), dim=-1)[0]
+			tdict['model'][f'z-{layer}'] = torch.mean(torch.cat([z_bdict[f'z-{layer}.{b}'][...,None] for b in self.band_names], dim=-1), dim=-1)
 		return tdict
 
 ###################################################################################################################################################

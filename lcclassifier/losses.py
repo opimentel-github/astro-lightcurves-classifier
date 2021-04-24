@@ -38,7 +38,7 @@ class LCMSEReconstruction(FTLoss):
 			p_rx = seq_utils.serial_to_parallel(target_tdict['rec_x'], onehot[...,kb]) # (b,t,1)
 			p_rx_pred = model_tdict[f'rec_x.{b}'] # (b,t,1)
 
-			mse_loss_b = (p_rx-p_rx_pred)**2/(p_error+self.eps) # (b,t,1)
+			mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+self.eps) # (b,t,1)
 			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 			mse_loss_bdict[b] = mse_loss_b
 
@@ -50,7 +50,7 @@ class LCXEntropy(FTLoss):
 	def __init__(self, name,
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
-		uses_poblation_weights:bool=True,
+		uses_poblation_weights:bool=False,
 		classifier_key='y_last_pt',
 		**kwargs):
 		self.name = name
@@ -77,7 +77,7 @@ class LCCompleteLoss(FTLoss):
 	def __init__(self, name, band_names,
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
-		uses_poblation_weights:bool=True,
+		uses_poblation_weights:bool=False,
 		classifier_key='y_last_pt',
 		xentropy_k=C_.XENTROPY_K,
 		mse_k=C_.MSE_K,

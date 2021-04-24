@@ -40,7 +40,7 @@ class LCXEntropyMetric(FTMetric):
 	def __init__(self, name,
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
-		uses_poblation_weights:bool=True,
+		uses_poblation_weights:bool=False,
 		classifier_key='y.last',
 		k=C_.XENTROPY_K,
 		**kwargs):

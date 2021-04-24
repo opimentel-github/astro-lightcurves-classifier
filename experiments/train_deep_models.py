@@ -74,28 +74,26 @@ if __name__== '__main__':
 	pt_loss_kwargs = {
 		'model_output_is_with_softmax':False,
 		'target_is_onehot':False,
-		'uses_poblation_weights':False, # False True
 		'classifier_key':'y_last_pt',
-	}
+		}
 	pt_loss = LCCompleteLoss('wmse-xentropy', lcdataset['raw'].band_names, **pt_loss_kwargs)
 	pt_metrics = [
 		LCXEntropyMetric('xentropy', **pt_loss_kwargs),
 		LCAccuracy('b-accuracy', balanced=True, **pt_loss_kwargs),
 		LCAccuracy('accuracy', **pt_loss_kwargs),
-	]
+		]
 
 	ft_loss_kwargs = {
 		'model_output_is_with_softmax':False,
 		'target_is_onehot':False,
-		'uses_poblation_weights':False, # False True
 		'classifier_key':'y_last_ft',
-	}
+		}
 	ft_loss = LCXEntropy('xentropy', **ft_loss_kwargs)
 	ft_metrics = [
 		LCXEntropyMetric('xentropy', **ft_loss_kwargs),
 		LCAccuracy('b-accuracy', balanced=True, **ft_loss_kwargs),
 		LCAccuracy('accuracy', **ft_loss_kwargs),
-	]
+		]
 
 	###################################################################################################################################################
 	import os
@@ -116,9 +114,8 @@ if __name__== '__main__':
 		for mp_grid in model_collections.mps: # MODEL CONFIGS
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
-			s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs)
-			#s_val_dataset = CustomDataset(f'{main_args.kf}@val.{main_args.method}', lcdataset, **dataset_kwargs)
-			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs)
+			s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=2)
+			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=10)
 			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
@@ -179,7 +176,6 @@ if __name__== '__main__':
 			from fuzzytorch import C_
 			import math
 
-			epochs_max = 500 # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 			monitor_config = {
 				'val_epoch_counter_duration':2, # every k epochs check
 				'earlystop_epoch_duration':1e6,
@@ -197,7 +193,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':epochs_max,
+				'epochs_max':400, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -206,7 +202,7 @@ if __name__== '__main__':
 					'rsc':main_args.rsc,
 					},
 				'uses_train_eval_loader_methods':True,
-				'evaluate_train':False, # speed up
+				'evaluate_train':False, # False to speed up training
 				}
 			pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors, **mtrain_config)
 			complete_model_name = pt_model_train_handler.get_complete_model_name()
@@ -280,7 +276,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':1, # every k epochs check
-				'earlystop_epoch_duration':500,
+				'earlystop_epoch_duration':1e6,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -295,7 +291,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':1e4,
+				'epochs_max':1000, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,
@@ -305,7 +301,7 @@ if __name__== '__main__':
 					'rsc':main_args.rsc,
 					},
 				'uses_train_eval_loader_methods':True,
-				'evaluate_train':False, # speed up
+				'evaluate_train':True, # False to speed up training
 				}
 			ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
 			complete_model_name = ft_model_train_handler.get_complete_model_name()
