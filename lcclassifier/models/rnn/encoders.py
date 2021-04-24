@@ -37,16 +37,14 @@ class RNNEncoderP(nn.Module):
 			'dropout':self.dropout['p'],
 			'bidirectional':self.bidirectional,
 			'uses_batchnorm':self.uses_batchnorm,
-			'activation':'relu',
-			'last_activation':'relu',
-		}
+			}
 		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs) for b in self.band_names})
 		print('ml_rnn:', self.ml_rnn)
 
 		### POST-PROJECTION
 		linear_kwargs = {
 			'activation':'linear',
-		}
+			}
 		self.z_projection = Linear(self.rnn_embd_dims*len(self.band_names), self.rnn_embd_dims, **linear_kwargs)
 		print('z_projection:', self.z_projection)
 
@@ -105,7 +103,7 @@ class RNNEncoderS(nn.Module):
 		### PRE-INPUT
 		linear_kwargs = {
 			'activation':'linear',
-		}
+			}
 		extra_dims = len(self.band_names)
 		self.x_projection = Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
@@ -116,9 +114,7 @@ class RNNEncoderS(nn.Module):
 			'dropout':self.dropout['p'],
 			'bidirectional':self.bidirectional,
 			'uses_batchnorm':self.uses_batchnorm,
-			'activation':'relu',
-			'last_activation':'relu',
-		}
+			}
 		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs)
 		print('ml_rnn:', self.ml_rnn)
 

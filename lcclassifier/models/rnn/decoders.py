@@ -36,9 +36,7 @@ class RNNDecoderP(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'bidirectional':self.bidirectional,
-			'activation':'relu',
-			'last_activation':'relu',
-		}
+			}
 		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs) for b in self.band_names})
 		print('ml_rnn:', self.ml_rnn)
 
@@ -48,7 +46,7 @@ class RNNDecoderP(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'activation':'linear',
-		}
+			}
 		self.dz_projection = nn.ModuleDict({b:MLP(self.rnn_embd_dims, 1, [self.rnn_embd_dims]*layers, **mlp_kwargs) for b in self.band_names})
 		print('dz_projection:', self.dz_projection)
 
@@ -108,9 +106,7 @@ class RNNDecoderS(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'bidirectional':self.bidirectional,
-			'activation':'relu',
-			'last_activation':'relu',
-		}
+			}
 		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs)
 		print('ml_rnn:', self.ml_rnn)
 
