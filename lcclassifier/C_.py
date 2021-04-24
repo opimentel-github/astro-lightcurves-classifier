@@ -12,12 +12,12 @@ N_JOBS = -1 # The number of jobs to use for the computation. If -1 all CPUs are 
 CHUNK_SIZE = os.cpu_count() if N_JOBS<0 else N_JOBS
 
 ### SYNTHETIC
-OBSE_STD_SCALE = 1/2.5 # 2.5 # 2 2.5 3 5 10 important
+OBSE_STD_SCALE = 1/2 # 2.5 # 2 2.5 3 5 10 important
 CPDS_P = 10./100. # curve points down sampling probability
-HOURS_NOISE_AMP = 5. # 5
+HOURS_NOISE_AMP = 8.
 
 XENTROPY_K = .1
-MSE_K = 1e3 # important
+MSE_K = 1e2 # important
 
 DEFAULT_DAYS_N = 100
 DEFAULT_DAYS_N_AN = 50

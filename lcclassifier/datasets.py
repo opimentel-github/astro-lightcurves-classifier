@@ -37,13 +37,10 @@ class CustomDataset(Dataset):
 	def __init__(self, lcset_name, lcdataset, in_attrs, rec_attr,
 		max_day:float=np.infty,
 		max_len:int=None,
-
 		hours_noise_amp:float=C_.HOURS_NOISE_AMP,
 		std_scale:float=C_.OBSE_STD_SCALE,
 		cpds_p:float=C_.CPDS_P,
-
-		balanced_repeats=2, # 1 5 10 20* 30
-
+		balanced_repeats=1,
 		training=False,
 		):
 		self.training = training
@@ -309,7 +306,7 @@ class CustomDataset(Dataset):
 		lcobj_name = lcobj_names[idx]
 		if self.training:
 			if self.has_precomputed_samples():
-				print('get_random_item')
+				#print('get_random_item')
 				return get_random_item(self.precomputed_dict[lcobj_name])
 			else:
 				return self.get_item(self.lcset[lcobj_name], uses_daugm=True)

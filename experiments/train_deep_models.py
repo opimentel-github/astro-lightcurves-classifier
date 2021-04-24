@@ -22,6 +22,7 @@ if __name__== '__main__':
 	parser.add_argument('-mids',  type=str, default='0-10', help='initial_id-final_id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
 	parser.add_argument('-rsc',  type=int, default=1, help='random_subcrops')
+	parser.add_argument('-bypass',  type=bool, default=False, help='bypass')
 	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
 	print_big_bar()
@@ -114,7 +115,10 @@ if __name__== '__main__':
 		for mp_grid in model_collections.mps: # MODEL CONFIGS
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
-			s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=2)
+			if main_args.bypass:
+				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=10)
+			else:
+				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=2)
 			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=10)
 			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
@@ -193,13 +197,14 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':400, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':550, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'b':main_args.batch_size,
 					'rsc':main_args.rsc,
+					'bypass':main_args.bypass,
 					},
 				'uses_train_eval_loader_methods':True,
 				'evaluate_train':False, # False to speed up training
@@ -264,8 +269,7 @@ if __name__== '__main__':
 				#	'lr':.95,
 				#}
 				}
-			freeze_autencoder = True # True False
-			ft_optimizer = LossOptimizer(model.get_classifier_model() if freeze_autencoder else model, optims.AdamW, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			ft_optimizer = LossOptimizer(model.get_classifier_model(), optims.AdamW, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -275,7 +279,7 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':1, # every k epochs check
+				'val_epoch_counter_duration':0, # every k epochs check
 				'earlystop_epoch_duration':1e6,
 				'target_metric_crit':'b-accuracy',
 				#'save_mode':C_.SM_NO_SAVE,
@@ -291,7 +295,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':1000, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':750, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,
@@ -299,9 +303,10 @@ if __name__== '__main__':
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'b':main_args.batch_size,
 					'rsc':main_args.rsc,
+					'bypass':main_args.bypass,
 					},
 				'uses_train_eval_loader_methods':True,
-				'evaluate_train':True, # False to speed up training
+				'evaluate_train':False, # False to speed up training
 				}
 			ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
 			complete_model_name = ft_model_train_handler.get_complete_model_name()
