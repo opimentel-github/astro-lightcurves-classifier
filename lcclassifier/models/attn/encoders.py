@@ -55,7 +55,7 @@ class TimeSelfAttnEncoderP(nn.Module):
 			'activation':'linear',
 			'in_dropout':self.dropout['p'],
 			}
-		self.xentropy_projection = Linear(self.input_dims, self.output_dims, **linear_kwargs)
+		self.xentropy_projection = Linear(self.attn_embd_dims, self.output_dims, **linear_kwargs)
 		print('xentropy_projection:', self.xentropy_projection)
 
 	def get_info(self):
@@ -91,8 +91,8 @@ class TimeSelfAttnEncoderP(nn.Module):
 				attn_scores[f'z-{layer}.{b}'] = p_scores[layer]
 		
 		### BUILD OUT
-		z_last = torch.cat([z_bdict[f'z-{self.attn_layers-1}.{b}'] for b in self.band_names], dim=-1)
-		tdict['model']['z_last'] = self.z_projection(z_last)
+		z_last = self.z_projection(torch.cat([z_bdict[f'z-{self.attn_layers-1}.{b}'] for b in self.band_names], dim=-1))
+		tdict['model']['z_last'] = z_last
 		tdict['model']['y_last_pt'] = self.xentropy_projection(z_last)
 		for layer in range(0, self.attn_layers):
 			tdict['model'][f'z-{layer}'] = torch.max(torch.cat([z_bdict[f'z-{layer}.{b}'][...,None] for b in self.band_names], dim=-1), dim=-1)[0]
@@ -149,7 +149,7 @@ class TimeSelfAttnEncoderS(nn.Module):
 			'activation':'linear',
 			'in_dropout':self.dropout['p'],
 			}
-		self.xentropy_projection = Linear(self.input_dims, self.output_dims, **linear_kwargs)
+		self.xentropy_projection = Linear(self.attn_embd_dims, self.output_dims, **linear_kwargs)
 		print('xentropy_projection:', self.xentropy_projection)
 
 	def get_info(self):

@@ -50,6 +50,14 @@ class RNNEncoderP(nn.Module):
 		self.z_projection = Linear(self.rnn_embd_dims*len(self.band_names), self.rnn_embd_dims, **linear_kwargs)
 		print('z_projection:', self.z_projection)
 
+		### XENTROPY REG
+		linear_kwargs = {
+			'activation':'linear',
+			'in_dropout':self.dropout['p'],
+			}
+		self.xentropy_projection = Linear(self.rnn_embd_dims, self.output_dims, **linear_kwargs)
+		print('xentropy_projection:', self.xentropy_projection)
+
 	def get_output_dims(self):
 		return self.rnn_embd_dims*len(self.band_names)
 	
@@ -74,8 +82,9 @@ class RNNEncoderP(nn.Module):
 				z_bdict[f'z-{layer}.{b}'] = seq_utils.seq_last_element(p_zs[layer], p_onehot) # last element
 
 		### BUILD OUT
-		z_last = torch.cat([z_bdict[f'z-{self.rnn_layers-1}.{b}'] for b in self.band_names], dim=-1)
-		tdict['model']['z_last'] = self.z_projection(z_last)
+		z_last = self.z_projection(torch.cat([z_bdict[f'z-{self.rnn_layers-1}.{b}'] for b in self.band_names], dim=-1))
+		tdict['model']['z_last'] = z_last
+		tdict['model']['y_last_pt'] = self.xentropy_projection(z_last)
 		for layer in range(0, self.rnn_layers):
 			tdict['model'][f'z-{layer}'] = torch.mean(torch.cat([z_bdict[f'z-{layer}.{b}'][...,None] for b in self.band_names], dim=-1), dim=-1)
 		return tdict
@@ -120,6 +129,14 @@ class RNNEncoderS(nn.Module):
 		self.z_projection = Linear(self.rnn_embd_dims, self.rnn_embd_dims, **linear_kwargs)
 		print('z_projection:', self.z_projection)
 
+		### XENTROPY REG
+		linear_kwargs = {
+			'activation':'linear',
+			'in_dropout':self.dropout['p'],
+			}
+		self.xentropy_projection = Linear(self.rnn_embd_dims, self.output_dims, **linear_kwargs)
+		print('xentropy_projection:', self.xentropy_projection)
+
 	def get_output_dims(self):
 		return self.rnn_embd_dims
 	
@@ -142,7 +159,9 @@ class RNNEncoderS(nn.Module):
 			z_bdict[f'z-{layer}'] = seq_utils.seq_last_element(zs[layer], s_onehot) # last element
 
 		### BUILD OUT
-		tdict['model']['z_last'] = self.z_projection(z_bdict[f'z-{self.rnn_layers-1}'])
+		z_last = self.z_projection(z_bdict[f'z-{self.rnn_layers-1}'])
+		tdict['model']['z_last'] = z_last
+		tdict['model']['y_last_pt'] = self.xentropy_projection(z_last)
 		for layer in range(0, self.rnn_layers):
 			tdict['model'][f'z-{layer}'] = z_bdict[f'z-{layer}']
 		return tdict
