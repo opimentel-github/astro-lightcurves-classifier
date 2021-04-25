@@ -49,7 +49,8 @@ class CustomDataset(Dataset):
 		self.lcset.reset_boostrap() # fixme
 		self.lcset_info = self.lcset.get_info()
 
-		self.in_attrs = in_attrs.copy()
+		self.append_in_ddays = 'd_days' in in_attrs
+		self.in_attrs = [ia for ia in in_attrs if not ia=='d_days']
 		self.rec_attr = rec_attr
 		self.max_day = self.get_max_duration() if max_day is None else max_day
 		self._max_day = max_day
@@ -79,45 +80,13 @@ class CustomDataset(Dataset):
 	def automatic_diff(self):
 		attrs = self.in_attrs+[self.rec_attr]
 		for attr in attrs: # calcule derivates!
-			if attr=='d_days':
-				self.lcset.set_diff_parallel('days')
 			if attr=='d_obs':
 				self.lcset.set_diff_parallel('obs')
 			if attr=='d_obse':
 				self.lcset.set_diff_parallel('obse')
 
-		### need always
+		### needed always!
 		self.lcset.set_diff_parallel('days')
-
-	def calcule_in_scaler_bdict(self):
-		self.in_scaler_bdict = {}
-		for kb,b in enumerate(self.band_names):
-			values = np.concatenate([self.lcset.get_lcset_values_b(b, in_attr)[...,None] for ka,in_attr in enumerate(self.in_attrs)], axis=-1)
-			#qt = CustomStandardScaler()
-			qt = LogStandardScaler()
-			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
-			qt.fit(values)
-			self.in_scaler_bdict[b] = qt
-
-	def calcule_ddays_scaler_bdict(self):
-		self.ddays_scaler_bdict = {}
-		for kb,b in enumerate(self.band_names):
-			values = self.lcset.get_lcset_values_b(b, 'd_days')[...,None]
-			#qt = CustomStandardScaler()
-			qt = LogStandardScaler()
-			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
-			qt.fit(values)
-			self.ddays_scaler_bdict[b] = qt
-
-	def calcule_rec_scaler_bdict(self):
-		self.rec_scaler_bdict = {}
-		for kb,b in enumerate(self.band_names):
-			values = self.lcset.get_lcset_values_b(b, self.rec_attr)[...,None]
-			#qt = CustomStandardScaler()
-			qt = LogStandardScaler()
-			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
-			qt.fit(values)
-			self.rec_scaler_bdict[b] = qt
 
 	def reset_max_day(self):
 		self.max_day = self._max_day
@@ -162,7 +131,7 @@ class CustomDataset(Dataset):
 		return self.poblation_weights
 
 	def get_output_dims(self):
-		return len(self.in_attrs)
+		return len(self.in_attrs)+int(self.append_in_ddays)
 
 	def __repr__(self):
 		txt = f'CustomDataset('
@@ -172,6 +141,7 @@ class CustomDataset(Dataset):
 			'max_len': f'{self.max_len:,}',
 			'in_attrs':self.in_attrs,
 			'rec_attr':self.rec_attr,
+			'append_in_ddays':self.append_in_ddays,
 			}, ', ', '=')
 		txt += ')'
 		return txt
@@ -204,8 +174,6 @@ class CustomDataset(Dataset):
 		other.set_in_scaler_bdict(self.get_in_scaler_bdict())
 		other.set_rec_scaler_bdict(self.get_rec_scaler_bdict())
 		other.set_ddays_scaler_bdict(self.get_ddays_scaler_bdict())
-		#other.set_poblation_weights(self.get_poblation_weights()) # sure?
-		#other.set_max_len(self.get_max_len())
 	
 	def get_in_scaler_bdict(self):
 		return self.in_scaler_bdict
@@ -232,18 +200,35 @@ class CustomDataset(Dataset):
 		assert len(model_rec_x_b.shape)==1
 		return self.rec_scaler_bdict[b].inverse_transform(model_rec_x_b[...,None])[...,0]
 
-	def in_normalize(self, x, onehot):
-		'''
-		x (t,f)
-		'''
-		assert len(x.shape)==2
-		assert x.shape[-1]==len(self.in_attrs)
-		new_x = np.zeros_like(x) # starts with zeros!!!
+	def calcule_ddays_scaler_bdict(self):
+		self.ddays_scaler_bdict = {}
 		for kb,b in enumerate(self.band_names):
-			onehot_b = onehot[...,kb][...,None]
-			qt = self.in_scaler_bdict[b]
-			new_x += qt.transform(x)*onehot_b
-		return new_x
+			values = self.lcset.get_lcset_values_b(b, 'd_days')[...,None]
+			qt = CustomStandardScaler()
+			#qt = LogStandardScaler()
+			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
+			qt.fit(values)
+			self.ddays_scaler_bdict[b] = qt
+
+	def calcule_in_scaler_bdict(self):
+		self.in_scaler_bdict = {}
+		for kb,b in enumerate(self.band_names):
+			values = np.concatenate([self.lcset.get_lcset_values_b(b, self.in_attrs)[...,None] for ka,in_attr in enumerate(in_attrs)], axis=-1)
+			#qt = CustomStandardScaler()
+			qt = LogStandardScaler()
+			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
+			qt.fit(values)
+			self.in_scaler_bdict[b] = qt
+
+	def calcule_rec_scaler_bdict(self):
+		self.rec_scaler_bdict = {}
+		for kb,b in enumerate(self.band_names):
+			values = self.lcset.get_lcset_values_b(b, self.rec_attr)[...,None]
+			#qt = CustomStandardScaler()
+			qt = LogStandardScaler()
+			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
+			qt.fit(values)
+			self.rec_scaler_bdict[b] = qt
 
 	def ddays_normalize(self, x, onehot):
 		'''
@@ -255,6 +240,19 @@ class CustomDataset(Dataset):
 		for kb,b in enumerate(self.band_names):
 			onehot_b = onehot[...,kb][...,None]
 			qt = self.ddays_scaler_bdict[b]
+			new_x += qt.transform(x)*onehot_b
+		return new_x
+
+	def in_normalize(self, x, onehot):
+		'''
+		x (t,f)
+		'''
+		assert len(x.shape)==2
+		assert x.shape[-1]==len(self.in_attrs)
+		new_x = np.zeros_like(x) # starts with zeros!!!
+		for kb,b in enumerate(self.band_names):
+			onehot_b = onehot[...,kb][...,None]
+			qt = self.in_scaler_bdict[b]
 			new_x += qt.transform(x)*onehot_b
 		return new_x
 	
@@ -391,26 +389,27 @@ class CustomDataset(Dataset):
 		sorted_time_indexs = lcobj.get_sorted_days_indexs_serial() # get just once for performance purposes
 		onehot = lcobj.get_onehot_serial(sorted_time_indexs, max_day)
 		in_x = self.in_normalize(lcobj.get_custom_x_serial(self.in_attrs, sorted_time_indexs, max_day), onehot)
-		rec_x =self.rec_normalize(lcobj.get_custom_x_serial([self.rec_attr], sorted_time_indexs, max_day), onehot)
 		d_days =self.ddays_normalize(lcobj.get_custom_x_serial(['d_days'], sorted_time_indexs, max_day), onehot)
 		days = lcobj.get_custom_x_serial(['days'], sorted_time_indexs, max_day)
+		if self.append_in_ddays:
+			x = np.concatenate([in_x, d_days], axis=-1)
+		print(x.shape)
+
+		rec_x =self.rec_normalize(lcobj.get_custom_x_serial([self.rec_attr], sorted_time_indexs, max_day), onehot)
 		error = lcobj.get_custom_x_serial(['obse'], sorted_time_indexs, max_day)
 
-		### input
+		### tensor dict
 		model_input = {
 			'onehot':torch.as_tensor(onehot),
-			'x':torch.as_tensor(in_x, dtype=torch.float32),
+			'x':torch.as_tensor(x, dtype=torch.float32),
 			'time':torch.as_tensor(days, dtype=torch.float32),
 			'dtime':torch.as_tensor(d_days, dtype=torch.float32),
 			}
-
-		### target
 		target = {
 			'y':torch.as_tensor(lcobj.y),
 			'rec_x':torch.as_tensor(rec_x, dtype=torch.float32),
 			'error':torch.as_tensor(error, dtype=torch.float32),
 			}
-
 		tdict = {
 			'input':fix_new_len(model_input, uses_len_clip, self.max_len),
 			'target':fix_new_len(target, uses_len_clip, self.max_len),

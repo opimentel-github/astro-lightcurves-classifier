@@ -119,7 +119,7 @@ if __name__== '__main__':
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=100)
 			else:
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=1)
-			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=10)
+			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=20)
 			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
@@ -128,7 +128,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 0 # 0 2*
+			s_precomputed_samples = 3 # 0 2*
 			r_precomputed_samples = s_precomputed_samples*32
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)

@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler, QuantileTransformer
 import flamingchoripan.numba as fcnumba
 
 ###################################################################################################################################################
-
+ESC_EPS = 1. # ***
 class CustomStandardScaler(): # faster than numba implementation :(
 	def __init__(self,
 		):
@@ -35,7 +35,7 @@ class CustomStandardScaler(): # faster than numba implementation :(
 
 class LogStandardScaler(): # faster than numba implementation :(
 	def __init__(self,
-		eps=C_.EPS,
+		eps=ESC_EPS,
 		):
 		self.eps = eps
 		self.reset()
@@ -68,7 +68,7 @@ class LogQuantileTransformer():
 	def __init__(self,
 		n_quantiles=5000,
 		random_state=0,
-		eps=C_.EPS,
+		eps=ESC_EPS,
 		):
 		self.eps = eps
 		self.reset()

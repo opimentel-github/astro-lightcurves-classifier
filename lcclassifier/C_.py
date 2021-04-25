@@ -17,7 +17,7 @@ CPDS_P = 10./100. # curve points down sampling probability
 HOURS_NOISE_AMP = 8.
 
 ### important
-REC_LOSS_EPS = 1.
+REC_LOSS_EPS = 1. # ***
 XENTROPY_K = .1
 MSE_K = 1e3
 
