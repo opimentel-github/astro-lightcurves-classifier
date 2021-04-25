@@ -9,9 +9,33 @@ import flamingchoripan.numba as fcnumba
 
 ###################################################################################################################################################
 
+class CustomStandardScaler(): # faster than numba implementation :(
+	def __init__(self,
+		):
+		self.reset()
+		
+	def reset(self):
+		self.scaler = StandardScaler()
+
+	def fit(self, x):
+		assert len(x.shape)==2 # (b,f)
+		self.scaler.fit(x)
+		
+	def transform(self, x):
+		assert len(x.shape)==2 # (b,f)
+		z = self.scaler.transform(x)
+		return z
+	
+	def inverse_transform(self, z):
+		assert len(z.shape)==2 # (b,f)
+		x = self.scaler.inverse_transform(z)
+		return x
+
+###################################################################################################################################################
+
 class LogStandardScaler(): # faster than numba implementation :(
 	def __init__(self,
-		eps=1,
+		eps=C_.EPS,
 		):
 		self.eps = eps
 		self.reset()
@@ -44,7 +68,7 @@ class LogQuantileTransformer():
 	def __init__(self,
 		n_quantiles=5000,
 		random_state=0,
-		eps=1.,
+		eps=C_.EPS,
 		):
 		self.eps = eps
 		self.reset()

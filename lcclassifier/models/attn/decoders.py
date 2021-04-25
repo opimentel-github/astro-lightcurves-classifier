@@ -10,11 +10,13 @@ from fuzzytorch.models.others import FILM
 import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
-
+NUM_HEADS = 4
 class TimeSelfAttnDecoderP(nn.Module):
-	def __init__(self, **kwargs):
+	def __init__(self,
+		**kwargs):
 		super().__init__()
 		### ATTRIBUTES
+		self.add_extra_return = False
 		for name, val in kwargs.items():
 			setattr(self, name, val)
 		assert self.te_features>0, 'attn needs to work with temporal encoding'
@@ -31,7 +33,7 @@ class TimeSelfAttnDecoderP(nn.Module):
 
 		### ATTN
 		attn_kwargs = {
-			'num_heads':4,
+			'num_heads':NUM_HEADS,
 			'scale_mode':self.scale_mode,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -46,7 +48,7 @@ class TimeSelfAttnDecoderP(nn.Module):
 		mlp_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
-			'activation':'linear',
+			'activation':'relu',
 			}
 		self.dz_projection = nn.ModuleDict({b:MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*layers, **mlp_kwargs) for b in self.band_names})
 		print('dz_projection:', self.dz_projection)
@@ -103,7 +105,7 @@ class TimeSelfAttnDecoderS(nn.Module):
 
 		### ATTN
 		attn_kwargs = {
-			'num_heads':4,
+			'num_heads':NUM_HEADS,
 			'scale_mode':self.scale_mode,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -118,7 +120,7 @@ class TimeSelfAttnDecoderS(nn.Module):
 		mlp_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
-			'activation':'linear',
+			'activation':'relu',
 			}
 		self.dz_projection = MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*layers, **mlp_kwargs)
 		print('dz_projection:', self.dz_projection)

@@ -10,7 +10,7 @@ from fuzzytorch.models.others import FILM
 import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
-
+NUM_HEADS = 4
 class TimeSelfAttnEncoderP(nn.Module):
 	def __init__(self,
 		**kwargs):
@@ -33,7 +33,7 @@ class TimeSelfAttnEncoderP(nn.Module):
 
 		### ATTN
 		attn_kwargs = {
-			'num_heads':4,
+			'num_heads':NUM_HEADS,
 			'scale_mode':self.scale_mode,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
@@ -127,7 +127,7 @@ class TimeSelfAttnEncoderS(nn.Module):
 		
 		### ATTN
 		attn_kwargs = {
-			'num_heads':4,
+			'num_heads':NUM_HEADS,
 			'scale_mode':self.scale_mode,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],

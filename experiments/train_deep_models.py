@@ -15,14 +15,14 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # 32 64 128
+	parser.add_argument('-batch_size',  type=int, default=64, help='batch_size') # 32 64 128 256
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
 	parser.add_argument('-mids',  type=str, default='0-10', help='initial_id-final_id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
 	parser.add_argument('-rsc',  type=int, default=1, help='random_subcrops')
-	parser.add_argument('-bypass',  type=bool, default=False, help='bypass')
+	parser.add_argument('-bypass',  type=int, default=0, help='bypass')
 	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
 	print_big_bar()
@@ -116,9 +116,9 @@ if __name__== '__main__':
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
 			if main_args.bypass:
-				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=10)
+				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=100)
 			else:
-				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=2)
+				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=1)
 			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=10)
 			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
@@ -164,14 +164,14 @@ if __name__== '__main__':
 
 			pt_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':1.1e-3,
+					'lr':5*1.e-3,
 					#'betas':(0.9999, 0.9999),
 					},
 				#'decay_kwargs':{
 				#	'lr':.95,
 				#}
 				}
-			pt_optimizer = LossOptimizer(model, optims.AdamW, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			pt_optimizer = LossOptimizer(model, optims.Adam, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -197,7 +197,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':550, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':500, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -263,13 +263,13 @@ if __name__== '__main__':
 
 			ft_optimizer_kwargs = {
 				'opt_kwargs':{
-					'lr':1.2e-3, # 5e-2
+					'lr':2*1.e-3, # 5e-2
 					},
 				#'decay_kwargs':{
 				#	'lr':.95,
 				#}
 				}
-			ft_optimizer = LossOptimizer(model.get_classifier_model(), optims.AdamW, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			ft_optimizer = LossOptimizer(model.get_classifier_model(), optims.Adam, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -286,8 +286,8 @@ if __name__== '__main__':
 				#'save_mode':C_.SM_ALL,
 				#'save_mode':C_.SM_ONLY_ALL,
 				#'save_mode':C_.SM_ONLY_INF_METRIC,
-				#'save_mode':C_.SM_ONLY_INF_LOSS,
-				'save_mode':C_.SM_ONLY_SUP_METRIC,
+				'save_mode':C_.SM_ONLY_INF_LOSS, # is better?
+				#'save_mode':C_.SM_ONLY_SUP_METRIC, 
 				}
 			ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics, **monitor_config)
 
@@ -295,7 +295,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':750, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':500, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,

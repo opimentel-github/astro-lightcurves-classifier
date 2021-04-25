@@ -45,7 +45,7 @@ class RNNDecoderP(nn.Module):
 		mlp_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
-			'activation':'linear',
+			'activation':'relu',
 			}
 		self.dz_projection = nn.ModuleDict({b:MLP(self.rnn_embd_dims, 1, [self.rnn_embd_dims]*layers, **mlp_kwargs) for b in self.band_names})
 		print('dz_projection:', self.dz_projection)
@@ -115,7 +115,7 @@ class RNNDecoderS(nn.Module):
 		mlp_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
-			'activation':'linear',
+			'activation':'relu',
 		}
 		self.dz_projection = MLP(self.rnn_embd_dims, 1, [self.rnn_embd_dims]*layers, **mlp_kwargs)
 		print('dz_projection:', self.dz_projection)

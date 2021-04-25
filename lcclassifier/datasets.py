@@ -8,8 +8,7 @@ import torch.tensor as Tensor
 import numpy as np
 from torch.utils.data import Dataset
 import random
-from sklearn.preprocessing import StandardScaler, QuantileTransformer
-from .scalers import LogStandardScaler, LogQuantileTransformer
+from .scalers import CustomStandardScaler, LogStandardScaler, LogQuantileTransformer
 import flamingchoripan.strings as strings
 from joblib import Parallel, delayed
 from flamingchoripan.lists import get_list_chunks, get_random_item
@@ -94,28 +93,31 @@ class CustomDataset(Dataset):
 		self.in_scaler_bdict = {}
 		for kb,b in enumerate(self.band_names):
 			values = np.concatenate([self.lcset.get_lcset_values_b(b, in_attr)[...,None] for ka,in_attr in enumerate(self.in_attrs)], axis=-1)
+			#qt = CustomStandardScaler()
 			qt = LogStandardScaler()
 			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
 			qt.fit(values)
 			self.in_scaler_bdict[b] = qt
 
-	def calcule_rec_scaler_bdict(self):
-		self.rec_scaler_bdict = {}
-		for kb,b in enumerate(self.band_names):
-			values = self.lcset.get_lcset_values_b(b, self.rec_attr)[...,None]
-			qt = LogStandardScaler()
-			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
-			qt.fit(values)
-			self.rec_scaler_bdict[b] = qt
-
 	def calcule_ddays_scaler_bdict(self):
 		self.ddays_scaler_bdict = {}
 		for kb,b in enumerate(self.band_names):
 			values = self.lcset.get_lcset_values_b(b, 'd_days')[...,None]
+			#qt = CustomStandardScaler()
 			qt = LogStandardScaler()
 			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
 			qt.fit(values)
 			self.ddays_scaler_bdict[b] = qt
+
+	def calcule_rec_scaler_bdict(self):
+		self.rec_scaler_bdict = {}
+		for kb,b in enumerate(self.band_names):
+			values = self.lcset.get_lcset_values_b(b, self.rec_attr)[...,None]
+			#qt = CustomStandardScaler()
+			qt = LogStandardScaler()
+			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
+			qt.fit(values)
+			self.rec_scaler_bdict[b] = qt
 
 	def reset_max_day(self):
 		self.max_day = self._max_day
@@ -243,19 +245,6 @@ class CustomDataset(Dataset):
 			new_x += qt.transform(x)*onehot_b
 		return new_x
 
-	def rec_normalize(self, x, onehot):
-		'''
-		x (t,1)
-		'''
-		assert len(x.shape)==2
-		assert x.shape[-1]==1
-		new_x = np.zeros_like(x) # starts with zeros!!!
-		for kb,b in enumerate(self.band_names):
-			onehot_b = onehot[...,kb][...,None]
-			qt = self.rec_scaler_bdict[b]
-			new_x += qt.transform(x)*onehot_b
-		return new_x
-
 	def ddays_normalize(self, x, onehot):
 		'''
 		x (t,1)
@@ -269,6 +258,19 @@ class CustomDataset(Dataset):
 			new_x += qt.transform(x)*onehot_b
 		return new_x
 	
+	def rec_normalize(self, x, onehot):
+		'''
+		x (t,1)
+		'''
+		assert len(x.shape)==2
+		assert x.shape[-1]==1
+		new_x = np.zeros_like(x) # starts with zeros!!!
+		for kb,b in enumerate(self.band_names):
+			onehot_b = onehot[...,kb][...,None]
+			qt = self.rec_scaler_bdict[b]
+			new_x += qt.transform(x)*onehot_b
+		return new_x
+
 	def train(self):
 		self.training = True
 		self.generate_balanced_lcobj_names() # important

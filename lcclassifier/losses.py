@@ -36,7 +36,7 @@ class LCMSEReconstruction(FTLoss):
 			p_rx = seq_utils.serial_to_parallel(target_tdict['rec_x'], onehot[...,kb]) # (b,t,1)
 			p_rx_pred = model_tdict[f'rec_x.{b}'] # (b,t,1)
 
-			mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+.1) # (b,t,1)
+			mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+C_.REC_LOSS_EPS) # (b,t,1)
 			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 			mse_loss_bdict[b] = mse_loss_b
 

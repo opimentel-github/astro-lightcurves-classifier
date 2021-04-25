@@ -61,7 +61,7 @@ def save_performance(train_handler, data_loader, save_rootdir,
 						p_rx = seq_utils.serial_to_parallel(out_tdict['target']['rec_x'], onehot[...,kb]) # (b,t,1)
 						p_rx_pred = out_tdict['model'][f'rec_x.{b}'] # (b,t,1)
 
-						mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+.1) # (b,t,1)
+						mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+C_.REC_LOSS_EPS) # (b,t,1)
 						mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, seq_utils.get_seq_onehot_mask(p_onehot.sum(dim=-1), onehot.shape[1])) # (b,t,1) > (b,1)
 						mse_loss_bdict[b] = mse_loss_b[...,0] # (b,1) > (b)
 
