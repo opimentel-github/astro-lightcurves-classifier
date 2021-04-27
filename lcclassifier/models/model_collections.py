@@ -15,11 +15,11 @@ class ModelCollections():
 		self.lcdataset = lcdataset
 		self.max_day = C_.MAX_DAY
 
-		self.embd_dims = GDIter(24)
+		self.embd_dims = GDIter(16)
 		self.embd_layers = GDIter(2)
 		#self.rnn_cell_names = GDIter('GRU')
-		self.rnn_cell_names = GDIter('GRU', 'LSTM')
-		self.te_features_gd = GDIter(4) # ***
+		self.rnn_cell_names = GDIter('GRU') # GRU LSTM
+		self.te_features_gd = GDIter(8) # ***
 		#self.te_features_gd = GDIter(4, 8, 16)
 		self.scale_mode_gd = GDIter(None) # None 'softmax', 'hardsigmoid', 'softmax'
 		#self.scale_mode_gd = GDIter('softmax', 'hardsigmoid', 'softmax')
@@ -28,7 +28,7 @@ class ModelCollections():
 
 		self.dropout_p = 0.0
 		self.common_dict = {
-			'max_period':self.max_day*2,
+			'max_period':self.max_day*1.1, # ***
 			'band_names':lcdataset['raw'].band_names,
 			'output_dims':len(lcdataset['raw'].class_names),
 			}
@@ -37,7 +37,7 @@ class ModelCollections():
 				'C':mclass.SimpleClassifier,
 				'embd_layers':2, # 1 2
 				'dropout':{
-					'p':.2, # *** .1 .2 .5 
+					'p':.1, # *** .1 .25 .5 
 					},
 				},
 			}

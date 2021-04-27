@@ -29,7 +29,8 @@ def save_temporal_encoding(train_handler, data_loader, save_rootdir,
 		return
 
 	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_n)#[::-1]
-	temporal_encoding = train_handler.model.get_info()
+	temporal_encoding_info = train_handler.model.get_info()
+	#print('temporal_encoding_info',temporal_encoding_info)
 
 	results = {
 		'model_name':train_handler.model.get_name(),
@@ -38,7 +39,7 @@ def save_temporal_encoding(train_handler, data_loader, save_rootdir,
 		'class_names':dataset.class_names,
 
 		'days':days,
-		'temporal_encoding':temporal_encoding,
+		'temporal_encoding_info':temporal_encoding_info,
 	}
 
 	### save file

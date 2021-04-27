@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.nn.functional as F 
 import fuzzytorch.models.cnn.basics as ft_cnn
 from fuzzytorch.models.basics import MLP, Linear
-from fuzzytorch.models.others import FILM
 import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################

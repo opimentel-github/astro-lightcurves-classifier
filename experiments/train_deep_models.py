@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=64, help='batch_size') # 32 64 128 256
+	parser.add_argument('-batch_size',  type=int, default=32, help='batch_size') # *** 32 64 128 256
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -70,18 +70,19 @@ if __name__== '__main__':
 	###################################################################################################################################################
 	### LOSS & METRICS
 	from lcclassifier.losses import LCMSEReconstruction, LCXEntropy, LCCompleteLoss
-	from lcclassifier.metrics import LCXEntropyMetric, LCAccuracy
+	from lcclassifier.metrics import LCWMSE, LCXEntropyMetric, LCAccuracy
 
 	pt_loss_kwargs = {
+		'band_names':lcdataset['raw'].band_names,
 		'model_output_is_with_softmax':False,
 		'target_is_onehot':False,
 		'classifier_key':'y_last_pt',
 		}
-	pt_loss = LCCompleteLoss('wmse-xentropy', lcdataset['raw'].band_names, **pt_loss_kwargs)
+	pt_loss = LCCompleteLoss('wmse-xentropy', **pt_loss_kwargs)
 	pt_metrics = [
-		LCXEntropyMetric('xentropy', **pt_loss_kwargs),
+		LCWMSE('b-wmse', balanced=True, **pt_loss_kwargs),
+		LCXEntropyMetric('b-xentropy', balanced=True, **pt_loss_kwargs),
 		LCAccuracy('b-accuracy', balanced=True, **pt_loss_kwargs),
-		LCAccuracy('accuracy', **pt_loss_kwargs),
 		]
 
 	ft_loss_kwargs = {
@@ -91,9 +92,8 @@ if __name__== '__main__':
 		}
 	ft_loss = LCXEntropy('xentropy', **ft_loss_kwargs)
 	ft_metrics = [
-		LCXEntropyMetric('xentropy', **ft_loss_kwargs),
+		LCXEntropyMetric('b-xentropy', balanced=True, **ft_loss_kwargs),
 		LCAccuracy('b-accuracy', balanced=True, **ft_loss_kwargs),
-		LCAccuracy('accuracy', **ft_loss_kwargs),
 		]
 
 	###################################################################################################################################################
@@ -115,11 +115,13 @@ if __name__== '__main__':
 		for mp_grid in model_collections.mps: # MODEL CONFIGS
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
+			s_balanced_repeats = 2
+			r_balanced_repeats = s_balanced_repeats*16
 			if main_args.bypass:
-				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=100)
+				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
 			else:
-				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=1)
-			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=20)
+				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=s_balanced_repeats)
+			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
 			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
@@ -128,8 +130,8 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 3 # 0 2*
-			r_precomputed_samples = s_precomputed_samples*32
+			s_precomputed_samples = 5 # 0 5*
+			r_precomputed_samples = s_precomputed_samples*1
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
 
@@ -162,16 +164,21 @@ if __name__== '__main__':
 			import torch.optim as optims
 			from fuzzytorch.optimizers import LossOptimizer
 
-			pt_optimizer_kwargs = {
-				'opt_kwargs':{
-					'lr':5*1.e-3,
-					#'betas':(0.9999, 0.9999),
-					},
-				#'decay_kwargs':{
-				#	'lr':.95,
-				#}
+			def lr_f(epoch):
+				initial_lr = 1e-6
+				max_lr = 2.e-3
+				d_epochs = 20
+				p = np.clip(epoch/d_epochs, 0, 1)
+				return initial_lr+p*(max_lr-initial_lr)
+
+			pt_opt_kwargs_f = {
+				#'lr':lambda epoch:2.e-3, # ***
+				'lr':lr_f, # ***
 				}
-			pt_optimizer = LossOptimizer(model, optims.Adam, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			pt_optimizer_kwargs = {
+				'clip_grad':1.,
+				}
+			pt_optimizer = LossOptimizer(model, optims.Adam, pt_opt_kwargs_f, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -181,14 +188,14 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':2, # every k epochs check
+				'val_epoch_counter_duration':0, # every k epochs check
 				'earlystop_epoch_duration':1e6,
-				'target_metric_crit':'b-accuracy',
+				'target_metric_crit':'b-wmse',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
 				#'save_mode':C_.SM_ONLY_ALL,
-				#'save_mode':C_.SM_ONLY_INF_METRIC,
-				'save_mode':C_.SM_ONLY_INF_LOSS,
+				'save_mode':C_.SM_ONLY_INF_METRIC,
+				#'save_mode':C_.SM_ONLY_INF_LOSS,
 				#'save_mode':C_.SM_ONLY_SUP_METRIC,
 				}
 			pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics, **monitor_config)
@@ -197,7 +204,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':500, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':500, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -261,15 +268,14 @@ if __name__== '__main__':
 			import torch.optim as optims
 			from fuzzytorch.optimizers import LossOptimizer
 
-			ft_optimizer_kwargs = {
-				'opt_kwargs':{
-					'lr':2*1.e-3, # 5e-2
-					},
-				#'decay_kwargs':{
-				#	'lr':.95,
-				#}
+			ft_opt_kwargs_f = {
+				#'lr':lambda epoch:1e-3, # ***
+				'lr':lr_f,
 				}
-			ft_optimizer = LossOptimizer(model.get_classifier_model(), optims.Adam, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			ft_optimizer_kwargs = {
+				'clip_grad':1.,
+				}
+			ft_optimizer = LossOptimizer(model.get_classifier_model(), optims.Adam, ft_opt_kwargs_f, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar
@@ -281,12 +287,12 @@ if __name__== '__main__':
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
 				'earlystop_epoch_duration':1e6,
-				'target_metric_crit':'b-accuracy',
+				'target_metric_crit':'b-xentropy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
 				#'save_mode':C_.SM_ONLY_ALL,
-				#'save_mode':C_.SM_ONLY_INF_METRIC,
-				'save_mode':C_.SM_ONLY_INF_LOSS, # is better?
+				'save_mode':C_.SM_ONLY_INF_METRIC,
+				#'save_mode':C_.SM_ONLY_INF_LOSS,
 				#'save_mode':C_.SM_ONLY_SUP_METRIC, 
 				}
 			ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics, **monitor_config)

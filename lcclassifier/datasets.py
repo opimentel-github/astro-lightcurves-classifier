@@ -75,6 +75,7 @@ class CustomDataset(Dataset):
 		self.calcule_ddays_scaler_bdict()
 		self.reset_max_day()
 		self.calcule_poblation_weights()
+		self.calcule_balanced_w_cdict()
 		self.generate_balanced_lcobj_names()
 
 	def automatic_diff(self):
@@ -91,21 +92,11 @@ class CustomDataset(Dataset):
 	def reset_max_day(self):
 		self.max_day = self._max_day
 
+	def calcule_balanced_w_cdict(self):
+		self.balanced_w_cdict = self.lcset.get_class_balanced_weights_cdict()
+
 	def calcule_poblation_weights(self):
 		self.populations_cdict = self.lcset.get_populations_cdict()
-		#self.poblation_weights = self.lcset.get_class_effective_weigths_cdict(1-self.effective_beta_eps) # get_class_freq_weights_cdict get_class_effective_weigths_cdict
-	'''
-	def generate_balanced_lcobj_names(self):
-			max_index = np.argmax([self.populations_cdict[c] for c in self.class_names])
-			max_c = self.class_names[max_index]
-			max_c_pop = self.populations_cdict[max_c]
-			#print(min_c_pop, min_c)
-			to_fill_cdict = {c:max_c_pop-self.populations_cdict[c] for c in self.class_names}
-			self.balanced_lcobj_names = self.lcset.get_lcobj_names().copy()
-			for c in self.class_names:
-				lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c), to_fill_cdict[c])
-				self.balanced_lcobj_names += lcobj_names_c
-	'''
 
 	def generate_balanced_lcobj_names(self):
 		min_index = np.argmin([self.populations_cdict[c] for c in self.class_names])
@@ -127,8 +118,8 @@ class CustomDataset(Dataset):
 		#self.balanced_lcobj_names = balanced_lcobj_names*repeats
 		
 
-	def get_poblation_weights(self):
-		return self.poblation_weights
+	def get_balanced_w_cdict(self):
+		return self.balanced_w_cdict
 
 	def get_output_dims(self):
 		return len(self.in_attrs)+int(self.append_in_ddays)
@@ -166,9 +157,6 @@ class CustomDataset(Dataset):
 		self.max_duration = max([self.lcset[lcobj_name].get_days_serial_duration() for lcobj_name in self.get_lcobj_names()])
 		return self.max_duration
 
-	def set_poblation_weights(self, poblation_weights):
-		self.poblation_weights = poblation_weights
-
 	def transfer_metadata_to(self, other):
 		other.set_max_day(self.get_max_day())
 		other.set_in_scaler_bdict(self.get_in_scaler_bdict())
@@ -200,12 +188,14 @@ class CustomDataset(Dataset):
 		assert len(model_rec_x_b.shape)==1
 		return self.rec_scaler_bdict[b].inverse_transform(model_rec_x_b[...,None])[...,0]
 
+###################################################################################################################################################
+
 	def calcule_ddays_scaler_bdict(self):
 		self.ddays_scaler_bdict = {}
 		for kb,b in enumerate(self.band_names):
 			values = self.lcset.get_lcset_values_b(b, 'd_days')[...,None]
-			qt = CustomStandardScaler()
-			#qt = LogStandardScaler()
+			#qt = CustomStandardScaler()
+			qt = LogStandardScaler()
 			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
 			qt.fit(values)
 			self.ddays_scaler_bdict[b] = qt
@@ -213,7 +203,7 @@ class CustomDataset(Dataset):
 	def calcule_in_scaler_bdict(self):
 		self.in_scaler_bdict = {}
 		for kb,b in enumerate(self.band_names):
-			values = np.concatenate([self.lcset.get_lcset_values_b(b, self.in_attrs)[...,None] for ka,in_attr in enumerate(in_attrs)], axis=-1)
+			values = np.concatenate([self.lcset.get_lcset_values_b(b, in_attr)[...,None] for ka,in_attr in enumerate(self.in_attrs)], axis=-1)
 			#qt = CustomStandardScaler()
 			qt = LogStandardScaler()
 			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
@@ -229,6 +219,8 @@ class CustomDataset(Dataset):
 			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
 			qt.fit(values)
 			self.rec_scaler_bdict[b] = qt
+
+###################################################################################################################################################
 
 	def ddays_normalize(self, x, onehot):
 		'''
@@ -333,7 +325,7 @@ class CustomDataset(Dataset):
 	def precompute_samples_joblib(self, precomputed_copies,
 		device='cpu',
 		backend='threading',
-		n_jobs=1,
+		n_jobs=1, # bug?
 		):
 		# don't use this!
 		if precomputed_copies<=0:
@@ -376,10 +368,10 @@ class CustomDataset(Dataset):
 		if uses_daugm:
 			for b in lcobj.bands:
 				lcobjb = lcobj.get_b(b)
-				lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
+				#lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
 				lcobjb.add_obs_noise_gaussian(0., self.std_scale) # add obs noise
 				#lcobjb.apply_downsampling_window(self.cpdsw_rooted, self.cpdsw) # curve points downsampling
-				lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling
+				#lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling
 
 		### remove day offset!
 		day_offset = lcobj.reset_day_offset_serial()
@@ -388,15 +380,17 @@ class CustomDataset(Dataset):
 		max_day = self.max_day
 		sorted_time_indexs = lcobj.get_sorted_days_indexs_serial() # get just once for performance purposes
 		onehot = lcobj.get_onehot_serial(sorted_time_indexs, max_day)
-		in_x = self.in_normalize(lcobj.get_custom_x_serial(self.in_attrs, sorted_time_indexs, max_day), onehot)
+		x = self.in_normalize(lcobj.get_custom_x_serial(self.in_attrs, sorted_time_indexs, max_day), onehot)
 		d_days =self.ddays_normalize(lcobj.get_custom_x_serial(['d_days'], sorted_time_indexs, max_day), onehot)
 		days = lcobj.get_custom_x_serial(['days'], sorted_time_indexs, max_day)
 		if self.append_in_ddays:
-			x = np.concatenate([in_x, d_days], axis=-1)
-		print(x.shape)
+			x = np.concatenate([x, d_days], axis=-1)
+		#print('x',x.shape)
 
 		rec_x =self.rec_normalize(lcobj.get_custom_x_serial([self.rec_attr], sorted_time_indexs, max_day), onehot)
 		error = lcobj.get_custom_x_serial(['obse'], sorted_time_indexs, max_day)
+		balanced_w = np.array([self.get_balanced_w_cdict()[self.class_names[lcobj.y]]])
+		#print(balanced_w, balanced_w.shape, c)
 
 		### tensor dict
 		model_input = {
@@ -409,6 +403,7 @@ class CustomDataset(Dataset):
 			'y':torch.as_tensor(lcobj.y),
 			'rec_x':torch.as_tensor(rec_x, dtype=torch.float32),
 			'error':torch.as_tensor(error, dtype=torch.float32),
+			'balanced_w':torch.as_tensor(balanced_w, dtype=torch.float32),
 			}
 		tdict = {
 			'input':fix_new_len(model_input, uses_len_clip, self.max_len),

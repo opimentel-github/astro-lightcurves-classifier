@@ -119,9 +119,10 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			#save_end_frame=True,
 			)
 
-		bar = ProgressBar(len(days), bar_format='{l_bar}{bar}{postfix}')
-		for kd,day in enumerate(days):
-			bar(f'{day:.1f}/{days[-1]:.1f} [days]')
+		target_days = days if export_animation else [days[-1]]
+		bar = ProgressBar(len(target_days), bar_format='{l_bar}{bar}{postfix}')
+		for kd,day in enumerate(target_days):
+			bar(f'{day:.1f}/{target_days[-1]:.1f} [days]')
 			xe_dict = {}
 			for metric_name in ['b-accuracy', 'b-f1score']:
 				metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)

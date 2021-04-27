@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F 
 import fuzzytorch.models.attn.basics as ft_attn
 from fuzzytorch.models.basics import MLP, Linear
-from fuzzytorch.models.others import FILM
 import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
