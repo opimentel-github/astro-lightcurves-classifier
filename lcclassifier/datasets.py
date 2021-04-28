@@ -194,8 +194,8 @@ class CustomDataset(Dataset):
 		self.ddays_scaler_bdict = {}
 		for kb,b in enumerate(self.band_names):
 			values = self.lcset.get_lcset_values_b(b, 'd_days')[...,None]
-			#qt = CustomStandardScaler()
-			qt = LogStandardScaler()
+			qt = CustomStandardScaler()
+			#qt = LogStandardScaler()
 			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
 			qt.fit(values)
 			self.ddays_scaler_bdict[b] = qt

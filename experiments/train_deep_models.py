@@ -268,6 +268,13 @@ if __name__== '__main__':
 			import torch.optim as optims
 			from fuzzytorch.optimizers import LossOptimizer
 
+			def lr_f(epoch):
+				initial_lr = 1e-6
+				max_lr = .5e-3
+				d_epochs = 20
+				p = np.clip(epoch/d_epochs, 0, 1)
+				return initial_lr+p*(max_lr-initial_lr)
+				
 			ft_opt_kwargs_f = {
 				#'lr':lambda epoch:1e-3, # ***
 				'lr':lr_f,
