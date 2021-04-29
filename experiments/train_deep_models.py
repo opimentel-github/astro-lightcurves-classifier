@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=32, help='batch_size') # *** 32 64 128 256
+	parser.add_argument('-batch_size',  type=int, default=64, help='batch_size') # *** 32 64 128 256
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -166,8 +166,8 @@ if __name__== '__main__':
 
 			def lr_f(epoch):
 				initial_lr = 1e-6
-				max_lr = 2.e-3
-				d_epochs = 20
+				max_lr = 1*1e-3
+				d_epochs = 25
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
@@ -187,8 +187,9 @@ if __name__== '__main__':
 			from fuzzytorch import C_
 			import math
 
+			val_epoch_counter_duration = 2
 			monitor_config = {
-				'val_epoch_counter_duration':0, # every k epochs check
+				'val_epoch_counter_duration':val_epoch_counter_duration, # every k epochs check
 				'earlystop_epoch_duration':1e6,
 				'target_metric_crit':'b-wmse',
 				#'save_mode':C_.SM_NO_SAVE,
@@ -204,7 +205,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':500, # limit this as the pre-training is very time consuming
+				'epochs_max':1000, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -270,14 +271,14 @@ if __name__== '__main__':
 
 			def lr_f(epoch):
 				initial_lr = 1e-6
-				max_lr = .5e-3
-				d_epochs = 20
+				max_lr = 1*1e-3
+				d_epochs = 10
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
-				
+
 			ft_opt_kwargs_f = {
-				#'lr':lambda epoch:1e-3, # ***
-				'lr':lr_f,
+				'lr':lambda epoch:1*1e-3, # ***
+				#'lr':lr_f, # ***
 				}
 			ft_optimizer_kwargs = {
 				'clip_grad':1.,
@@ -292,7 +293,7 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':0, # every k epochs check
+				'val_epoch_counter_duration':val_epoch_counter_duration, # every k epochs check
 				'earlystop_epoch_duration':1e6,
 				'target_metric_crit':'b-xentropy',
 				#'save_mode':C_.SM_NO_SAVE,

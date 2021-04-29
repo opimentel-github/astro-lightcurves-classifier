@@ -16,19 +16,18 @@ class ModelCollections():
 		self.max_day = C_.MAX_DAY
 
 		self.embd_dims = GDIter(24)
-		self.embd_layers = GDIter(2)
+		self.embd_layers = GDIter(3)
 		#self.rnn_cell_names = GDIter('GRU')
 		self.rnn_cell_names = GDIter('GRU') # GRU LSTM
-		self.te_features_gd = GDIter(14) # ***
-		#self.te_features_gd = GDIter(4, 8, 16)
+		self.te_features_gd = GDIter(4,2,6) # ***
 		self.scale_mode_gd = GDIter(None) # None 'softmax', 'hardsigmoid', 'softmax'
 		#self.scale_mode_gd = GDIter('softmax', 'hardsigmoid', 'softmax')
 		self.cnn_aggregation = GDIter('avg')
 		#self.cnn_aggregation = GDIter('max', 'avg')
 
-		self.dropout_p = 0.0
+		self.dropout_p = 0.01
 		self.common_dict = {
-			'max_period':self.max_day*1.1, # ***
+			'max_period':self.max_day*1.25, # ***
 			'band_names':lcdataset['raw'].band_names,
 			'output_dims':len(lcdataset['raw'].class_names),
 			}

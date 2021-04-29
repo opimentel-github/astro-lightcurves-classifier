@@ -69,7 +69,7 @@ class CustomDataLoader(DataLoader):
 			for tdict in batch:
 				length = tdict['input']['onehot'].detach().sum().item()
 				assert length>=0
-				new_lengths = [length if k==0 else random.randint(self.min_length, max(self.min_length, length-1)) for k in range(0, self.random_subcrops+1)]
+				new_lengths = [length if k==0 else random.randint(self.min_length, max(self.min_length, (length-1))) for k in range(0, self.random_subcrops+1)]
 				#print(length, new_lengths)
 				for l in new_lengths:
 					new_tdict = {'input':{}, 'target':{}}

@@ -383,15 +383,8 @@ class CustomDataset(Dataset):
 		x = self.in_normalize(lcobj.get_custom_x_serial(self.in_attrs, sorted_time_indexs, max_day), onehot)
 		d_days =self.ddays_normalize(lcobj.get_custom_x_serial(['d_days'], sorted_time_indexs, max_day), onehot)
 		days = lcobj.get_custom_x_serial(['days'], sorted_time_indexs, max_day)
-		if self.append_in_ddays:
-			x = np.concatenate([x, d_days], axis=-1)
+		x = np.concatenate([x, d_days], axis=-1) if self.append_in_ddays else x
 		#print('x',x.shape)
-
-		rec_x =self.rec_normalize(lcobj.get_custom_x_serial([self.rec_attr], sorted_time_indexs, max_day), onehot)
-		error = lcobj.get_custom_x_serial(['obse'], sorted_time_indexs, max_day)
-		balanced_w = np.array([self.get_balanced_w_cdict()[self.class_names[lcobj.y]]])
-		#print(balanced_w, balanced_w.shape, c)
-
 		### tensor dict
 		model_input = {
 			'onehot':torch.as_tensor(onehot),
@@ -399,12 +392,20 @@ class CustomDataset(Dataset):
 			'time':torch.as_tensor(days, dtype=torch.float32),
 			'dtime':torch.as_tensor(d_days, dtype=torch.float32),
 			}
+
+		###
+		rec_x =self.rec_normalize(lcobj.get_custom_x_serial([self.rec_attr], sorted_time_indexs, max_day), onehot)
+		error = lcobj.get_custom_x_serial(['obse'], sorted_time_indexs, max_day)
+		balanced_w = np.array([self.get_balanced_w_cdict()[self.class_names[lcobj.y]]])
+		#print(balanced_w, balanced_w.shape, c)
 		target = {
 			'y':torch.as_tensor(lcobj.y),
 			'rec_x':torch.as_tensor(rec_x, dtype=torch.float32),
 			'error':torch.as_tensor(error, dtype=torch.float32),
 			'balanced_w':torch.as_tensor(balanced_w, dtype=torch.float32),
 			}
+
+		###
 		tdict = {
 			'input':fix_new_len(model_input, uses_len_clip, self.max_len),
 			'target':fix_new_len(target, uses_len_clip, self.max_len),

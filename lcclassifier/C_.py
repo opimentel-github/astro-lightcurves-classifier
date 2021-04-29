@@ -17,14 +17,14 @@ CPDS_P = 10./100. # ***
 HOURS_NOISE_AMP = 8. # ***
 
 ### important
-REC_LOSS_EPS = 1. # ***
+REC_LOSS_EPS = .1 # ***
 XENTROPY_K = .1
-MSE_K = REC_LOSS_EPS*1e3
+MSE_K = 5e2
 
+MAX_DAY = 100.
 DEFAULT_DAYS_N = 100
 DEFAULT_DAYS_N_AN = 50
 DEFAULT_MIN_DAY = 2.
-MAX_DAY = 150.
 
 ### PLOTS
 P_PLOT = 10
