@@ -10,6 +10,7 @@ from lchandler.plots.lc import plot_lightcurve
 import flamingchoripan.prints as prints
 from flamingchoripan.cuteplots.utils import save_fig
 import matplotlib.pyplot as plt
+import random
 
 ###################################################################################################################################################
 
@@ -20,6 +21,8 @@ def save_reconstructions(train_handler, data_loader, save_rootdir,
 	**kwargs):
 	results = []
 	for experiment_id in range(0, m):
+		random.seed(experiment_id)
+		np.random.seed(experiment_id)
 		r = _save_reconstructions(train_handler, data_loader, save_rootdir, str(experiment_id),
 			figsize,
 			nc,
@@ -58,7 +61,8 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 				ax.plot(days[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 
 			title = ''
-			title += f'survey={dataset.survey} [{dataset.lcset_name}] - lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
+			title += f'model light curve reconstructions'+'\n' if k==0 else ''
+			title += f'survey={dataset.survey}-{"".join(dataset.band_names)} [{dataset.lcset_name}] - lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 			ax.set_title(title[:-1])
 			ax.set_ylabel('observations [flux]')
 			ax.legend(loc='upper right')
@@ -70,4 +74,5 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 	### save file
 	image_save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}~exp_id={experiment_id}.png'
 	save_fig(image_save_filedir, fig)
+	dataset.reset_max_day() # very important!!
 	return

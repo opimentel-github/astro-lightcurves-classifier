@@ -223,7 +223,7 @@ if __name__== '__main__':
 			pt_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			if ki==0:
 				print(pt_model_train_handler)
-			pt_model_train_handler.fit_loader(s_train_loader, r_val_loader) # main fit
+			#pt_model_train_handler.fit_loader(s_train_loader, r_val_loader) # main fit
 
 			###################################################################################################################################################
 			import fuzzytorch
@@ -246,15 +246,18 @@ if __name__== '__main__':
 			from lcclassifier.experiments.attention_scores import save_attn_scores_animation
 
 			pt_exp_kwargs = {
+				'm':2,
+				}
+			save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+			save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
+			save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+			save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+
+			pt_exp_kwargs = {
 				'm':20,
 				'target_is_onehot':False,
 				'classifier_key':'y_last_pt',
 				}
-			#save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-			#save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
-			#save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-			#save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-
 			save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
 			save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
 			save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
@@ -328,7 +331,7 @@ if __name__== '__main__':
 			ft_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			if ki==0:
 				print(ft_model_train_handler)
-			ft_model_train_handler.fit_loader(r_train_loader, r_val_loader) # main fit
+			#ft_model_train_handler.fit_loader(r_train_loader, r_val_loader) # main fit
 
 			###################################################################################################################################################
 			from lcclassifier.experiments.performance import save_performance
@@ -340,7 +343,6 @@ if __name__== '__main__':
 				}	
 			#save_performance(ft_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
 			save_performance(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check
-			#save_performance(ft_model_train_handler, s_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # slow
 			save_performance(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 			save_performance(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 

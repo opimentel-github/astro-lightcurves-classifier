@@ -115,8 +115,6 @@ def save_performance(train_handler, data_loader, save_rootdir,
 				can_be_in_loop = False
 
 	bar.done()
-	dataset.reset_max_day() # very important!!
-
 	results = {
 		'model_name':train_handler.model.get_name(),
 		'survey':dataset.survey,
@@ -134,4 +132,5 @@ def save_performance(train_handler, data_loader, save_rootdir,
 	### save file
 	save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}.d'
 	files.save_pickle(save_filedir, results) # save file
+	dataset.reset_max_day() # very important!!
 	return
