@@ -110,13 +110,13 @@ if __name__== '__main__':
 	import torch
 
 	model_ids = list(range(*[int(mi) for mi in main_args.mids.split('-')])) # IDS
-	for ki,model_id in enumerate(model_ids):
+	for kmodel_id,model_id in enumerate(model_ids):
 
 		for mp_grid in model_collections.mps: # MODEL CONFIGS
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
 			s_balanced_repeats = 2
-			r_balanced_repeats = s_balanced_repeats*16
+			r_balanced_repeats = s_balanced_repeats*12
 			if main_args.bypass:
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
 			else:
@@ -130,7 +130,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 5 # 0 5*
+			s_precomputed_samples = 10 # 0 5* 10
 			r_precomputed_samples = s_precomputed_samples*1
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
@@ -164,16 +164,16 @@ if __name__== '__main__':
 			import torch.optim as optims
 			from fuzzytorch.optimizers import LossOptimizer
 
-			def lr_f(epoch):
+			def pt_lr_f(epoch):
 				initial_lr = 1e-6
 				max_lr = 1*1e-3
-				d_epochs = 25
+				d_epochs = 30
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
 			pt_opt_kwargs_f = {
 				#'lr':lambda epoch:2.e-3, # ***
-				'lr':lr_f, # ***
+				'lr':pt_lr_f, # ***
 				}
 			pt_optimizer_kwargs = {
 				'clip_grad':1.,
@@ -221,9 +221,9 @@ if __name__== '__main__':
 			complete_model_name = pt_model_train_handler.get_complete_model_name()
 			pt_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 			pt_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
-			if ki==0:
+			if kmodel_id==0:
 				print(pt_model_train_handler)
-			#pt_model_train_handler.fit_loader(s_train_loader, r_val_loader) # main fit
+			pt_model_train_handler.fit_loader(s_train_loader, r_val_loader) # main fit
 
 			###################################################################################################################################################
 			import fuzzytorch
@@ -244,14 +244,19 @@ if __name__== '__main__':
 			from lcclassifier.experiments.temporal_encoding import save_temporal_encoding
 			from lcclassifier.experiments.performance import save_performance
 			from lcclassifier.experiments.attention_scores import save_attn_scores_animation
+			from lcclassifier.experiments.attention_stats import save_attention_statistics
 
-			pt_exp_kwargs = {
-				'm':2,
-				}
-			save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-			save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
-			save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-			save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+			### attention experiments
+			if kmodel_id==0:
+				pt_exp_kwargs = {
+					'm':2,
+					}
+				save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+				save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
+				save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+				save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+
+				#save_attention_statistics(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
 
 			pt_exp_kwargs = {
 				'm':20,
@@ -272,16 +277,16 @@ if __name__== '__main__':
 			import torch.optim as optims
 			from fuzzytorch.optimizers import LossOptimizer
 
-			def lr_f(epoch):
+			def ft_lr_f(epoch):
 				initial_lr = 1e-6
 				max_lr = 1*1e-3
-				d_epochs = 10
+				d_epochs = 100
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
 			ft_opt_kwargs_f = {
-				'lr':lambda epoch:1*1e-3, # ***
-				#'lr':lr_f, # ***
+				#'lr':lambda epoch:1*1e-3, # ***
+				'lr':ft_lr_f, # ***
 				}
 			ft_optimizer_kwargs = {
 				'clip_grad':1.,
@@ -329,9 +334,9 @@ if __name__== '__main__':
 			complete_model_name = ft_model_train_handler.get_complete_model_name()
 			ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 			ft_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
-			if ki==0:
+			if kmodel_id==0:
 				print(ft_model_train_handler)
-			#ft_model_train_handler.fit_loader(r_train_loader, r_val_loader) # main fit
+			ft_model_train_handler.fit_loader(r_train_loader, r_val_loader) # main fit
 
 			###################################################################################################################################################
 			from lcclassifier.experiments.performance import save_performance

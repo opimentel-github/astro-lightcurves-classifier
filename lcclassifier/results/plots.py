@@ -53,11 +53,11 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, metric_name,
 		label = f'{mdl} ({_label}) | {xe_metric_curve_avg}*'
 		color = color_dict[utils.get_cmodel_name(model_name)]# if rsc=='0' else 'k'
 		ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
-		ax.fill_between(days, getattr(xe_metric_curve, f'p{p}'), getattr(xe_metric_curve, f'p{100-p}'), alpha=alpha, fc=color)
+		ax.fill_between(days, xe_metric_curve.get_percentile(p), xe_metric_curve.get_percentile(100-p), alpha=alpha, fc=color)
 
 	title = ''
 	title += f'{metric_name} v/s days'+'\n'
-	title += f'train-mode={train_mode} - survey={survey} [{kf}@{lcset_name}] - bands={"".join(band_names)}'+'\n'
+	title += f'train-mode={train_mode} - survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
 	fig.suptitle(title[:-1], va='bottom')
 
 	for kax,ax in enumerate(axs):
@@ -140,7 +140,8 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			title += f'train-mode={train_mode}'+'\n'
 			title += f'b-f1score={f1score_xe}'+'\n'
 			title += f'b-accuracy={accuracy_xe}%'+'\n'
-			title += str(bar)+'\n'
+			if export_animation:
+				title += str(bar)+'\n'
 			#title += f'time={day:.3f}/{days[-1]:.3f} [days]'+'\n'
 			cm_kwargs = {
 				#'fig':fig,
@@ -306,7 +307,7 @@ def xxx(rootdir, cfilename, kf, lcset_name, model_names,
 		label = f'{mdl} ({_label})'
 		title = ''
 		title += f'{label}'+'\n'
-		title += f'survey={survey} [{kf}@{lcset_name}] - bands={"".join(band_names)}'+'\n'
+		title += f'survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
 		title += f'train-mode={train_mode}'+'\n'
 		axs[0].set_title(title[:-1])
 		plt.show()

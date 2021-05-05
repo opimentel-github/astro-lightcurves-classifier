@@ -128,6 +128,8 @@ class CustomDataset(Dataset):
 		txt = f'CustomDataset('
 		txt += strings.get_string_from_dict({
 			'lcset_len':f'{len(self.lcset):,}',
+			'class_names':self.class_names,
+			'band_names':self.band_names,
 			'max_day':f'{self.max_day:.2f}',
 			'max_len': f'{self.max_len:,}',
 			'in_attrs':self.in_attrs,

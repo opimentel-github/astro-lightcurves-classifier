@@ -17,8 +17,8 @@ CPDS_P = 10./100. # ***
 HOURS_NOISE_AMP = 8. # ***
 
 ### important
-REC_LOSS_EPS = .1 # ***
-XENTROPY_K = .1
+REC_LOSS_EPS = .1 # *** 0.01 is not working as good
+XENTROPY_K = 1
 MSE_K = 5e2
 
 MAX_DAY = 100.

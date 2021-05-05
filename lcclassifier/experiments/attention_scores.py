@@ -82,9 +82,9 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 						ax.axvline(threshold_day, linestyle='--', c='k', label=f'threshold day')
 
 					### attn scores
-					attn_layers = train_handler.model.autoencoder['encoder'].attn_layers
-					attn_scores = out_tdict['model']['attn_scores'][f'z-{attn_layers-1}.{b}'] # (b,h,qt)
-					attn_scores = attn_scores.mean(dim=1)[...,None] # (b,h,qt) > (b,qt,1)
+					last_layer = train_handler.model.autoencoder['encoder'].attn_layers-1
+					attn_scores = out_tdict['model']['attn_scores'][f'z-{last_layer}.{b}'] # (b,h,qt)
+					attn_scores = attn_scores.mean(dim=1)[...,None] # mean along heads (b,h,qt) > (b,qt,1)
 					#print('attn_scores',attn_scores.shape)
 					attn_scores_min_max = tensor_to_numpy(seq_utils.seq_min_max_norm(attn_scores, dummy_p_onehot)) # (b,qt,1)
 
@@ -111,7 +111,7 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 			animation.append(fig)
 
 	### save file
-	image_save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}~exp_id={experiment_id}.gif'
+	image_save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}~exp_id={experiment_id}.mp4' # gif mp4
 	animation.save(image_save_filedir, reverse=True)
 	dataset.reset_max_day() # very important!!
 	return
