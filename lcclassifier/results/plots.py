@@ -44,7 +44,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, metric_name,
 		is_parallel = 'Parallel' in mdl
 		days = files[0]()['days']
 
-		metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
+		#metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
+		metric_curve = np.concatenate([f()['days_class_metrics_cdf']['SNII-b-n'][metric_name].values[None] for f in files], axis=0) # SNIa SNIbc
 		xe_metric_curve = XError(metric_curve)
 		xe_metric_curve_avg = XError(np.mean(metric_curve, axis=-1))
 
@@ -64,7 +65,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, metric_name,
 		is_accuracy = 'accuracy' in metric_name
 		random_guess = 100./len(class_names)
 		if is_accuracy:
-			ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'RandomGuess ({random_guess:.3f}%)', alpha=.5)
+			#ax.plot(days, np.full_like(days, random_guess), ':', c='k', label=f'RandomGuess ({random_guess:.3f}%)', alpha=.5)
+			pass
 
 		if f'{kf}@{lcset_name}' in baselines_dict.keys():
 			ax.plot(days, np.full_like(days, baselines_dict[f'{kf}@{lcset_name}'][metric_name]), ':', c='k', label=f'FATS & b-RF Baseline (day={days[-1]:.3f})')

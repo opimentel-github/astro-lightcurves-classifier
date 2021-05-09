@@ -130,7 +130,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 15 # 0 5 10 15
+			s_precomputed_samples = 10 # 0 5 10 15*
 			r_precomputed_samples = s_precomputed_samples*1
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
@@ -281,7 +281,7 @@ if __name__== '__main__':
 			def ft_lr_f(epoch):
 				initial_lr = 1e-6
 				max_lr = 1*1e-3
-				d_epochs = 50
+				d_epochs = 100
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 

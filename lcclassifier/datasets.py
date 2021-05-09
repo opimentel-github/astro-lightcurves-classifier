@@ -371,7 +371,7 @@ class CustomDataset(Dataset):
 				lcobjb = lcobj.get_b(b)
 				#lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
 				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
-				lcobjb.apply_downsampling_window(rooted=False, apply_prob=.75) # curve points downsampling
+				lcobjb.apply_downsampling_window(rooted=False, apply_prob=.999) # curve points downsampling
 				#lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling
 
 		### remove day offset!
