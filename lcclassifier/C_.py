@@ -34,6 +34,11 @@ PLOT_FIGZISE_CM = (7,5)
 PLOT_FIGZISE_RECT = (15,7)
 FONTSIZE = 14
 
+
+### ARCH
+DECODER_MLP_LAYERS = 1
+NUM_HEADS = 4 # 4
+
 '''
 FNAME_REPLACE_DICT = { # formating
 	'mdl:':'',

@@ -1,5 +1,6 @@
 from __future__ import print_function
 from __future__ import division
+from . import C_
 
 import torch
 import torch.nn as nn
@@ -9,7 +10,7 @@ from fuzzytorch.models.basics import MLP, Linear
 import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
-NUM_HEADS = 4
+NUM_HEADS = C_.NUM_HEADS
 class TimeSelfAttnDecoderP(nn.Module):
 	def __init__(self,
 		**kwargs):
@@ -43,13 +44,12 @@ class TimeSelfAttnDecoderP(nn.Module):
 		print('ml_attn:', self.ml_attn)
 
 		### DEC MLP
-		layers = 0
 		mlp_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'activation':'relu',
 			}
-		self.dz_projection = nn.ModuleDict({b:MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*layers, **mlp_kwargs) for b in self.band_names})
+		self.dz_projection = nn.ModuleDict({b:MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*C_.DECODER_MLP_LAYERS, **mlp_kwargs) for b in self.band_names})
 		print('dz_projection:', self.dz_projection)
 
 	def get_output_dims(self):
@@ -115,13 +115,12 @@ class TimeSelfAttnDecoderS(nn.Module):
 		print('ml_attn:', self.ml_attn)
 
 		### DEC MLP
-		layers = 0
 		mlp_kwargs = {
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'activation':'relu',
 			}
-		self.dz_projection = MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*layers, **mlp_kwargs)
+		self.dz_projection = MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*C_.DECODER_MLP_LAYERS, **mlp_kwargs)
 		print('dz_projection:', self.dz_projection)
 
 	def get_output_dims(self):

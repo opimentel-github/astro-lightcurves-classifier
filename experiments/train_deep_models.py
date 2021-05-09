@@ -15,13 +15,13 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=64, help='batch_size') # *** 32 64 128 256
+	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # *** 50 100
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
 	parser.add_argument('-mids',  type=str, default='0-10', help='initial_id-final_id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
-	parser.add_argument('-rsc',  type=int, default=1, help='random_subcrops')
+	parser.add_argument('-rsc',  type=int, default=0, help='random_subcrops')
 	parser.add_argument('-bypass',  type=int, default=0, help='bypass')
 	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
@@ -115,7 +115,7 @@ if __name__== '__main__':
 		for mp_grid in model_collections.mps: # MODEL CONFIGS
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
-			s_balanced_repeats = 2
+			s_balanced_repeats = 3
 			r_balanced_repeats = s_balanced_repeats*12
 			if main_args.bypass:
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
@@ -130,7 +130,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 10 # 0 5* 10
+			s_precomputed_samples = 15 # 0 5 10 15
 			r_precomputed_samples = s_precomputed_samples*1
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
@@ -167,7 +167,7 @@ if __name__== '__main__':
 			def pt_lr_f(epoch):
 				initial_lr = 1e-6
 				max_lr = 1*1e-3
-				d_epochs = 30
+				d_epochs = 50
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
@@ -205,7 +205,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':1000, # limit this as the pre-training is very time consuming
+				'epochs_max':3000, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -247,7 +247,8 @@ if __name__== '__main__':
 			from lcclassifier.experiments.attention_stats import save_attention_statistics
 
 			### attention experiments
-			if kmodel_id==0:
+			save_attn_exps = 0 # kmodel_id==0
+			if save_attn_exps:
 				pt_exp_kwargs = {
 					'm':2,
 					}
@@ -280,7 +281,7 @@ if __name__== '__main__':
 			def ft_lr_f(epoch):
 				initial_lr = 1e-6
 				max_lr = 1*1e-3
-				d_epochs = 100
+				d_epochs = 50
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
@@ -301,7 +302,7 @@ if __name__== '__main__':
 			import math
 
 			monitor_config = {
-				'val_epoch_counter_duration':val_epoch_counter_duration, # every k epochs check
+				'val_epoch_counter_duration':0, # every k epochs check
 				'earlystop_epoch_duration':1e6,
 				'target_metric_crit':'b-xentropy',
 				#'save_mode':C_.SM_NO_SAVE,
@@ -317,7 +318,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':500, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':200, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,

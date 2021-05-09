@@ -79,7 +79,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, metric_name,
 			ax.set_title('parallel models')
 
 		ax.set_xlim([days.min(), days.max()])
-		ax.set_ylim([random_guess*.95, 100] if is_accuracy else [0, 1])
+		#ax.set_xlim([days.min(), days.max()])
+		#ax.set_ylim([random_guess*.95, 90] if is_accuracy else [0, 1])
 		ax.grid(alpha=0.5)
 		ax.legend(loc='lower right')
 
@@ -206,6 +207,10 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 			weight = d['weight']
 			alpha_weights, beta_weights = np.split(weight.T, 2, axis=-1)
 			#kfu = 1
+			dalphas = []
+			alphas = []
+			dbetas = []
+			betas = []
 			for kfu in range(0, len(weight)//2):
 				te_ws = d['te_ws']
 				te_periods = d['te_periods']
@@ -213,8 +218,15 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 				te_phases = d['te_phases']
 				#print(alpha_weight.shape, beta_weight.shape, te_ws.shape, te_phases.shape)
 
-				ax.plot(days, get_fourier(days, alpha_weights[:,kfu], te_periods, te_phases), 'r', lw=1, label=f'scale learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
-				ax.plot(days, get_fourier(days, beta_weights[:,kfu], te_periods, te_phases), 'g', lw=1, label='bias learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
+				alpha = get_fourier(days, alpha_weights[:,kfu], te_periods, te_phases)
+				alphas += [(alpha[None]*1e0)**2] # fixme luego usar (alpha+1)
+				dalphas += [(np.diff(alpha, prepend=alpha[0])[None]*1e0)**2]
+
+				beta = get_fourier(days, beta_weights[:,kfu], te_periods, te_phases)
+				betas += [(beta[None]*1e0)**2]
+				dbetas += [(np.diff(beta, prepend=beta[0])[None]*1e0)**2]
+				#ax.plot(days, alpha, 'r', lw=1, label=f'scale learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
+				#ax.plot(days, beta, 'g', lw=1, label='bias learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
 				ax.grid(alpha=0.5)
 				ax.legend()
 				label = f'encoder-layer={layer} - band={b}' if is_parallel else f'encoder-layer={layer}'
@@ -222,7 +234,11 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 				#ax.set_yticklabels([])
 				#ax.set_xlim([0,1000])
 
-		ax.set_xlabel('time [days]')
+			ax.plot(days, np.concatenate(alphas, axis=0).mean(axis=0), '-r', lw=1, label=f'scale learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
+			ax.plot(days, np.concatenate(betas, axis=0).mean(axis=0), '-g', lw=1, label='bias learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
+			ax.plot(days, np.concatenate(dalphas, axis=0).mean(axis=0), '--r', lw=1, label=f'scale learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
+			ax.plot(days, np.concatenate(dbetas, axis=0).mean(axis=0), '--g', lw=1, label='bias learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
+			ax.set_xlabel('time [days]')
 
 		_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
 		label = f'{mdl} ({_label})'

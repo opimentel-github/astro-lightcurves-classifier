@@ -300,7 +300,7 @@ class CustomDataset(Dataset):
 		lcobj_name = lcobj_names[idx]
 		if self.training:
 			if self.has_precomputed_samples():
-				#print('get_random_item')
+				#print('get_random_item!!')
 				return get_random_item(self.precomputed_dict[lcobj_name])
 			else:
 				return self.get_item(self.lcset[lcobj_name], uses_daugm=True)
@@ -319,7 +319,8 @@ class CustomDataset(Dataset):
 				bar(f'precomputed_copies={precomputed_copies} - device={device} - lcobj_name={lcobj_name}')
 				self.precomputed_dict[lcobj_name] = []
 				for _k,_lcobj_name in enumerate([lcobj_name]*precomputed_copies):
-					r = self.get_item(self.lcset[_lcobj_name], _k>0)
+					uses_daugm = _k>0
+					r = self.get_item(self.lcset[_lcobj_name], uses_daugm)
 					self.precomputed_dict[lcobj_name] += [r if device=='cpu' else TDictHolder(r).to(device)]
 
 			bar.done()
@@ -365,14 +366,12 @@ class CustomDataset(Dataset):
 		be sure to copy the input lcobj!!!!
 		'''
 		lcobj = self.lcset[_lcobj].copy() if isinstance(_lcobj, str) else _lcobj.copy()
-		self.cpdsw_rooted = True
-		self.cpdsw = 0
 		if uses_daugm:
 			for b in lcobj.bands:
 				lcobjb = lcobj.get_b(b)
 				#lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
-				lcobjb.add_obs_noise_gaussian(0., self.std_scale) # add obs noise
-				#lcobjb.apply_downsampling_window(self.cpdsw_rooted, self.cpdsw) # curve points downsampling
+				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
+				lcobjb.apply_downsampling_window(rooted=False, apply_prob=.75) # curve points downsampling
 				#lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling
 
 		### remove day offset!

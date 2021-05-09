@@ -1,5 +1,6 @@
 from __future__ import print_function
 from __future__ import division
+from . import C_
 
 import torch
 import torch.nn as nn
@@ -9,7 +10,7 @@ from fuzzytorch.models.basics import MLP, Linear
 import fuzzytorch.models.seq_utils as seq_utils
 
 ###################################################################################################################################################
-NUM_HEADS = 4
+NUM_HEADS = C_.NUM_HEADS
 class TimeSelfAttnEncoderP(nn.Module):
 	def __init__(self,
 		**kwargs):

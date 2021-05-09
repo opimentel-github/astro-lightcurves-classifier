@@ -35,7 +35,7 @@ def save_performance(train_handler, data_loader, save_rootdir,
 	days_class_metrics_df = DFBuilder()
 	days_class_metrics_cdf = {c:DFBuilder() for c in dataset.class_names}
 	days_cm = {}
-	wrong_samples = {}
+	days_wrongs_df = {}
 	bar_rows = 4
 	bar = ProgressBarMulti(len(days), bar_rows)
 	with torch.no_grad():
@@ -84,14 +84,8 @@ def save_performance(train_handler, data_loader, save_rootdir,
 
 					y_target = tensor_to_numpy(y_target)
 					y_pred_p = tensor_to_numpy(y_pred_p)
-					y_pred = np.argmax(y_pred_p, axis=-1)
 
-					met_kwargs = {
-						'pred_is_onehot':False,
-						'target_is_onehot':False,
-						'y_pred_p':y_pred_p,
-					}
-					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred, y_target, dataset.class_names, **met_kwargs)
+					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred_p, y_target, dataset.class_names)
 					for c in dataset.class_names:
 						days_class_metrics_cdf[c].append(day, update_dicts([{'_day':day}, metrics_cdict[c]]))
 					days_class_metrics_df.append(day, update_dicts([{'_day':day}, metrics_dict]))
@@ -100,11 +94,16 @@ def save_performance(train_handler, data_loader, save_rootdir,
 					days_cm[day] = cm
 
 					### wrong samples
+					y_pred = np.argmax(y_pred_p, axis=-1)
 					lcobj_names = dataset.get_lcobj_names()
 					wrong_classification = ~(y_target==y_pred)
 					assert len(lcobj_names)==len(wrong_classification)
-					wrong_samples[day] = [{'lcobj_name':lcobj_names[kwc], 'y_target':dataset.class_names[y_target[kwc]], 'y_pred':dataset.class_names[y_pred[kwc]]} for kwc,wc in enumerate(wrong_classification) if wc]
-					#print('accuracy', accuracy.shape, np.mean(accuracy))
+					wrongs_df = DFBuilder()
+					for kwc,wc in enumerate(wrong_classification):
+						if wc:
+							wrongs_df.append(lcobj_names[kwc], {'y_target':dataset.class_names[y_target[kwc]], 'y_pred':dataset.class_names[y_pred[kwc]]})
+
+					days_wrongs_df[day] = wrongs_df.get_df()
 
 					### progress bar
 					recall = {c:metrics_cdict[c]['recall'] for c in dataset.class_names}
@@ -121,12 +120,13 @@ def save_performance(train_handler, data_loader, save_rootdir,
 		'band_names':dataset.band_names,
 		'class_names':dataset.class_names,
 
+
 		'days':days,
 		'days_rec_metrics_df':days_rec_metrics_df.get_df(),
 		'days_class_metrics_df':days_class_metrics_df.get_df(),
 		'days_class_metrics_cdf':{c:days_class_metrics_cdf[c].get_df() for c in dataset.class_names},
 		'days_cm':days_cm,
-		'wrong_samples':wrong_samples,
+		'days_wrongs_df':days_wrongs_df,
 	}
 
 	### save file
