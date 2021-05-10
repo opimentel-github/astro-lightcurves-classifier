@@ -41,7 +41,7 @@ class CustomDataset(Dataset):
 		cpds_p:float=C_.CPDS_P,
 		balanced_repeats=1,
 		training=False,
-		rooted=False,
+		rooted=False, # False True
 		):
 		self.training = training
 
@@ -372,7 +372,7 @@ class CustomDataset(Dataset):
 				lcobjb = lcobj.get_b(b)
 				#lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
 				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
-				lcobjb.apply_downsampling_window(rooted=self.rooted, apply_prob=.999) # curve points downsampling
+				lcobjb.apply_downsampling_window(rooted=self.rooted, apply_prob=.9) # curve points downsampling we need to ensure the model to see compelte curves
 				#lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling
 
 		### remove day offset!
