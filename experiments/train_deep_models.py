@@ -15,8 +15,8 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=120, help='batch_size') # *** 50 100 200
-	parser.add_argument('-batch_size_c',  type=int, default=16, help='batch_size')
+	parser.add_argument('-batch_size',  type=int, default=200, help='batch_size') # *** 50 100 200
+	parser.add_argument('-batch_size_c',  type=int, default=32, help='batch_size') # *** 32
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -119,13 +119,13 @@ if __name__== '__main__':
 		for mp_grid in model_collections.mps: # MODEL CONFIGS
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
-			s_balanced_repeats = 4
-			r_balanced_repeats = s_balanced_repeats*12
+			s_balanced_repeats = 20
+			r_balanced_repeats = s_balanced_repeats
 			if main_args.bypass:
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
 			else:
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=s_balanced_repeats)
-			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
+			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats, rooted=True)
 			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
@@ -147,12 +147,12 @@ if __name__== '__main__':
 			### DATALOADERS
 			worker_init_fn = lambda id:np.random.seed(torch.initial_seed() // 2**32+id) # num_workers-numpy bug
 			loader_kwargs = {
+				'batch_size':main_args.batch_size//(1+main_args.rsc),
+				'random_subcrops':main_args.rsc,
 				'num_workers':2, # 0 2*
 				'pin_memory':True, # False True
 				#'prefetch_factor':1, # only if num_workers>0
 				'worker_init_fn':worker_init_fn,
-				'batch_size':main_args.batch_size//(1+main_args.rsc),
-				'random_subcrops':main_args.rsc,
 				}
 			s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader
 			loader_kwargs.update({
@@ -175,7 +175,7 @@ if __name__== '__main__':
 			def pt_lr_f(epoch):
 				initial_lr = 1e-6
 				max_lr = 1*1e-3
-				d_epochs = 50
+				d_epochs = 5
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
@@ -195,9 +195,8 @@ if __name__== '__main__':
 			from fuzzytorch import C_
 			import math
 
-			val_epoch_counter_duration = 2
 			monitor_config = {
-				'val_epoch_counter_duration':val_epoch_counter_duration, # every k epochs check
+				'val_epoch_counter_duration':0, # every k epochs check
 				'earlystop_epoch_duration':1e6,
 				'target_metric_crit':'b-wmse',
 				#'save_mode':C_.SM_NO_SAVE,
@@ -213,7 +212,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':2000, # limit this as the pre-training is very time consuming
+				'epochs_max':250, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -256,14 +255,14 @@ if __name__== '__main__':
 			from lcclassifier.experiments.attention_stats import save_attention_statistics
 
 			### attention experiments
-			save_attn_exps = 0 # kmodel_id==0
-			if save_attn_exps:
+			save_attn_exps = 1 # kmodel_id==0
+			if save_attn_exps and model_id==model_ids[-1]:
 				pt_exp_kwargs = {
 					'm':2,
 					}
 				save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-				save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
-				save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+				#save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
+				#save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
 				save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
 
 				#save_attention_statistics(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
@@ -291,7 +290,7 @@ if __name__== '__main__':
 			def ft_lr_f(epoch):
 				initial_lr = 1e-6
 				max_lr = 1*1e-3
-				d_epochs = 50
+				d_epochs = 10
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
@@ -328,7 +327,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':200, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':250, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,

@@ -113,7 +113,7 @@ class CustomDataset(Dataset):
 		for c in self.class_names:
 			if c==min_c:
 				continue
-			lcobj_names_c = self.lcset.get_boostrap_samples(c, boostrap_n, replace=True)
+			lcobj_names_c = self.lcset.get_boostrap_samples(c, boostrap_n, uses_counter=False, replace=True)
 			#lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c).copy(), boostrap_n)
 			self.balanced_lcobj_names += lcobj_names_c
 

@@ -15,8 +15,8 @@ class ModelCollections():
 		self.lcdataset = lcdataset
 		self.max_day = C_.MAX_DAY
 
-		self.embd_dims = GDIter(28) # 24
-		self.embd_layers = GDIter(3) # 2 3
+		self.embd_dims = GDIter(32) # 24
+		self.embd_layers = GDIter(2) # 2 3
 		#self.rnn_cell_names = GDIter('GRU')
 		self.rnn_cell_names = GDIter('GRU', 'LSTM') # GRU LSTM
 		self.te_features_gd = GDIter(6,2) # ***
