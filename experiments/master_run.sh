@@ -1,14 +1,13 @@
 #!/bin/bash
-kf=0
 txt=""
 
-p_gpu=0
-txt+="nohup python train_deep_models.py -mc parallel_rnn_models -kf $kf -gpu $p_gpu -mids 100-110 > /dev/null &"
-txt+="nohup python train_deep_models.py -mc parallel_attn_models -kf $kf -gpu $p_gpu -mids 100-110 > /dev/null &"
+kf=0
+mids='1000-1005'
 
-s_gpu=1
-txt+="nohup python train_deep_models.py -mc serial_rnn_models -kf $kf -gpu $s_gpu -mids 100-110 > /dev/null &"
-txt+="nohup python train_deep_models.py -mc serial_attn_models -kf $kf -gpu $s_gpu -mids 100-110 > /dev/null &"
+txt+="nohup python train_deep_models.py -mc parallel_rnn_models -kf $kf -gpu 0 -mids $mids > /dev/null &"
+txt+="nohup python train_deep_models.py -mc parallel_attn_models -kf $kf -gpu 1 -mids $mids > /dev/null &"
+txt+="nohup python train_deep_models.py -mc serial_rnn_models -kf $kf -gpu 2 -mids $mids > /dev/null &"
+txt+="nohup python train_deep_models.py -mc serial_attn_models -kf $kf -gpu 3 -mids $mids > /dev/null &"
 
 echo "$txt"
 eval "$txt"

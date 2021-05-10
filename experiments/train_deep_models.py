@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # *** 50 100
+	parser.add_argument('-batch_size',  type=int, default=100, help='batch_size') # *** 50 100 200
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -118,7 +118,7 @@ if __name__== '__main__':
 		for mp_grid in model_collections.mps: # MODEL CONFIGS
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
-			s_balanced_repeats = 3
+			s_balanced_repeats = 4
 			r_balanced_repeats = s_balanced_repeats*12
 			if main_args.bypass:
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
@@ -286,7 +286,7 @@ if __name__== '__main__':
 			def ft_lr_f(epoch):
 				initial_lr = 1e-6
 				max_lr = 1*1e-3
-				d_epochs = 100
+				d_epochs = 50
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
@@ -323,7 +323,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':400, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':500, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,
