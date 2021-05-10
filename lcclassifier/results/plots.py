@@ -28,7 +28,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 	for metric_name in dmetrics.keys():
 		fig, axs = plt.subplots(1, 2, figsize=figsize)
 		color_dict = utils.get_color_dict(model_names)
-
+		ylims = [[],[]]
 		for kmn,model_name in enumerate(model_names):
 			load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}/{kf}@{lcset_name}'
 			files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
@@ -56,6 +56,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			color = color_dict[utils.get_cmodel_name(model_name)]# if rsc=='0' else 'k'
 			ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
 			ax.fill_between(days, xe_metric_curve.get_percentile(p), xe_metric_curve.get_percentile(100-p), alpha=alpha, fc=color)
+			ylims[0] += [ax.get_ylim()[0]]
+			ylims[1] += [ax.get_ylim()[1]]
 
 		mn = metric_name if dmetrics[metric_name]['mn'] is None else dmetrics[metric_name]['mn']
 		title = ''
@@ -77,8 +79,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 				ax.set_title('parallel models')
 
 			ax.set_xlim([days.min(), days.max()])
-			#ax.set_xlim([days.min(), days.max()])
-			#ax.set_ylim([random_guess*.95, 90] if is_accuracy else [0, 1])
+			ax.set_ylim(min(ylims[0]), max(ylims[1]))
 			ax.grid(alpha=0.5)
 			ax.legend(loc='lower right')
 
