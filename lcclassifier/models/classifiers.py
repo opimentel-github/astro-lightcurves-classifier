@@ -26,20 +26,25 @@ class SimpleClassifier(nn.Module):
 			}
 		self.layers = 1
 		self.k = 2
+		#self.classifiers_mlp_ft = nn.ModuleList([MLP(self.input_dims, 1, [self.input_dims*self.k]*self.layers, **mlp_kwargs) for _ in range(0, self.output_dims)])
+		#print('classifiers_mlp_ft:', self.classifiers_mlp_ft)
 		self.classifier_mlp_ft = MLP(self.input_dims, self.output_dims, [self.input_dims*self.k]*self.layers, **mlp_kwargs)
 		print('classifier_mlp_ft:', self.classifier_mlp_ft)
 
 	def get_output_dims(self):
-		return self.classifier_mlp_ft.get_output_dims()
+		return self.output_dims
 
 	def forward(self, tdict:dict, **kwargs):
 		z_last = tdict['model']['z_last']
-		tdict['model']['y_last_ft'] = self.classifier_mlp_ft(z_last)
+		#z_last = torch.cat([classifier_mlp_ft(z_last) for classifier_mlp_ft in self.classifiers_mlp_ft], dim=-1)
+		z_last = self.classifier_mlp_ft(z_last)
+		#print(z_last.shape)
+		tdict['model']['y_last_ft'] = z_last
 		return tdict
 
 ###################################################################################################################################################
 
-class SimpleClassifier2(nn.Module):
+'''class SimpleClassifier2(nn.Module):
 	def __init__(self, **kwargs):
 		super().__init__()
 		### ATTRIBUTES
@@ -71,5 +76,7 @@ class SimpleClassifier2(nn.Module):
 		#complete_z = [z_last]+[tdict['model'][f'z-{layer}'] for layer in range(0, self.encoder_layers)]
 		#complete_z = torch.cat(complete_z, dim=-1)
 		#tdict['model']['y_last_ft'] = self.classifier_mlp_ft(complete_z)
-		tdict['model']['y_last_ft'] = self.classifier_mlp_ft(z_last)
-		return tdict
+		z_last = self.classifier_mlp_ft(z_last)
+		z_last = torch.sigmoid(z_last) if 1 else z_last
+		tdict['model']['y_last_ft'] = z_last
+		return tdict'''

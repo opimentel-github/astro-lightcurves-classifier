@@ -112,3 +112,35 @@ class LCAccuracy(FTMetric):
 			return MetricResult(accuracies, reduction_mode='sum')
 		else:
 			return MetricResult(accuracies)
+
+class LCBinXEntropyMetric(FTMetric):
+	def __init__(self, name,
+		classifier_key='y.last',
+		model_out_uses_softmax:bool=False,
+		target_is_onehot:bool=False,
+		balanced=True,
+		k=C_.XENTROPY_K,
+		**kwargs):
+		self.name = name
+		self.xentropy = LCXEntropy('',
+			model_out_uses_softmax,
+			target_is_onehot,
+			False, # uses_poblation_weights
+			classifier_key,
+			)
+		self.balanced = balanced
+		self.k = k
+
+	def __call__(self, tdict, **kwargs):
+		epoch = kwargs['_epoch']
+		input_tdict = tdict['input']
+		target_tdict = tdict['target']
+		model_tdict = tdict['model']
+
+		xentropy_loss = self.xentropy(tdict, **kwargs).batch_loss_*self.k # (b)
+		if self.balanced:
+			balanced_w = tdict['target']['balanced_w']
+			xentropy_loss = xentropy_loss*balanced_w[...,0]
+			return MetricResult(xentropy_loss, reduction_mode='sum')
+		else:
+			return MetricResult(xentropy_loss)

@@ -44,8 +44,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, metric_name,
 		is_parallel = 'Parallel' in mdl
 		days = files[0]()['days']
 
-		#metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
-		metric_curve = np.concatenate([f()['days_class_metrics_cdf']['SNII-b-n'][metric_name].values[None] for f in files], axis=0) # SNIa SNIbc
+		metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
+		#metric_curve = np.concatenate([f()['days_class_metrics_cdf']['SNII-b-n'][metric_name].values[None] for f in files], axis=0) # SNIa SNIbc
 		xe_metric_curve = XError(metric_curve)
 		xe_metric_curve_avg = XError(np.mean(metric_curve, axis=-1))
 
@@ -73,8 +73,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, metric_name,
 
 		ax.set_xlabel('time [days]')
 		if kax==1:
-			ax.set_ylabel(None)
-			ax.set_yticklabels([])
+			#ax.set_ylabel(None)
+			#ax.set_yticklabels([])
 			ax.set_title('serial models')
 		else:
 			ax.set_ylabel(metric_name)

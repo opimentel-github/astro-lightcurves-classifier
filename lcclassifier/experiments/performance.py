@@ -76,7 +76,9 @@ def save_performance(train_handler, data_loader, save_rootdir,
 
 					### class prediction
 					y_target = out_tdict['target']['y']
-					y_pred_p = torch.nn.functional.softmax(out_tdict['model'][classifier_key], dim=-1)
+					#y_pred_p = torch.nn.functional.softmax(out_tdict['model'][classifier_key], dim=-1)
+					y_pred_p = torch.sigmoid(out_tdict['model'][classifier_key])
+					#print('y_pred_p',y_pred_p[0])
 
 					if target_is_onehot:
 						assert y_pred_.shape==y_target.shape

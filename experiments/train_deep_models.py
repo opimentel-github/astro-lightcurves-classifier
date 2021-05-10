@@ -69,7 +69,7 @@ if __name__== '__main__':
 
 	###################################################################################################################################################
 	### LOSS & METRICS
-	from lcclassifier.losses import LCMSEReconstruction, LCXEntropy, LCCompleteLoss
+	from lcclassifier.losses import LCMSEReconstruction, LCXEntropy, LCCompleteLoss, LCBinXEntropy
 	from lcclassifier.metrics import LCWMSE, LCXEntropyMetric, LCAccuracy
 
 	pt_loss_kwargs = {
@@ -86,11 +86,14 @@ if __name__== '__main__':
 		]
 
 	ft_loss_kwargs = {
+		'class_names':lcdataset['raw'].class_names,
 		'model_output_is_with_softmax':False,
+		'model_output_is_with_sigmoid':False,
 		'target_is_onehot':False,
 		'classifier_key':'y_last_ft',
 		}
-	ft_loss = LCXEntropy('xentropy', **ft_loss_kwargs)
+	#ft_loss = LCXEntropy('xentropy', **ft_loss_kwargs)
+	ft_loss = LCBinXEntropy('bin-xentropy', **ft_loss_kwargs)
 	ft_metrics = [
 		LCXEntropyMetric('b-xentropy', balanced=True, **ft_loss_kwargs),
 		LCAccuracy('b-accuracy', balanced=True, **ft_loss_kwargs),
@@ -121,7 +124,7 @@ if __name__== '__main__':
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
 			else:
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=s_balanced_repeats)
-			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
+			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats, rooted=0)
 			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
@@ -130,8 +133,8 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 10 # 0 5 10 15*
-			r_precomputed_samples = s_precomputed_samples*1
+			s_precomputed_samples = 0 # 0 5 10 15*
+			r_precomputed_samples = 0 # 0*
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
 
@@ -205,7 +208,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':3000, # limit this as the pre-training is very time consuming
+				'epochs_max':2000, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -224,6 +227,7 @@ if __name__== '__main__':
 			if kmodel_id==0:
 				print(pt_model_train_handler)
 			pt_model_train_handler.fit_loader(s_train_loader, r_val_loader) # main fit
+			pt_model_train_handler.load_model() # important, refresh to best model
 
 			###################################################################################################################################################
 			import fuzzytorch
@@ -264,13 +268,14 @@ if __name__== '__main__':
 				'target_is_onehot':False,
 				'classifier_key':'y_last_pt',
 				}
-			save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-			save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
-			save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
-			save_reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
+			if 1:
+				save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+				#save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
+				#save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
+				save_reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
 
-			save_model_info(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs)
-			save_temporal_encoding(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/temporal_encoding/{cfilename}', **pt_exp_kwargs)
+				save_model_info(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs)
+				save_temporal_encoding(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/temporal_encoding/{cfilename}', **pt_exp_kwargs)
 			
 			###################################################################################################################################################
 			### fine-tuning
@@ -318,7 +323,7 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':200, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':400, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,
@@ -338,6 +343,7 @@ if __name__== '__main__':
 			if kmodel_id==0:
 				print(ft_model_train_handler)
 			ft_model_train_handler.fit_loader(r_train_loader, r_val_loader) # main fit
+			ft_model_train_handler.load_model() # important, refresh to best model
 
 			###################################################################################################################################################
 			from lcclassifier.experiments.performance import save_performance
@@ -348,8 +354,8 @@ if __name__== '__main__':
 				'classifier_key':'y_last_ft',
 				}	
 			#save_performance(ft_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
-			save_performance(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check
-			save_performance(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
+			#save_performance(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check
+			#save_performance(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 			save_performance(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 
 			save_model_info(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs)

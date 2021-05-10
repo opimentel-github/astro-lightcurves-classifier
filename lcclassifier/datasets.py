@@ -41,6 +41,7 @@ class CustomDataset(Dataset):
 		cpds_p:float=C_.CPDS_P,
 		balanced_repeats=1,
 		training=False,
+		rooted=False,
 		):
 		self.training = training
 
@@ -61,6 +62,7 @@ class CustomDataset(Dataset):
 		self.cpds_p = cpds_p
 
 		self.balanced_repeats = balanced_repeats
+		self.rooted = rooted
 		self.reset()
 
 	def reset(self):
@@ -301,11 +303,11 @@ class CustomDataset(Dataset):
 		if self.training:
 			if self.has_precomputed_samples():
 				#print('get_random_item!!')
-				return get_random_item(self.precomputed_dict[lcobj_name])
+				return get_random_item(self.precomputed_dict[lcobj_name]) # all with data augmentation
 			else:
-				return self.get_item(self.lcset[lcobj_name], uses_daugm=True)
+				return self.get_item(self.lcset[lcobj_name], uses_daugm=True) # all with data augmentation
 		else:
-			return self.get_item(self.lcset[lcobj_name], uses_daugm=False)
+			return self.get_item(self.lcset[lcobj_name], uses_daugm=False) # no data augmentation
 
 	def precompute_samples(self, precomputed_copies,
 		device='cpu',
@@ -319,8 +321,7 @@ class CustomDataset(Dataset):
 				bar(f'precomputed_copies={precomputed_copies} - device={device} - lcobj_name={lcobj_name}')
 				self.precomputed_dict[lcobj_name] = []
 				for _k,_lcobj_name in enumerate([lcobj_name]*precomputed_copies):
-					uses_daugm = _k>0
-					r = self.get_item(self.lcset[_lcobj_name], uses_daugm)
+					r = self.get_item(self.lcset[_lcobj_name], uses_daugm=True)
 					self.precomputed_dict[lcobj_name] += [r if device=='cpu' else TDictHolder(r).to(device)]
 
 			bar.done()
@@ -371,7 +372,7 @@ class CustomDataset(Dataset):
 				lcobjb = lcobj.get_b(b)
 				#lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
 				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
-				lcobjb.apply_downsampling_window(rooted=False, apply_prob=.999) # curve points downsampling
+				lcobjb.apply_downsampling_window(rooted=self.rooted, apply_prob=.999) # curve points downsampling
 				#lcobjb.apply_downsampling(self.cpds_p) # curve points downsampling
 
 		### remove day offset!

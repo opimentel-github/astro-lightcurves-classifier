@@ -37,7 +37,7 @@ FONTSIZE = 14
 
 ### ARCH
 DECODER_MLP_LAYERS = 1
-NUM_HEADS = 6 # 4
+NUM_HEADS = 4 # 4
 
 '''
 FNAME_REPLACE_DICT = { # formating

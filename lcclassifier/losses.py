@@ -100,3 +100,49 @@ class LCCompleteLoss(FTLoss):
 		loss_res.add_subloss('xentropy', xentropy_loss)
 		loss_res.add_subloss('mse', mse_loss)
 		return loss_res
+
+###################################################################################################################################################
+
+def get_onehot(y,
+	class_count=None,
+	):
+	class_count = torch.max(y)[0] if class_count is None else class_count
+	return torch.eye(class_count, device=y.device)[y,:]
+
+class LCBinXEntropy(FTLoss):
+	def __init__(self, name,
+		class_names=None,
+		model_out_uses_sigmoid:bool=False,
+		target_is_onehot:bool=False,
+		classifier_key='y_last_ft',
+		**kwargs):
+		self.name = name
+		self.class_names = class_names
+		self.model_out_uses_sigmoid = model_out_uses_sigmoid
+		self.target_is_onehot = target_is_onehot
+		self.classifier_key = classifier_key
+		self.loss = torch.nn.BCELoss(reduction='none')
+
+	def __call__(self, tdict, **kwargs):
+		input_tdict = tdict['input']
+		target_tdict = tdict['target']
+		model_tdict = tdict['model']
+
+		y_target = target_tdict['y'].long()
+		#print(self.classifier_key)
+		y_pred = model_tdict[self.classifier_key]
+		#print('y_pred',y_pred[:10])
+		#print(y_target.shape, y_target[0])
+		y_target = y_target if self.target_is_onehot else get_onehot(y_target, None if self.class_names is None else len(self.class_names))
+		#print(y_target.shape, y_target[0])
+		y_pred = y_pred if self.model_out_uses_sigmoid else torch.sigmoid(y_pred)
+		#print(y_pred.shape, y_pred[0])
+		#assert 0
+		xentropy_loss = self.loss(y_pred, y_target)
+		#xentropy_loss = batch_binxentropy(y_pred, y_target, self.model_out_uses_softmax, self.target_is_onehot) # (b)
+		
+		xentropy_loss = xentropy_loss.mean(dim=-1)
+		#print(xentropy_loss.shape,xentropy_loss[:10])
+
+		loss_res = LossResult(xentropy_loss)
+		return loss_res
