@@ -94,7 +94,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 	train_mode='fine-tuning',
 	export_animation=False,
 	animation_duration=12,
-	new_order_classes=['SNIa', 'SNIbc', 'allSNII', 'SLSN'],
+	new_order_classes=['SNIa', 'SNIbc', 'SNII-b-n', 'SLSN'],
 	n=1e3,
 	):
 	for kmn,model_name in enumerate(model_names):
@@ -124,22 +124,23 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 		for kd,day in enumerate(target_days):
 			bar(f'{day:.1f}/{target_days[-1]:.1f} [days]')
 			xe_dict = {}
-			for metric_name in ['b-accuracy', 'b-f1score']:
+			for metric_name in ['b-precision', 'b-recall', 'b-f1score']:
 				metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
 				interp_metric_curve = interp1d(days, metric_curve)(np.linspace(days.min(), day, int(n)))
 				xe_metric_curve = XError(interp_metric_curve[:,-1])
 				xe_dict[metric_name] = xe_metric_curve
 
-			f1score_xe = xe_dict['b-f1score']
-			accuracy_xe = xe_dict['b-accuracy']
+			bprecision_xe = xe_dict['b-precision']
+			brecall_xe = xe_dict['b-recall']
+			bf1score_xe = xe_dict['b-f1score']
 			_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
 			label = f'{mdl} ({_label})'
 			title = ''
 			title += f'{label}'+'\n'
-			title += f'survey={survey} [{kf}@{lcset_name}] - bands={"".join(band_names)}'+'\n'
-			title += f'train-mode={train_mode}'+'\n'
-			title += f'b-f1score={f1score_xe}'+'\n'
-			title += f'b-accuracy={accuracy_xe}%'+'\n'
+			#title += f'survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
+			title += f'train-mode={train_mode} - eval-set={kf}@{lcset_name}'+'\n'
+			title += f'b-p/r={bprecision_xe} / {brecall_xe}'+'\n'
+			title += f'b-f1score={bf1score_xe}'+'\n'
 			if export_animation:
 				title += str(bar)+'\n'
 			#title += f'time={day:.3f}/{days[-1]:.3f} [days]'+'\n'
@@ -151,7 +152,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 				'new_order_classes':new_order_classes,
 				}
 			cms = np.concatenate([f()['days_cm'][day][None] for f in files], axis=0)
-			fig, ax = plot_custom_confusion_matrix(cms, class_names, **cm_kwargs)
+			fig, ax, cm_norm = plot_custom_confusion_matrix(cms, class_names, **cm_kwargs)
 			uses_close_fig = kd<len(days)-1
 			plot_animation.append(fig, uses_close_fig)
 
