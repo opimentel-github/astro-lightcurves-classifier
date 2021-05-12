@@ -116,7 +116,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 		plot_animation = PlotAnimation(animation_duration,
 			is_dummy=not export_animation,
 			#save_init_frame=True,
-			#save_end_frame=True,
+			save_end_frame=True,
 			)
 
 		target_days = days if export_animation else [days[-1]]
@@ -158,7 +158,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 
 		bar.done()
 		plt.show()
-		plot_animation.save(f'../temp/{model_name}.gif')
+		plot_animation.save(f'../temp/{model_name}.mp4')
 
 ###################################################################################################################################################
 
