@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=200, help='batch_size') # *** 50 100 200
+	parser.add_argument('-batch_size',  type=int, default=512, help='batch_size') # *** 50 100 200
 	parser.add_argument('-batch_size_c',  type=int, default=32, help='batch_size') # *** 32
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
@@ -119,13 +119,14 @@ if __name__== '__main__':
 		for mp_grid in model_collections.mps: # MODEL CONFIGS
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
-			s_balanced_repeats = 20
+			s_balanced_repeats = 25
 			r_balanced_repeats = s_balanced_repeats
+			rooted = True
 			if main_args.bypass:
 				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
 			else:
-				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=s_balanced_repeats)
-			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats, rooted=True) # important for SNe
+				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=s_balanced_repeats, rooted=False)
+			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats, rooted=False)
 			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
@@ -134,7 +135,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 0 # *** 0* 5 10 15
+			s_precomputed_samples = 3 # *** 0* 5 10 15
 			r_precomputed_samples = 0 # *** 0*
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
@@ -212,7 +213,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':250, # limit this as the pre-training is very time consuming
+				'epochs_max':350, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -338,7 +339,7 @@ if __name__== '__main__':
 					'bypass':main_args.bypass,
 					},
 				'uses_train_eval_loader_methods':True,
-				'evaluate_train':False, # False to speed up training
+				'evaluate_train':True, # False to speed up training
 				}
 			ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
 			complete_model_name = ft_model_train_handler.get_complete_model_name()

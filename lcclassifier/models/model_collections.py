@@ -25,7 +25,7 @@ class ModelCollections():
 		self.cnn_aggregation = GDIter('avg')
 		#self.cnn_aggregation = GDIter('max', 'avg')
 
-		self.dropout_p = 0.0
+		self.dropout_p = 0.01
 		self.common_dict = {
 			'max_period':self.max_day*1.25, # ***
 			'band_names':lcdataset['raw'].band_names,
@@ -36,7 +36,7 @@ class ModelCollections():
 				'C':mclass.SimpleClassifier,
 				'embd_layers':2, # 1 2
 				'dropout':{
-					'p':.25, # *** .1 .25 .5 
+					'p':.25, # *** .1 .25 .3 .5 
 					},
 				},
 			}

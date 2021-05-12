@@ -24,8 +24,8 @@ class SimpleClassifier(nn.Module):
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			}
-		self.layers = 1
-		self.k = 2
+		self.layers = 2
+		self.k = 1
 		#self.classifiers_mlp_ft = nn.ModuleList([MLP(self.input_dims, 1, [self.input_dims*self.k]*self.layers, **mlp_kwargs) for _ in range(0, self.output_dims)])
 		#print('classifiers_mlp_ft:', self.classifiers_mlp_ft)
 		self.classifier_mlp_ft = MLP(self.input_dims, self.output_dims, [self.input_dims*self.k]*self.layers, **mlp_kwargs)
