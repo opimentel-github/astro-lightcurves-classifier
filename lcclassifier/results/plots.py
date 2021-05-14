@@ -30,8 +30,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 		color_dict = utils.get_color_dict(model_names)
 		ylims = [[],[]]
 		for kmn,model_name in enumerate(model_names):
-			load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}/{kf}@{lcset_name}'
-			files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
+			load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
+			files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
 			print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
 			if len(files)==0:
 				continue
