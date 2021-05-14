@@ -104,7 +104,6 @@ def save_performance(train_handler, data_loader, save_rootdir,
 					for kwc,wc in enumerate(wrong_classification):
 						if wc:
 							wrongs_df.append(lcobj_names[kwc], {'y_target':dataset.class_names[y_target[kwc]], 'y_pred':dataset.class_names[y_pred[kwc]]})
-
 					days_wrongs_df[day] = wrongs_df.get_df()
 
 					### progress bar
