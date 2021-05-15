@@ -225,7 +225,7 @@ if __name__== '__main__':
 					'bypass':main_args.bypass,
 					},
 				'uses_train_eval_loader_methods':True,
-				'evaluate_train':False, # False to speed up training
+				'evaluate_train':False, # False True # to speed up training
 				}
 			pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors, **mtrain_config)
 			complete_model_name = pt_model_train_handler.get_complete_model_name()
@@ -348,7 +348,7 @@ if __name__== '__main__':
 					'bypass':main_args.bypass,
 					},
 				'uses_train_eval_loader_methods':True,
-				'evaluate_train':True, # False to speed up training
+				'evaluate_train':False, # False True # to speed up training
 				}
 			ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
 			complete_model_name = ft_model_train_handler.get_complete_model_name()

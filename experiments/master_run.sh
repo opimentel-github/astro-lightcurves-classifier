@@ -1,4 +1,6 @@
 #!/bin/bash
+SECONDS=0
+
 #mids='1000-1005'
 #mids='2000-2005'
 mids='1000-1005'
@@ -10,3 +12,6 @@ txt="bash master_run_kfs.sh serial_attn_models 2 $mids"
 
 #echo "$txt"
 eval "$txt"
+
+mins=$((SECONDS/60))
+echo echo "Time Elapsed : ${mins} minutes"
