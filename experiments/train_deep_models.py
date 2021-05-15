@@ -16,7 +16,7 @@ if __name__== '__main__':
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
 	parser.add_argument('-batch_size',  type=int, default=516, help='batch_size') # *** 50 100 200 516
-	parser.add_argument('-batch_size_c',  type=int, default=32, help='batch_size') # *** 32
+	parser.add_argument('-batch_size_c',  type=int, default=64, help='batch_size') # *** 32
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -118,6 +118,8 @@ if __name__== '__main__':
 	for mp_grid in model_collections.mps: # MODEL CONFIGS
 		for kmodel_id,model_id in enumerate(model_ids):
 			is_first_model_id = model_id==model_ids[0]
+			#is_first_model_id = 0
+
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
 			s_balanced_repeats = 50
@@ -136,7 +138,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
 			s_precomputed_samples = 10 if is_first_model_id else 0 # *** 0* 5 10 15
-			r_precomputed_samples = 0 # *** 0*
+			r_precomputed_samples = 100 # *** 0*
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
 
@@ -246,23 +248,23 @@ if __name__== '__main__':
 			import fuzzytorch.plots
 			import fuzzytorch.plots.training as ffplots
 
+			### training plots
+			plot_kwargs = {
+				'save_rootdir':f'../save/train_plots',
+				}
+			#ffplots.plot_loss(pt_model_train_handler, **plot_kwargs) # use this
+			#ffplots.plot_evaluation_loss(train_handler, **plot_kwargs)
+			#ffplots.plot_evaluation_metrics(train_handler, **plot_kwargs)
+
+			###################################################################################################################################################
+			from lcclassifier.experiments.reconstructions import save_reconstructions
+			from lcclassifier.experiments.model_info import save_model_info
+			from lcclassifier.experiments.temporal_encoding import save_temporal_encoding
+			from lcclassifier.experiments.performance import save_performance
+			from lcclassifier.experiments.attention_scores import save_attn_scores_animation
+			from lcclassifier.experiments.attention_stats import save_attention_statistics
+
 			if is_first_model_id:
-				### training plots
-				plot_kwargs = {
-					'save_rootdir':f'../save/train_plots',
-					}
-				#ffplots.plot_loss(pt_model_train_handler, **plot_kwargs) # use this
-				#ffplots.plot_evaluation_loss(train_handler, **plot_kwargs)
-				#ffplots.plot_evaluation_metrics(train_handler, **plot_kwargs)
-
-				###################################################################################################################################################
-				from lcclassifier.experiments.reconstructions import save_reconstructions
-				from lcclassifier.experiments.model_info import save_model_info
-				from lcclassifier.experiments.temporal_encoding import save_temporal_encoding
-				from lcclassifier.experiments.performance import save_performance
-				from lcclassifier.experiments.attention_scores import save_attn_scores_animation
-				from lcclassifier.experiments.attention_stats import save_attention_statistics
-
 				### attention experiments
 				#save_attn_exps = 1 # kmodel_id==0
 				#if save_attn_exps and model_id==model_ids[-1]:
