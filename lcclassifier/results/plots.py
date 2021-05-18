@@ -20,7 +20,7 @@ from matplotlib import cm
 def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 	baselines_dict={},
 	label_keys=[],
-	figsize=C_.PLOT_FIGZISE_RECT,
+	figsize=(14,8),
 	train_mode='fine-tuning',
 	p=C_.P_PLOT,
 	alpha=0.2,
@@ -52,7 +52,12 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 
 			ax = axs[int(not is_parallel)]
 			_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
-			label = f'{mdl} ({_label}) | {xe_metric_curve_avg}*'
+
+			te_dims = int(mn_dict.get('te-dims', 0))
+			cell = mn_dict.get('cell', None)
+			new_model_name = mdl+(f' w/ M={te_dims//2}' if te_dims>0 else '')+(f' w/ cell={cell}' if not cell is None else '')
+
+			label = f'{new_model_name} | AUC={xe_metric_curve_avg}'
 			color = color_dict[utils.get_cmodel_name(model_name)]# if rsc=='0' else 'k'
 			ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
 			ax.fill_between(days, xe_metric_curve.get_percentile(p), xe_metric_curve.get_percentile(100-p), alpha=alpha, fc=color)
@@ -98,8 +103,8 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 	n=1e3,
 	):
 	for kmn,model_name in enumerate(model_names):
-		load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}/{kf}@{lcset_name}'
-		files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
+		load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
+		files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
 		print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
 		if len(files)==0:
 			continue
@@ -135,15 +140,21 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			bf1score_xe = xe_dict['b-f1score']
 			_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
 			label = f'{mdl} ({_label})'
+			
+			te_dims = int(mn_dict.get('te-dims', 0))
+			cell = mn_dict.get('cell', None)
+			new_model_name = mdl+(f' w/ M={te_dims//2}' if te_dims>0 else '')+(f' w/ cell={cell}' if not cell is None else '')
+
 			title = ''
-			title += f'{label}'+'\n'
+			title += f'{new_model_name}'+'\n'
 			#title += f'survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
-			title += f'train-mode={train_mode} - eval-set={kf}@{lcset_name}'+'\n'
-			title += f'b-p/r={bprecision_xe} / {brecall_xe}'+'\n'
-			title += f'b-f1score={bf1score_xe}'+'\n'
+			#title += f'train-mode={train_mode} - eval-set={kf}@{lcset_name}'+'\n'
+			title += f'b-recall={brecall_xe} - b-f1score={bf1score_xe}'+'\n'
+			#title += f'b-p/r={bprecision_xe} / {brecall_xe}'+'\n'
+			#title += f'b-f1score={bf1score_xe}'+'\n'
 			if export_animation:
-				title += str(bar)+'\n'
-			#title += f'time={day:.3f}/{days[-1]:.3f} [days]'+'\n'
+				#title += str(bar)+'\n'
+				title += f'day-threshold={day:.3f}/{days[-1]:.3f} [days]'+'\n'
 			cm_kwargs = {
 				#'fig':fig,
 				#'ax':ax,

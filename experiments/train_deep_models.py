@@ -24,6 +24,7 @@ if __name__== '__main__':
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
 	parser.add_argument('-rsc',  type=int, default=0, help='random_subcrops')
 	parser.add_argument('-bypass',  type=int, default=0, help='bypass')
+	parser.add_argument('-attn_exp',  type=int, default=0)
 	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
 	print_big_bar()
@@ -268,15 +269,16 @@ if __name__== '__main__':
 				### attention experiments
 				#save_attn_exps = 1 # kmodel_id==0
 				#if save_attn_exps and model_id==model_ids[-1]:
-				pt_exp_kwargs = {
-					'm':3,
-					}
-				save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-				#save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
-				#save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-				save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+				if main_args.attn_exp:
+					pt_exp_kwargs = {
+						'm':3,
+						}
+					save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+					#save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
+					#save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+					save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
 
-				#save_attention_statistics(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
+					#save_attention_statistics(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
 
 				pt_exp_kwargs = {
 					'm':20,
@@ -311,7 +313,9 @@ if __name__== '__main__':
 			ft_optimizer_kwargs = {
 				'clip_grad':1.,
 				}
-			ft_optimizer = LossOptimizer(model.get_classifier_model(), optims.Adam, ft_opt_kwargs_f, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			classifier = model.get_classifier_model()
+			classifier.init_parameters() # to ensure random inits
+			ft_optimizer = LossOptimizer(classifier, optims.Adam, ft_opt_kwargs_f, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from flamingchoripan.prints import print_bar

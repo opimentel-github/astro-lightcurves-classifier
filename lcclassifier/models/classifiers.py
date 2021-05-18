@@ -30,6 +30,10 @@ class SimpleClassifier(nn.Module):
 		#print('classifiers_mlp_ft:', self.classifiers_mlp_ft)
 		self.classifier_mlp_ft = MLP(self.input_dims, self.output_dims, [self.input_dims*self.k]*self.layers, **mlp_kwargs)
 		print('classifier_mlp_ft:', self.classifier_mlp_ft)
+		self.init_parameters()
+
+	def init_parameters(self):
+		self.classifier_mlp_ft.init_parameters()
 
 	def get_output_dims(self):
 		return self.output_dims
