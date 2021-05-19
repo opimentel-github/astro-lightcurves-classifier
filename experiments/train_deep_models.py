@@ -138,8 +138,8 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 10 if is_first_model_id else 0 # *** 0* 5 10 15
-			r_precomputed_samples = 100 # *** 0*
+			s_precomputed_samples = 20 if is_first_model_id else 0 # *** 0* 5 10 15
+			r_precomputed_samples = 0 # *** 0*
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
 
@@ -326,7 +326,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':200,
+				'earlystop_epoch_duration':100,
 				'target_metric_crit':'b-xentropy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,

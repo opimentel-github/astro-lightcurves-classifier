@@ -27,8 +27,10 @@ class TimeSelfAttnEncoderP(nn.Module):
 		linear_kwargs = {
 			'activation':'linear',
 		}
+		len_bands = len(self.band_names)
 		extra_dims = 0
-		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.attn_embd_dims, **linear_kwargs) for b in self.band_names})
+		band_embedding_dims = self.attn_embd_dims//len_bands
+		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, band_embedding_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:', self.x_projection)
 
 		### ATTN
@@ -40,14 +42,14 @@ class TimeSelfAttnEncoderP(nn.Module):
 			'activation':'relu',
 			'last_activation':'relu',
 			}
-		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs) for b in self.band_names})
+		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs) for b in self.band_names})
 		print('ml_attn:', self.ml_attn)
 
 		### POST-PROJECTION
 		linear_kwargs = {
 			'activation':'linear',
 			}
-		self.z_projection = Linear(self.attn_embd_dims*len(self.band_names), self.attn_embd_dims, **linear_kwargs)
+		self.z_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands, **linear_kwargs)
 		print('z_projection:', self.z_projection)
 
 		### XENTROPY REG
@@ -55,7 +57,7 @@ class TimeSelfAttnEncoderP(nn.Module):
 			'activation':'linear',
 			'in_dropout':self.dropout['p'],
 			}
-		self.xentropy_projection = Linear(self.attn_embd_dims, self.output_dims, **linear_kwargs)
+		self.xentropy_projection = Linear(band_embedding_dims*len_bands, self.output_dims, **linear_kwargs)
 		print('xentropy_projection:', self.xentropy_projection)
 
 	def get_info(self):
@@ -121,7 +123,8 @@ class TimeSelfAttnEncoderS(nn.Module):
 		linear_kwargs = {
 			'activation':'linear',
 			}
-		extra_dims = len(self.band_names)
+		len_bands = len(self.band_names)
+		extra_dims = len_bands
 		self.x_projection = Linear(self.input_dims+extra_dims, self.attn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 		

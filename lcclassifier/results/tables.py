@@ -68,7 +68,6 @@ def get_parallel_serial_df(rootdir, cfilename, kf, lcset_name, model_names, dmet
 			#d_key = f'{mdl} [{arch_mode}]' if override_model_name else f'{label} [{arch_mode}]'
 			d[mn] = xe_metric_curve_avg if uses_avg else xe_metric_curve
 
-		fmodel_name = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
 		#index = f'model={model_name}'
 		te_dims = int(mn_dict.get('te-dims', 0))
 		cell = mn_dict.get('cell', None)

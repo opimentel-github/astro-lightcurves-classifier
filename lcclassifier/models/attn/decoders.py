@@ -27,8 +27,10 @@ class TimeSelfAttnDecoderP(nn.Module):
 		linear_kwargs = {
 			'activation':'linear',
 			}
+		len_bands = len(self.band_names)
 		extra_dims = 0
-		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.attn_embd_dims, **linear_kwargs) for b in self.band_names})
+		band_embedding_dims = self.attn_embd_dims//len_bands
+		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, band_embedding_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:',self.x_projection)
 
 		### ATTN
@@ -40,7 +42,7 @@ class TimeSelfAttnDecoderP(nn.Module):
 			'activation':'relu',
 			'last_activation':'relu',
 			}
-		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs) for b in self.band_names})
+		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs) for b in self.band_names})
 		print('ml_attn:', self.ml_attn)
 
 		### DEC MLP
@@ -49,7 +51,7 @@ class TimeSelfAttnDecoderP(nn.Module):
 			'dropout':self.dropout['p'],
 			'activation':'relu',
 			}
-		self.dz_projection = nn.ModuleDict({b:MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*C_.DECODER_MLP_LAYERS, **mlp_kwargs) for b in self.band_names})
+		self.dz_projection = nn.ModuleDict({b:MLP(band_embedding_dims, 1, [band_embedding_dims]*C_.DECODER_MLP_LAYERS, **mlp_kwargs) for b in self.band_names})
 		print('dz_projection:', self.dz_projection)
 
 	def get_output_dims(self):
@@ -97,7 +99,8 @@ class TimeSelfAttnDecoderS(nn.Module):
 		linear_kwargs = {
 			'activation':'linear',
 		}
-		extra_dims = len(self.band_names)+0
+		len_bands = len(self.band_names)
+		extra_dims = len_bands+0
 		self.x_projection = Linear(self.input_dims+extra_dims, self.attn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 
