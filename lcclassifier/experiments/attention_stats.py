@@ -6,10 +6,10 @@ import torch
 from fuzzytorch.utils import get_model_name, TDictHolder
 from fuzzytorch.models.utils import count_parameters
 import numpy as np
-from flamingchoripan.progress_bars import ProgressBar, ProgressBarMulti
-import flamingchoripan.files as files
-import flamingchoripan.datascience.metrics as fcm
-from flamingchoripan.cuteplots.utils import save_fig
+from fuzzytools.progress_bars import ProgressBar, ProgressBarMulti
+import fuzzytools.files as files
+import fuzzytools.datascience.metrics as fcm
+from fuzzytools.cuteplots.utils import save_fig
 import matplotlib.pyplot as plt
 import fuzzytorch.models.seq_utils as seq_utils
 from scipy.optimize import curve_fit

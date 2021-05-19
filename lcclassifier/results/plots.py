@@ -3,15 +3,15 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-import flamingchoripan.files as fcfiles
-import flamingchoripan.strings as strings
-from flamingchoripan.cuteplots.cm_plots import plot_custom_confusion_matrix
-from flamingchoripan.cuteplots.animations import PlotAnimation
+import fuzzytools.files as fcfiles
+import fuzzytools.strings as strings
+from fuzzytools.cuteplots.cm_plots import plot_custom_confusion_matrix
+from fuzzytools.cuteplots.animations import PlotAnimation
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-from flamingchoripan.datascience.xerror import XError
+from fuzzytools.datascience.xerror import XError
 from . import utils as utils
-from flamingchoripan.progress_bars import ProgressBar
+from fuzzytools.progress_bars import ProgressBar
 import math
 from matplotlib import cm
 

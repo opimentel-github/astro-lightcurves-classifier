@@ -7,8 +7,8 @@ from fuzzytorch.utils import get_model_name, TDictHolder, tensor_to_numpy
 import numpy as np
 from lchandler import C_ as C_lchandler
 from lchandler.plots.lc import plot_lightcurve
-import flamingchoripan.prints as prints
-from flamingchoripan.cuteplots.utils import save_fig
+import fuzzytools.prints as prints
+from fuzzytools.cuteplots.utils import save_fig
 import matplotlib.pyplot as plt
 import random
 

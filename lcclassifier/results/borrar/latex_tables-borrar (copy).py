@@ -4,11 +4,11 @@ from . import C_
 
 from . import utils as utils
 import numpy as np
-from flamingchoripan.myUtils.files import search_for_filedirs, load_pickle, get_dict_from_filedir
-import flamingchoripan.myUtils.strings as strings
-import flamingchoripan.dataScience.statistics as stats
+from fuzzytools.myUtils.files import search_for_filedirs, load_pickle, get_dict_from_filedir
+import fuzzytools.myUtils.strings as strings
+import fuzzytools.dataScience.statistics as stats
 from scipy.interpolate import interp1d
-from flamingchoripan.latexHelp.latex import LatexTable
+from fuzzytools.latexHelp.latex import LatexTable
 
 ###################################################################################################################################################
 

@@ -5,9 +5,9 @@ from . import C_
 import torch
 from fuzzytorch.utils import get_model_name, TDictHolder, tensor_to_numpy
 import numpy as np
-import flamingchoripan.files as files
-from flamingchoripan.cuteplots.utils import save_fig
-from flamingchoripan.cuteplots.animations import PlotAnimation
+import fuzzytools.files as files
+from fuzzytools.cuteplots.utils import save_fig
+from fuzzytools.cuteplots.animations import PlotAnimation
 import matplotlib.pyplot as plt
 import fuzzytorch.models.seq_utils as seq_utils
 from lchandler import C_ as C_lchandler

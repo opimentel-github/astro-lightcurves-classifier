@@ -3,13 +3,13 @@
 import sys
 sys.path.append('../') # or just install the module
 sys.path.append('../../fuzzy-torch') # or just install the module
-sys.path.append('../../flaming-choripan') # or just install the module
+sys.path.append('../../fuzzy-tools') # or just install the module
 sys.path.append('../../astro-lightcurves-handler') # or just install the module
 
 if __name__== '__main__':
 	### parser arguments
 	import argparse
-	from flamingchoripan.prints import print_big_bar
+	from fuzzytools.prints import print_big_bar
 
 	parser = argparse.ArgumentParser('usage description')
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
@@ -30,7 +30,7 @@ if __name__== '__main__':
 	print_big_bar()
 
 	###################################################################################################################################################
-	from flamingchoripan.files import search_for_filedirs
+	from fuzzytools.files import search_for_filedirs
 	from lchandler import C_ as C_
 
 	surveys_rootdir = '../../surveys-save/'
@@ -38,8 +38,8 @@ if __name__== '__main__':
 
 	###################################################################################################################################################
 	import numpy as np
-	from flamingchoripan.files import load_pickle, save_pickle
-	from flamingchoripan.files import get_dict_from_filedir
+	from fuzzytools.files import load_pickle, save_pickle
+	from fuzzytools.files import get_dict_from_filedir
 
 	filedir = f'../../surveys-save/survey=alerceZTFv7.1~bands=gr~mode=onlySNe~method={main_args.method}.splcds'
 	filedict = get_dict_from_filedir(filedir)
@@ -112,7 +112,7 @@ if __name__== '__main__':
 	from lcclassifier.datasets import CustomDataset
 	from lcclassifier.dataloaders import CustomDataLoader
 	from torch.utils.data import DataLoader
-	from flamingchoripan.files import get_filedirs, copy_filedir
+	from fuzzytools.files import get_filedirs, copy_filedir
 	import torch
 
 	model_ids = list(range(*[int(mi) for mi in main_args.mids.split('-')])) # IDS
@@ -193,7 +193,7 @@ if __name__== '__main__':
 			pt_optimizer = LossOptimizer(model, optims.Adam, pt_opt_kwargs_f, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
-			from flamingchoripan.prints import print_bar
+			from fuzzytools.prints import print_bar
 			from fuzzytorch.handlers import ModelTrainHandler
 			from fuzzytorch.monitors import LossMonitor
 			from fuzzytorch import C_
@@ -318,7 +318,7 @@ if __name__== '__main__':
 			ft_optimizer = LossOptimizer(classifier, optims.Adam, ft_opt_kwargs_f, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
-			from flamingchoripan.prints import print_bar
+			from fuzzytools.prints import print_bar
 			from fuzzytorch.handlers import ModelTrainHandler
 			from fuzzytorch.monitors import LossMonitor
 			from fuzzytorch import C_

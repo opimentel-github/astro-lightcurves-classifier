@@ -3,10 +3,10 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-from flamingchoripan.files import search_for_filedirs, load_pickle
-import flamingchoripan.strings as strings
-import flamingchoripan.datascience.statistics as dstats
-from flamingchoripan.dataframes import DFBuilder
+from fuzzytools.files import search_for_filedirs, load_pickle
+import fuzzytools.strings as strings
+import fuzzytools.datascience.statistics as dstats
+from fuzzytools.dataframes import DFBuilder
 from . import utils as utils
 import pandas as pd
 

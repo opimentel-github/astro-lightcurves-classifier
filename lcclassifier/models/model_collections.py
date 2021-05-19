@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import annotations
 from . import C_
 
-from flamingchoripan.datascience.grid_search import GDIter, GridSeacher
+from fuzzytools.datascience.grid_search import GDIter, GridSeacher
 from . import model_baselines as mbls
 from . import classifiers as mclass
 from .rnn import decoders as rnn_decoders

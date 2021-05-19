@@ -6,12 +6,12 @@ import torch
 from fuzzytorch.utils import get_model_name, TDictHolder, tensor_to_numpy, minibatch_dict_collate
 from fuzzytorch.models.utils import count_parameters
 import numpy as np
-from flamingchoripan.progress_bars import ProgressBar, ProgressBarMulti
-import flamingchoripan.files as files
-import flamingchoripan.datascience.metrics as fcm
-from flamingchoripan.cuteplots.utils import save_fig
-from flamingchoripan.dataframes import DFBuilder
-from flamingchoripan.dicts import update_dicts
+from fuzzytools.progress_bars import ProgressBar, ProgressBarMulti
+import fuzzytools.files as files
+import fuzzytools.datascience.metrics as fcm
+from fuzzytools.cuteplots.utils import save_fig
+from fuzzytools.dataframes import DFBuilder
+from fuzzytools.dicts import update_dicts
 import matplotlib.pyplot as plt
 import fuzzytorch.models.seq_utils as seq_utils
 import pandas as pd

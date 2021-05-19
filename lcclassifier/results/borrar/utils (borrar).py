@@ -2,9 +2,9 @@ from __future__ import print_function
 from __future__ import division
 from . import C_
 
-from flamingchoripan.files import search_for_filedirs
-import flamingchoripan.strings as strings
-import flamingchoripan.cuteplots.colors as cc
+from fuzzytools.files import search_for_filedirs
+import fuzzytools.strings as strings
+import fuzzytools.cuteplots.colors as cc
 from scipy.interpolate import interp1d
 import numpy as np
 

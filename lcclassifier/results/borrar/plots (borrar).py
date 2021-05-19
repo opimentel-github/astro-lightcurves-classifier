@@ -3,13 +3,13 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-from flamingchoripan.files import search_for_filedirs, load_pickle
-import flamingchoripan.strings as strings
-from flamingchoripan.cuteplots.cm_plots import plot_custom_confusion_matrix
-from flamingchoripan.cuteplots.animations import PlotAnimation
+from fuzzytools.files import search_for_filedirs, load_pickle
+import fuzzytools.strings as strings
+from fuzzytools.cuteplots.cm_plots import plot_custom_confusion_matrix
+from fuzzytools.cuteplots.animations import PlotAnimation
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-from flamingchoripan.datascience.statistics import XError
+from fuzzytools.datascience.statistics import XError
 from . import utils as utils
 
 ###################################################################################################################################################

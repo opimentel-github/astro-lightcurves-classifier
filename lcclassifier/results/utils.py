@@ -2,8 +2,8 @@ from __future__ import print_function
 from __future__ import division
 from . import C_
 
-import flamingchoripan.strings as strings
-import flamingchoripan.cuteplots.colors as cc
+import fuzzytools.strings as strings
+import fuzzytools.cuteplots.colors as cc
 import numpy as np
 
 ###################################################################################################################################################

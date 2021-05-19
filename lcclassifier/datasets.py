@@ -9,10 +9,10 @@ import numpy as np
 from torch.utils.data import Dataset
 import random
 from .scalers import CustomStandardScaler, LogStandardScaler, LogQuantileTransformer
-import flamingchoripan.strings as strings
+import fuzzytools.strings as strings
 from joblib import Parallel, delayed
-from flamingchoripan.lists import get_list_chunks, get_random_item
-from flamingchoripan.progress_bars import ProgressBar
+from fuzzytools.lists import get_list_chunks, get_random_item
+from fuzzytools.progress_bars import ProgressBar
 from fuzzytorch.utils import print_tdict
 import fuzzytorch.models.seq_utils as seq_utils
 from fuzzytorch.utils import TDictHolder

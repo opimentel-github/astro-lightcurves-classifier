@@ -3,10 +3,10 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-import flamingchoripan.files as fcfiles
-import flamingchoripan.strings as strings
-from flamingchoripan.dataframes import DFBuilder
-from flamingchoripan.datascience.statistics import XError
+import fuzzytools.files as fcfiles
+import fuzzytools.strings as strings
+from fuzzytools.dataframes import DFBuilder
+from fuzzytools.datascience.statistics import XError
 from . import utils as utils
 import pandas as pd
 from nested_dict import nested_dict

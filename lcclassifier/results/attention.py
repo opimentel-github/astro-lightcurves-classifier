@@ -4,13 +4,13 @@ from . import C_
 
 import numpy as np
 import warnings
-from flamingchoripan.files import search_for_filedirs, load_pickle
-import flamingchoripan.strings as strings
-from flamingchoripan.cuteplots.cm_plots import plot_custom_confusion_matrix
+from fuzzytools.files import search_for_filedirs, load_pickle
+import fuzzytools.strings as strings
+from fuzzytools.cuteplots.cm_plots import plot_custom_confusion_matrix
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter1d
-import flamingchoripan.datascience.statistics as dstats
+import fuzzytools.datascience.statistics as dstats
 from . import utils as utils
 
 ###################################################################################################################################################

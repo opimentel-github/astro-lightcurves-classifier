@@ -5,7 +5,7 @@ from . import C_
 import numpy as np
 from numba import jit
 from sklearn.preprocessing import StandardScaler, QuantileTransformer
-import flamingchoripan.numba as fcnumba
+import fuzzytools.numba as fcnumba
 
 ###################################################################################################################################################
 ESC_EPS = 1. # ***
