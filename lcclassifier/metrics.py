@@ -71,7 +71,7 @@ class LCXEntropyMetric(FTMetric):
 		target_tdict = tdict['target']
 		model_tdict = tdict['model']
 
-		xentropy_loss = self.xentropy(tdict, **kwargs).batch_loss_*self.k # (b)
+		xentropy_loss = self.xentropy(tdict, **kwargs)._batch_loss*self.k # (b)
 		if self.balanced:
 			balanced_w = tdict['target']['balanced_w']
 			xentropy_loss = xentropy_loss*balanced_w[...,0]
@@ -137,7 +137,7 @@ class LCBinXEntropyMetric(FTMetric):
 		target_tdict = tdict['target']
 		model_tdict = tdict['model']
 
-		xentropy_loss = self.xentropy(tdict, **kwargs).batch_loss_*self.k # (b)
+		xentropy_loss = self.xentropy(tdict, **kwargs)._batch_loss*self.k # (b)
 		if self.balanced:
 			balanced_w = tdict['target']['balanced_w']
 			xentropy_loss = xentropy_loss*balanced_w[...,0]

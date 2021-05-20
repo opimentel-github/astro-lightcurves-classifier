@@ -94,8 +94,8 @@ class LCCompleteLoss(FTLoss):
 		target_tdict = tdict['target']
 		model_tdict = tdict['model']
 
-		xentropy_loss = self.xentropy(tdict, **kwargs).batch_loss_*self.xentropy_k
-		mse_loss = self.mse(tdict, **kwargs).batch_loss_*self.mse_k
+		xentropy_loss = self.xentropy(tdict, **kwargs)._batch_loss*self.xentropy_k
+		mse_loss = self.mse(tdict, **kwargs)._batch_loss*self.mse_k
 		loss_res = LossResult(xentropy_loss+mse_loss)
 		loss_res.add_subloss('xentropy', xentropy_loss)
 		loss_res.add_subloss('mse', mse_loss)

@@ -15,7 +15,7 @@ if __name__== '__main__':
 	parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-	parser.add_argument('-batch_size',  type=int, default=516, help='batch_size') # *** 50 100 200 516
+	parser.add_argument('-batch_size',  type=int, default=1024, help='batch_size') # *** 64 128 516 1024
 	parser.add_argument('-batch_size_c',  type=int, default=64, help='batch_size') # *** 32
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
@@ -25,6 +25,7 @@ if __name__== '__main__':
 	parser.add_argument('-rsc',  type=int, default=0, help='random_subcrops')
 	parser.add_argument('-bypass',  type=int, default=0, help='bypass')
 	parser.add_argument('-attn_exp',  type=int, default=0)
+	parser.add_argument('-always_train_ae',  type=int, default=1)
 	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
 	print_big_bar()
@@ -119,7 +120,7 @@ if __name__== '__main__':
 	for mp_grid in model_collections.mps: # MODEL CONFIGS
 		for kmodel_id,model_id in enumerate(model_ids):
 			is_first_model_id = model_id==model_ids[0]
-			#is_first_model_id = 0
+			train_ae = is_first_model_id or main_args.always_train_ae
 
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
@@ -138,7 +139,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 20 if is_first_model_id else 0 # *** 0* 5 10 15
+			s_precomputed_samples = 10 if train_ae else 0 # *** 0* 5 10 20
 			r_precomputed_samples = 0 # *** 0*
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
@@ -216,7 +217,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':500, # limit this as the pre-training is very time consuming
+				'epochs_max':200, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
@@ -233,7 +234,7 @@ if __name__== '__main__':
 			pt_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 			pt_model_train_handler.build_gpu(0 if main_args.gpu>=0 else None)
 			print(pt_model_train_handler)
-			if is_first_model_id:
+			if train_ae:
 				pt_model_train_handler.fit_loader(s_train_loader, r_val_loader) # main fit
 			else:
 				filedirs = get_filedirs(pt_model_train_handler.complete_save_roodir, fext='tfes')
@@ -265,7 +266,7 @@ if __name__== '__main__':
 			from lcclassifier.experiments.attention_scores import save_attn_scores_animation
 			from lcclassifier.experiments.attention_stats import save_attention_statistics
 
-			if is_first_model_id:
+			if train_ae:
 				### attention experiments
 				#save_attn_exps = 1 # kmodel_id==0
 				#if save_attn_exps and model_id==model_ids[-1]:

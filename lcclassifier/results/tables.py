@@ -13,10 +13,20 @@ from scipy.interpolate import interp1d
 
 ###################################################################################################################################################
 
+def get_sorted_model_names(model_names):
+	p_model_names = []
+	s_model_names = []
+	for model_name in model_names:
+		is_parallel = 'Parallel' in model_name
+		if is_parallel:
+			p_model_names += [model_name]
+		else:
+			s_model_names += [model_name]
+	return sorted(p_model_names)+sorted(s_model_names)
+
 def get_parallel_serial_df(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 	day=None,
 	train_mode='fine-tuning',
-	arch_modes=['Parallel', 'Serial'],
 	n=1e3,
 	#override_model_name=True,
 	label_keys=[],
@@ -30,16 +40,7 @@ def get_parallel_serial_df(rootdir, cfilename, kf, lcset_name, model_names, dmet
 			d = {k:XError([-9999]) for k in d.keys()}
 		info_df.append('model=b-RF w/ FATS', d)
 
-	p_model_names = []
-	s_model_names = []
-	for model_name in model_names:
-		is_parallel = 'Parallel' in model_name
-		if is_parallel:
-			p_model_names += [model_name]
-		else:
-			s_model_names += [model_name]
-
-	for kmn,model_name in enumerate(sorted(p_model_names)+sorted(s_model_names)):
+	for kmn,model_name in enumerate(get_sorted_model_names(model_names)):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
 		files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
 		#print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')

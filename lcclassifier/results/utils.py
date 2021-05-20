@@ -8,6 +8,19 @@ import numpy as np
 
 ###################################################################################################################################################
 
+def get_sorted_model_names(model_names):
+	p_model_names = []
+	s_model_names = []
+	for model_name in model_names:
+		is_parallel = 'Parallel' in model_name
+		if is_parallel:
+			p_model_names += [model_name]
+		else:
+			s_model_names += [model_name]
+	return sorted(p_model_names)+sorted(s_model_names)
+
+###################################################################################################################################################
+
 def get_cmetric_name(metric_name):
 	#metric_name = metric_name.replace('accuracy', 'acc')
 	#metric_name = metric_name.replace('f1score', 'f1s')
