@@ -16,13 +16,12 @@ if __name__== '__main__':
 	parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 	parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
 	parser.add_argument('-batch_size',  type=int, default=1024, help='batch_size') # *** 64 128 516 1024
-	parser.add_argument('-batch_size_c',  type=int, default=64, help='batch_size') # *** 32
+	parser.add_argument('-batch_size_c',  type=int, default=128, help='batch_size') # *** 8 16 32 64 128
 	parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 	parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 	parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
 	parser.add_argument('-mids',  type=str, default='0-10', help='initial_id-final_id')
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
-	parser.add_argument('-rsc',  type=int, default=0, help='random_subcrops')
 	parser.add_argument('-bypass',  type=int, default=0, help='bypass')
 	parser.add_argument('-attn_exp',  type=bool, default=False)
 	parser.add_argument('-always_train_ae',  type=bool, default=False)
@@ -121,16 +120,20 @@ if __name__== '__main__':
 		for kmodel_id,model_id in enumerate(model_ids):
 			is_first_model_id = model_id==model_ids[0]
 			train_ae = is_first_model_id or main_args.always_train_ae
+			train_ae = 0 # dummy
 
 			### DATASETS
 			dataset_kwargs = mp_grid['dataset_kwargs']
 			s_balanced_repeats = 50
-			r_balanced_repeats = s_balanced_repeats
+			r_balanced_repeats = s_balanced_repeats*2
+			s_ds_mode={'left':.0, 'random':.9, 'none':.1}
+			r_ds_mode={'left':.45, 'random':.45, 'none':.1}
+			#s_ds_mode = r_ds_mode # test
 			if main_args.bypass:
-				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats)
+				s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats, ds_mode=s_ds_mode)
 			else:
-				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=s_balanced_repeats, rooted=False)
-			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats, rooted=True) # True works best for online
+				s_train_dataset = CustomDataset(f'{main_args.kf}@train.{main_args.method}', lcdataset, **dataset_kwargs, balanced_repeats=s_balanced_repeats, ds_mode=s_ds_mode)
+			r_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats, ds_mode=r_ds_mode)
 			r_val_dataset = CustomDataset(f'{main_args.kf}@val', lcdataset, **dataset_kwargs)
 			r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
@@ -139,7 +142,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 2 if train_ae else 0 # *** 0* 5 10 15 20 25
+			s_precomputed_samples = 20 if train_ae else 0 # *** 0* 5 10 15 20 25
 			r_precomputed_samples = 0 # *** 0*
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
@@ -152,21 +155,19 @@ if __name__== '__main__':
 			### DATALOADERS
 			worker_init_fn = lambda id:np.random.seed(torch.initial_seed() // 2**32+id) # num_workers-numpy bug
 			loader_kwargs = {
-				'batch_size':main_args.batch_size//(1+main_args.rsc),
-				'random_subcrops':main_args.rsc,
+				'batch_size':main_args.batch_size,
 				'num_workers':2, # 0 2*
 				'pin_memory':True, # False True
 				#'prefetch_factor':1, # only if num_workers>0
 				'worker_init_fn':worker_init_fn,
 				}
-			s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader
+			s_train_loader = DataLoader(s_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader
 			loader_kwargs.update({
-				'batch_size':main_args.batch_size_c//(1+main_args.rsc),
-				'random_subcrops':main_args.rsc,
+				'batch_size':main_args.batch_size_c,
 				})
-			r_train_loader = CustomDataLoader(r_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader
-			r_val_loader = CustomDataLoader(r_val_dataset, shuffle=False, **loader_kwargs) # DataLoader CustomDataLoader
-			r_test_loader = CustomDataLoader(r_test_dataset, shuffle=False, **loader_kwargs) # DataLoader CustomDataLoader
+			r_train_loader = DataLoader(r_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader
+			r_val_loader = DataLoader(r_val_dataset, shuffle=False, **loader_kwargs) # DataLoader CustomDataLoader
+			r_test_loader = DataLoader(r_test_dataset, shuffle=False, **loader_kwargs) # DataLoader CustomDataLoader
 
 			### GET MODEL
 			mp_grid['mdl_kwargs']['input_dims'] = s_train_loader.dataset.get_output_dims()
@@ -179,19 +180,20 @@ if __name__== '__main__':
 
 			def pt_lr_f(epoch):
 				initial_lr = 1e-6
-				max_lr = 1*1e-3
+				max_lr = 1e-3
 				d_epochs = 10
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
 			pt_opt_kwargs_f = {
-				#'lr':lambda epoch:2.e-3, # ***
-				'lr':pt_lr_f, # ***
+				'lr':lambda epoch:1e-3, # ***
+				#'lr':pt_lr_f, # ***
+				#'weight_decay':lambda epoch:1e-5,
 				}
 			pt_optimizer_kwargs = {
 				'clip_grad':1.,
 				}
-			pt_optimizer = LossOptimizer(model, optims.Adam, pt_opt_kwargs_f, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			pt_optimizer = LossOptimizer(model, optims.AdamW, pt_opt_kwargs_f, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from fuzzytools.prints import print_bar
@@ -223,7 +225,6 @@ if __name__== '__main__':
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'b':main_args.batch_size,
-					'rsc':main_args.rsc,
 					'bypass':main_args.bypass,
 					},
 				'uses_train_eval_loader_methods':True,
@@ -302,21 +303,22 @@ if __name__== '__main__':
 
 			def ft_lr_f(epoch):
 				initial_lr = 1e-6
-				max_lr = 1*1e-3
-				d_epochs = 10
+				max_lr = 1e-3
+				d_epochs = 50
 				p = np.clip(epoch/d_epochs, 0, 1)
 				return initial_lr+p*(max_lr-initial_lr)
 
 			ft_opt_kwargs_f = {
-				#'lr':lambda epoch:1*1e-3, # ***
+				#'lr':lambda epoch:1e-3, # ***
 				'lr':ft_lr_f, # ***
+				#'weight_decay':lambda epoch:1e-5,
 				}
 			ft_optimizer_kwargs = {
 				'clip_grad':1.,
 				}
 			classifier = model.get_classifier_model()
 			classifier.init_parameters() # to ensure random inits
-			ft_optimizer = LossOptimizer(classifier, optims.Adam, ft_opt_kwargs_f, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+			ft_optimizer = LossOptimizer(classifier, optims.AdamW, ft_opt_kwargs_f, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
 
 			### MONITORS
 			from fuzzytools.prints import print_bar
@@ -327,7 +329,7 @@ if __name__== '__main__':
 
 			monitor_config = {
 				'val_epoch_counter_duration':0, # every k epochs check
-				'earlystop_epoch_duration':100,
+				'earlystop_epoch_duration':1e6,
 				'target_metric_crit':'b-xentropy',
 				#'save_mode':C_.SM_NO_SAVE,
 				#'save_mode':C_.SM_ALL,
@@ -342,14 +344,13 @@ if __name__== '__main__':
 			train_mode = 'fine-tuning'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':1e6, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+				'epochs_max':200, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 				'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 					#'ef-be':s_train_loader.dataset.effective_beta_eps,
 					'b':main_args.batch_size,
-					'rsc':main_args.rsc,
 					'bypass':main_args.bypass,
 					},
 				'uses_train_eval_loader_methods':True,
@@ -376,4 +377,4 @@ if __name__== '__main__':
 			#save_performance(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 			save_performance(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 
-			save_model_info(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs)
+			save_model_info(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **ft_exp_kwargs)

@@ -108,7 +108,8 @@ def save_performance(train_handler, data_loader, save_rootdir,
 
 					### progress bar
 					recall = {c:metrics_cdict[c]['recall'] for c in dataset.class_names}
-					bar([f'lcset_name={dataset.lcset_name} - day={day:.3f}/{days[-1]:.3f}', f'mse_loss={mse_loss}', f'metrics_dict={metrics_dict}', f'recall={recall}'])
+					bmetrics_dict = {k:metrics_dict[k] for k in metrics_dict.keys() if 'b-' in k}
+					bar([f'lcset_name={dataset.lcset_name} - day={day:.3f}/{days[-1]:.3f}', f'mse_loss={mse_loss}', f'bmetrics_dict={bmetrics_dict}', f'recall={recall}'])
 					#break # dummy
 
 			except KeyboardInterrupt:

@@ -41,7 +41,7 @@ class CustomDataset(Dataset):
 		cpds_p:float=C_.CPDS_P,
 		balanced_repeats=1,
 		training=False,
-		rooted=False, # False True
+		ds_mode=False, # False True
 		):
 		self.training = training
 
@@ -62,7 +62,7 @@ class CustomDataset(Dataset):
 		self.cpds_p = cpds_p
 
 		self.balanced_repeats = balanced_repeats
-		self.rooted = rooted
+		self.ds_mode = ds_mode
 		self.reset()
 
 	def reset(self):
@@ -113,7 +113,7 @@ class CustomDataset(Dataset):
 		for c in self.class_names:
 			if c==min_c:
 				continue
-			lcobj_names_c = self.lcset.get_boostrap_samples(c, boostrap_n, uses_counter=False, replace=True)
+			lcobj_names_c = self.lcset.get_boostrap_samples(c, boostrap_n)
 			#lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c).copy(), boostrap_n)
 			self.balanced_lcobj_names += lcobj_names_c
 
@@ -370,10 +370,9 @@ class CustomDataset(Dataset):
 		if uses_daugm:
 			for b in lcobj.bands:
 				lcobjb = lcobj.get_b(b)
-				#lcobjb.add_day_noise_uniform(self.hours_noise_amp) # add day noise
-				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
-				lcobjb.apply_downsampling_window(rooted=self.rooted, apply_prob=.9) # curve points downsampling we need to ensure the model to see compelte curves
+				lcobjb.apply_downsampling_window(self.ds_mode) # curve points downsampling we need to ensure the model to see compelte curves
 				lcobjb.apply_downsampling(0.1) # curve points downsampling
+				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
 
 		### remove day offset!
 		day_offset = lcobj.reset_day_offset_serial()
