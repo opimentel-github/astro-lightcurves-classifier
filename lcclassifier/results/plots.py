@@ -59,8 +59,12 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 
 			label = f'{new_model_name} | AUC={xe_metric_curve_avg}'
 			color = color_dict[utils.get_cmodel_name(model_name)]# if rsc=='0' else 'k'
-			ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
-			ax.fill_between(days, xe_metric_curve.get_percentile(p), xe_metric_curve.get_percentile(100-p), alpha=alpha, fc=color)
+			if p is None:
+				for i in range(0, len(xe_metric_curve.x)):
+					ax.plot(days, xe_metric_curve.x[i], '--' if is_parallel else '-', label=label, c=color)
+			else:
+				ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
+				ax.fill_between(days, xe_metric_curve.get_percentile(p), xe_metric_curve.get_percentile(100-p), alpha=alpha, fc=color)
 			ylims[0] += [ax.get_ylim()[0]]
 			ylims[1] += [ax.get_ylim()[1]]
 

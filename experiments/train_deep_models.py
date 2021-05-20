@@ -24,8 +24,8 @@ if __name__== '__main__':
 	parser.add_argument('-kf',  type=str, default='0', help='kf')
 	parser.add_argument('-rsc',  type=int, default=0, help='random_subcrops')
 	parser.add_argument('-bypass',  type=int, default=0, help='bypass')
-	parser.add_argument('-attn_exp',  type=int, default=0)
-	parser.add_argument('-always_train_ae',  type=int, default=1)
+	parser.add_argument('-attn_exp',  type=bool, default=False)
+	parser.add_argument('-always_train_ae',  type=bool, default=False)
 	#main_args = parser.parse_args([])
 	main_args = parser.parse_args()
 	print_big_bar()
@@ -139,7 +139,7 @@ if __name__== '__main__':
 			s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
 			s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
 
-			s_precomputed_samples = 10 if train_ae else 0 # *** 0* 5 10 20
+			s_precomputed_samples = 25 if train_ae else 0 # *** 0* 5 10 15 20
 			r_precomputed_samples = 0 # *** 0*
 			s_train_dataset.precompute_samples(s_precomputed_samples)
 			r_train_dataset.precompute_samples(r_precomputed_samples)
@@ -217,7 +217,7 @@ if __name__== '__main__':
 			train_mode = 'pre-training'
 			mtrain_config = {
 				'id':model_id,
-				'epochs_max':200, # limit this as the pre-training is very time consuming
+				'epochs_max':600, # limit this as the pre-training is very time consuming
 				'extra_model_name_dict':{
 					#'mode':train_mode,
 					#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
