@@ -88,7 +88,6 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 ###################################################################################################################################################
 
 def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
-	label_keys=[],
 	figsize=(6,5),
 	train_mode='fine-tuning',
 	export_animation=False,
@@ -106,9 +105,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 		survey = files[0]()['survey']
 		band_names = files[0]()['band_names']
 		class_names = files[0]()['class_names']
-		mn_dict = strings.get_dict_from_string(model_name)
-		mdl = mn_dict['mdl']
-		is_parallel = 'Parallel' in mdl
+		is_parallel = 'Parallel' in model_name
 		days = files[0]()['days']
 
 		plot_animation = PlotAnimation(animation_duration,
@@ -131,15 +128,9 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			bprecision_xe = xe_dict['b-precision']
 			brecall_xe = xe_dict['b-recall']
 			bf1score_xe = xe_dict['b-f1score']
-			_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
-			label = f'{mdl} ({_label})'
 			
-			te_dims = int(mn_dict.get('te-dims', 0))
-			cell = mn_dict.get('cell', None)
-			new_model_name = mdl+(f' w/ M={te_dims//2}' if te_dims>0 else '')+(f' w/ cell={cell}' if not cell is None else '')
-
 			title = ''
-			title += f'{new_model_name}'+'\n'
+			title += f'{utils.get_fmodel_name(model_name)}'+'\n'
 			#title += f'survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
 			#title += f'train-mode={train_mode} - eval-set={kf}@{lcset_name}'+'\n'
 			title += f'b-recall={brecall_xe} - b-f1score={bf1score_xe}'+'\n'
@@ -167,7 +158,6 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 ###################################################################################################################################################
 
 def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
-	label_keys=[],
 	train_mode='pre-training',
 	layers=3,
 	figsize=(12,10),
@@ -255,7 +245,6 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 ###################################################################################################################################################
 
 def xxx(rootdir, cfilename, kf, lcset_name, model_names,
-	label_keys=[],
 	train_mode='pre-training',
 	layers=2,
 	figsize=(12,10),

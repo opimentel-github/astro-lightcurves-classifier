@@ -17,8 +17,6 @@ def get_parallel_serial_df(rootdir, cfilename, kf, lcset_name, model_names, dmet
 	day=None,
 	train_mode='fine-tuning',
 	n=1e3,
-	#override_model_name=True,
-	label_keys=[],
 	uses_avg=False,
 	baseline_filedir=None,
 	):
