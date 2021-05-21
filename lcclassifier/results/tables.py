@@ -24,7 +24,7 @@ def get_ps_performance_df(rootdir, cfilename, kf, lcset_name, model_names, dmetr
 	if not baseline_filedir is None:
 		d = fcfiles.load_pickle(baseline_filedir)['synthetic-method=no-method [r]']
 		if uses_avg:
-			d = {k:XError([-9999]) for k in d.keys()}
+			d = {k:XError([-999]) for k in d.keys()}
 		info_df.append('model=b-RF w/ FATS', d)
 
 	for kmn,model_name in enumerate(utils.get_sorted_model_names(model_names)):
@@ -74,13 +74,13 @@ def get_ps_times_df(rootdir, cfilename, kf, method, model_names,
 
 		d = {}
 		parameters = [f()['parameters'] for f in files][0]
-		d['parameters'] = parameters
+		d['parameters'] = XError([parameters])
 		d['best_epoch'] = XError([f()['monitors']['wmse-xentropy']['best_epoch'] for f in files])
 		d['time_per_iteration'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration'] for f in files])
 		x = files[0]()['monitors']['wmse-xentropy']['time_per_iteration']
-		x = XError(x.x)
-		print(x)
-		d['time_per_iteration/params'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration']/parameters for f in files])
+		new_x = x/parameters*1e6
+		print(x, parameters, new_x)
+		d['time_per_iteration/params*1e6'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration']/parameters*1e6 for f in files])
 		d['time_per_epoch'] = sum([f()['monitors']['wmse-xentropy']['time_per_epoch'] for f in files])
 		d['total_time'] = XError([f()['monitors']['wmse-xentropy']['total_time'] for f in files])
 

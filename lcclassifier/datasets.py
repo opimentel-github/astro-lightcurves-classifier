@@ -118,7 +118,6 @@ class CustomDataset(Dataset):
 			self.balanced_lcobj_names += lcobj_names_c
 
 		#self.balanced_lcobj_names = balanced_lcobj_names*repeats
-		
 
 	def get_balanced_w_cdict(self):
 		return self.balanced_w_cdict

@@ -21,7 +21,9 @@ def get_fmodel_name(model_name):
 
 ###################################################################################################################################################
 
-def get_sorted_model_names(model_names):
+def get_sorted_model_names(model_names,
+	merged=True,
+	):
 	p_model_names = []
 	s_model_names = []
 	for model_name in model_names:
@@ -30,7 +32,9 @@ def get_sorted_model_names(model_names):
 			p_model_names += [model_name]
 		else:
 			s_model_names += [model_name]
-	return sorted(p_model_names)+sorted(s_model_names)
+	p_model_names = sorted(p_model_names)
+	s_model_names = sorted(s_model_names)
+	return p_model_names+s_model_names if merged else p_model_names, s_model_names
 
 ###################################################################################################################################################
 

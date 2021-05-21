@@ -26,43 +26,43 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 	):
 	for metric_name in dmetrics.keys():
 		fig, axs = plt.subplots(1, 2, figsize=figsize)
-		color_dict = utils.get_color_dict(model_names)
-		ylims = [[],[]]
-		for kmn,model_name in enumerate(model_names):
-			load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
-			files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
-			print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
-			if len(files)==0:
-				continue
+		ps_model_names = utils.get_sorted_model_names(model_names, merged=False)
+		for kax,ax in enumerate(axs):
+			color_dict = utils.get_color_dict(ps_model_names[kax])
+			ylims = [[],[]]
+			for kmn,model_name in enumerate(ps_model_names[kax]):
+				load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
+				files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
+				print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
+				if len(files)==0:
+					continue
 
-			survey = files[0]()['survey']
-			band_names = files[0]()['band_names']
-			class_names = files[0]()['class_names']
-			is_parallel = 'Parallel' in model_name
-			days = files[0]()['days']
+				survey = files[0]()['survey']
+				band_names = files[0]()['band_names']
+				class_names = files[0]()['class_names']
+				days = files[0]()['days']
 
-			metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
-			#metric_curve = np.concatenate([f()['days_class_metrics_cdf']['SNII-b-n'][metric_name].values[None] for f in files], axis=0) # SNIa SNIbc
-			xe_metric_curve = XError(metric_curve)
-			xe_metric_curve_avg = XError(np.mean(metric_curve, axis=-1))
+				metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
+				#metric_curve = np.concatenate([f()['days_class_metrics_cdf']['SNII-b-n'][metric_name].values[None] for f in files], axis=0) # SNIa SNIbc
+				xe_metric_curve = XError(metric_curve)
+				xe_metric_curve_avg = XError(np.mean(metric_curve, axis=-1))
 
-			ax = axs[int(not is_parallel)]
-			label = f'{utils.get_fmodel_name(model_name)} | AUC={xe_metric_curve_avg}'
-			color = color_dict[utils.get_fmodel_name(model_name)]
-			if p is None:
-				for i in range(0, len(xe_metric_curve.x)):
-					ax.plot(days, xe_metric_curve.x[i], '--' if is_parallel else '-', label=label, c=color)
-			else:
-				ax.plot(days, xe_metric_curve.median, '--' if is_parallel else '-', label=label, c=color)
-				ax.fill_between(days, xe_metric_curve.get_percentile(p), xe_metric_curve.get_percentile(100-p), alpha=alpha, fc=color)
-			ylims[0] += [ax.get_ylim()[0]]
-			ylims[1] += [ax.get_ylim()[1]]
+				label = f'{utils.get_fmodel_name(model_name)} | AUC={xe_metric_curve_avg}'
+				color = color_dict[utils.get_fmodel_name(model_name)]
+				if p is None:
+					for i in range(0, len(xe_metric_curve.x)):
+						ax.plot(days, xe_metric_curve.x[i], '-', label=label, c=color)
+				else:
+					ax.plot(days, xe_metric_curve.median, '-', label=label, c=color)
+					ax.fill_between(days, xe_metric_curve.get_percentile(p), xe_metric_curve.get_percentile(100-p), alpha=alpha, fc=color)
+				ylims[0] += [ax.get_ylim()[0]]
+				ylims[1] += [ax.get_ylim()[1]]
 
-		mn = metric_name if dmetrics[metric_name]['mn'] is None else dmetrics[metric_name]['mn']
-		title = ''
-		title += f'{mn} v/s days'+'\n'
-		title += f'train-mode={train_mode} - survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
-		fig.suptitle(title[:-1], va='bottom')
+			mn = metric_name if dmetrics[metric_name]['mn'] is None else dmetrics[metric_name]['mn']
+			title = ''
+			title += f'{mn} v/s days'+'\n'
+			title += f'train-mode={train_mode} - survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
+			fig.suptitle(title[:-1], va='bottom')
 
 		for kax,ax in enumerate(axs):
 			if f'{kf}@{lcset_name}' in baselines_dict.keys():
@@ -78,7 +78,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 				ax.set_title('parallel models')
 
 			ax.set_xlim([days.min(), days.max()])
-			ax.set_ylim(min(ylims[0]), max(ylims[1]))
+			ax.set_ylim(min(ylims[0]), max(ylims[1])*1.01)
 			ax.grid(alpha=0.5)
 			ax.legend(loc='lower right')
 
@@ -128,7 +128,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			bprecision_xe = xe_dict['b-precision']
 			brecall_xe = xe_dict['b-recall']
 			bf1score_xe = xe_dict['b-f1score']
-			
+
 			title = ''
 			title += f'{utils.get_fmodel_name(model_name)}'+'\n'
 			#title += f'survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
