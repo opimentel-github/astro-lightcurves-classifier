@@ -40,7 +40,6 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			band_names = files[0]()['band_names']
 			class_names = files[0]()['class_names']
 			mn_dict = strings.get_dict_from_string(model_name)
-			rsc = mn_dict['rsc']
 			mdl = mn_dict['mdl']
 			is_parallel = 'Parallel' in mdl
 			days = files[0]()['days']
@@ -58,7 +57,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			new_model_name = mdl+(f' w/ M={te_dims//2}' if te_dims>0 else '')+(f' w/ cell={cell}' if not cell is None else '')
 
 			label = f'{new_model_name} | AUC={xe_metric_curve_avg}'
-			color = color_dict[utils.get_cmodel_name(model_name)]# if rsc=='0' else 'k'
+			color = color_dict[utils.get_cmodel_name(model_name)]
 			if p is None:
 				for i in range(0, len(xe_metric_curve.x)):
 					ax.plot(days, xe_metric_curve.x[i], '--' if is_parallel else '-', label=label, c=color)
@@ -117,7 +116,6 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 		band_names = files[0]()['band_names']
 		class_names = files[0]()['class_names']
 		mn_dict = strings.get_dict_from_string(model_name)
-		rsc = mn_dict['rsc']
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
 		days = files[0]()['days']
@@ -195,7 +193,6 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 		band_names = files[0]()['band_names']
 		class_names = files[0]()['class_names']
 		mn_dict = strings.get_dict_from_string(model_name)
-		rsc = mn_dict['rsc']
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
 		days = files[0]()['days']
@@ -284,7 +281,6 @@ def xxx(rootdir, cfilename, kf, lcset_name, model_names,
 		band_names = files[0]()['band_names']
 		class_names = files[0]()['class_names']
 		mn_dict = strings.get_dict_from_string(model_name)
-		rsc = mn_dict['rsc']
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
 		days = files[0]()['days']
