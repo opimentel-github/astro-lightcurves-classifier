@@ -104,7 +104,6 @@ class TimeSelfAttnDecoderS(nn.Module):
 		self.x_projection = Linear(self.input_dims+extra_dims, self.attn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 
-
 		### ATTN
 		attn_kwargs = {
 			'num_heads':NUM_HEADS,

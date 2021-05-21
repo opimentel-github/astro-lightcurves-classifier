@@ -67,7 +67,7 @@ class TimeSelfAttnEncoderP(nn.Module):
 		return d
 
 	def get_output_dims(self):
-		return self.attn_embd_dims#*len(self.band_names)
+		return self.attn_embd_dims
 	
 	def get_embd_dims_list(self):
 		return {b:self.ml_attn[b].get_embd_dims_list() for b in self.band_names}

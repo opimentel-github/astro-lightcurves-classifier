@@ -26,8 +26,10 @@ class RNNEncoderP(nn.Module):
 		linear_kwargs = {
 			'activation':'linear',
 		}
+		len_bands = len(self.band_names)
 		extra_dims = 0
-		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs) for b in self.band_names})
+		band_embedding_dims = self.rnn_embd_dims//len_bands
+		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, band_embedding_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:', self.x_projection)
 
 		### RNN STACK
@@ -37,14 +39,14 @@ class RNNEncoderP(nn.Module):
 			'bidirectional':self.bidirectional,
 			'uses_batchnorm':self.uses_batchnorm,
 			}
-		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs) for b in self.band_names})
+		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.rnn_layers-1), **rnn_kwargs) for b in self.band_names})
 		print('ml_rnn:', self.ml_rnn)
 
 		### POST-PROJECTION
 		linear_kwargs = {
 			'activation':'linear',
 			}
-		self.z_projection = Linear(self.rnn_embd_dims*len(self.band_names), self.rnn_embd_dims, **linear_kwargs)
+		self.z_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands, **linear_kwargs)
 		print('z_projection:', self.z_projection)
 
 		### XENTROPY REG
@@ -52,11 +54,11 @@ class RNNEncoderP(nn.Module):
 			'activation':'linear',
 			'in_dropout':self.dropout['p'],
 			}
-		self.xentropy_projection = Linear(self.rnn_embd_dims, self.output_dims, **linear_kwargs)
+		self.xentropy_projection = Linear(band_embedding_dims*len_bands, self.output_dims, **linear_kwargs)
 		print('xentropy_projection:', self.xentropy_projection)
 
 	def get_output_dims(self):
-		return self.rnn_embd_dims*len(self.band_names)
+		return self.rnn_embd_dims
 	
 	def get_embd_dims_list(self):
 		return {b:self.ml_rnn[b].get_embd_dims_list() for b in self.band_names}
@@ -103,7 +105,8 @@ class RNNEncoderS(nn.Module):
 		linear_kwargs = {
 			'activation':'linear',
 			}
-		extra_dims = len(self.band_names)
+		len_bands = len(self.band_names)
+		extra_dims = len_bands
 		self.x_projection = Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 

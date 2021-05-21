@@ -19,7 +19,6 @@ from matplotlib import cm
 
 def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 	baselines_dict={},
-	label_keys=[],
 	figsize=(14,8),
 	train_mode='fine-tuning',
 	p=C_.P_PLOT,
@@ -39,9 +38,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			survey = files[0]()['survey']
 			band_names = files[0]()['band_names']
 			class_names = files[0]()['class_names']
-			mn_dict = strings.get_dict_from_string(model_name)
-			mdl = mn_dict['mdl']
-			is_parallel = 'Parallel' in mdl
+			is_parallel = 'Parallel' in model_name
 			days = files[0]()['days']
 
 			metric_curve = np.concatenate([f()['days_class_metrics_df'][metric_name].values[None] for f in files], axis=0)
@@ -50,14 +47,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			xe_metric_curve_avg = XError(np.mean(metric_curve, axis=-1))
 
 			ax = axs[int(not is_parallel)]
-			_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
-
-			te_dims = int(mn_dict.get('te-dims', 0))
-			cell = mn_dict.get('cell', None)
-			new_model_name = mdl+(f' w/ M={te_dims//2}' if te_dims>0 else '')+(f' w/ cell={cell}' if not cell is None else '')
-
-			label = f'{new_model_name} | AUC={xe_metric_curve_avg}'
-			color = color_dict[utils.get_cmodel_name(model_name)]
+			label = f'{utils.get_fmodel_name(model_name)} | AUC={xe_metric_curve_avg}'
+			color = color_dict[utils.get_fmodel_name(model_name)]
 			if p is None:
 				for i in range(0, len(xe_metric_curve.x)):
 					ax.plot(days, xe_metric_curve.x[i], '--' if is_parallel else '-', label=label, c=color)

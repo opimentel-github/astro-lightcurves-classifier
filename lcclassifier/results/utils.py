@@ -8,6 +8,19 @@ import numpy as np
 
 ###################################################################################################################################################
 
+def get_fmodel_name(model_name):
+	mn_dict = strings.get_dict_from_string(model_name)
+	mdl = mn_dict['mdl']
+	te_dims = int(mn_dict.get('te-dims', 0))
+	cell = mn_dict.get('cell', None)
+	model_name = []
+	model_name += [mdl]
+	model_name += [f'w/ {cell}' if not cell is None else '']
+	model_name += [f'w/ M={te_dims//2}' if te_dims>0 else '']
+	return ' '.join(model_name)
+
+###################################################################################################################################################
+
 def get_sorted_model_names(model_names):
 	p_model_names = []
 	s_model_names = []
@@ -38,15 +51,6 @@ def get_mday_avg_str(metric_name, day_to_metric,
 	
 ###################################################################################################################################################
 
-def get_cmodel_name(model_name):
-	mn_dict = strings.get_dict_from_string(model_name)
-	mn_dict.pop('enc-emb')
-	mn_dict.pop('dec-emb')
-	#mn_dict.pop('rsc')
-	cmodel_name = '~'.join([f'{k}={mn_dict[k]}' for k in mn_dict.keys()])
-	cmodel_name = cmodel_name.replace('Parallel', '').replace('Serial', '')
-	return cmodel_name
-
 def filter_models(model_names, condition_dict):
 	new_model_names = []
 	for model_name in model_names:
@@ -66,7 +70,7 @@ def get_color_dict(model_names):
 	cmodel_names = []
 	for kmn,model_name in enumerate(model_names):
 		#if 'rsc=0' in model_name:
-		cmodel_names += [get_cmodel_name(model_name)]
+		cmodel_names += [get_fmodel_name(model_name)]
 
 	cmodel_names = list(set(cmodel_names))
 	colors = cc.colors()
