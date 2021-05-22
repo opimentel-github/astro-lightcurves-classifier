@@ -78,7 +78,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 				ax.set_title('parallel models')
 
 			ax.set_xlim([days.min(), days.max()])
-			ax.set_ylim(min(ylims[0]), max(ylims[1])*1.01)
+			ax.set_ylim(min(ylims[0]), max(ylims[1])*1.05)
 			ax.grid(alpha=0.5)
 			ax.legend(loc='lower right')
 
