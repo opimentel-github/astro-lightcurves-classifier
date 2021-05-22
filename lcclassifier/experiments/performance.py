@@ -44,25 +44,27 @@ def save_performance(train_handler, data_loader, save_rootdir,
 			dataset.set_max_day(day)
 			try:
 				if can_be_in_loop:
-					out_tdict = []
+					tdict = []
 					for ki,in_tdict in enumerate(data_loader):
-						out_tdict_ = train_handler.model(TDictHolder(in_tdict).to(train_handler.device))
-						out_tdict_ = TDictHolder(out_tdict_).to('cpu') # cpu to save gpu memory
-						out_tdict.append(out_tdict_)
-
-					out_tdict = minibatch_dict_collate(out_tdict)
+						_tdict = train_handler.model(TDictHolder(in_tdict).to(train_handler.device))
+						_tdict = TDictHolder(_tdict).to('cpu') # cpu to save gpu memory
+						tdict.append(_tdict)
+					tdict = minibatch_dict_collate(tdict)
 
 					### decoder
-					onehot = out_tdict['input']['onehot']
 					mse_loss_bdict = {}
 					for kb,b in enumerate(dataset.band_names):
-						p_onehot = onehot[...,kb]
-						p_error = seq_utils.serial_to_parallel(out_tdict['target']['error'], onehot[...,kb]) # (b,t,1)
-						p_rx = seq_utils.serial_to_parallel(out_tdict['target']['rec_x'], onehot[...,kb]) # (b,t,1)
-						p_rx_pred = out_tdict['model'][f'rec_x.{b}'] # (b,t,1)
+						p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
+						#p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+						#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
+						#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
+						p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+						p_rx = tdict['target'][f'recx.{b}'] # (b,t,1)
 
+						p_rx_pred = tdict['model'][f'decx.{b}'] # (b,t,1)
 						mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+C_.REC_LOSS_EPS) # (b,t,1)
-						mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, seq_utils.get_seq_onehot_mask(p_onehot.sum(dim=-1), onehot.shape[1])) # (b,t,1) > (b,1)
+						#mse_loss_b = torch.abs(p_rx-p_rx_pred)/(p_error**2+C_.REC_LOSS_EPS) # (b,t,1)
+						mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 						mse_loss_bdict[b] = mse_loss_b[...,0] # (b,1) > (b)
 
 					mse_loss = torch.cat([mse_loss_bdict[b][...,None] for b in dataset.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
@@ -75,9 +77,9 @@ def save_performance(train_handler, data_loader, save_rootdir,
 						})
 
 					### class prediction
-					y_target = out_tdict['target']['y']
-					#y_pred_p = torch.nn.functional.softmax(out_tdict['model'][classifier_key], dim=-1)
-					y_pred_p = torch.sigmoid(out_tdict['model'][classifier_key])
+					y_target = tdict['target']['y']
+					#y_pred_p = torch.nn.functional.softmax(tdict['model'][classifier_key], dim=-1)
+					y_pred_p = torch.sigmoid(tdict['model'][classifier_key])
 					#print('y_pred_p',y_pred_p[0])
 
 					if target_is_onehot:

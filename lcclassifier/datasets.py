@@ -16,6 +16,9 @@ from fuzzytools.progress_bars import ProgressBar
 from fuzzytorch.utils import print_tdict
 import fuzzytorch.models.seq_utils as seq_utils
 from fuzzytorch.utils import TDictHolder
+from lchandler.lc_classes import diff_vector
+from nested_dict import nested_dict
+from copy import copy
 
 ###################################################################################################################################################
 
@@ -35,52 +38,70 @@ def fix_new_len(tdict, uses_len_clip, max_len):
 class CustomDataset(Dataset):
 	def __init__(self, lcset_name, lcdataset, in_attrs, rec_attr,
 		max_day:float=np.infty,
-		max_len:int=None,
 		hours_noise_amp:float=C_.HOURS_NOISE_AMP,
 		std_scale:float=C_.OBSE_STD_SCALE,
 		cpds_p:float=C_.CPDS_P,
 		balanced_repeats=1,
-		training=False,
-		ds_mode=False, # False True
+		ds_mode={},
 		):
-		self.training = training
-
 		self.lcset_name = lcset_name
-		self.lcset = lcdataset[lcset_name]
-		self.lcset.reset_boostrap() # fixme
-		self.lcset_info = self.lcset.get_info()
-
-		self.append_in_ddays = 'd_days' in in_attrs
-		self.in_attrs = [ia for ia in in_attrs if not ia=='d_days']
+		self.lcdataset = lcdataset
+		self.in_attrs = in_attrs
 		self.rec_attr = rec_attr
-		self.max_day = self.get_max_duration() if max_day is None else max_day
-		self._max_day = max_day
-		self.max_len = self.calcule_max_len() if max_len is None else max_len
 
+		self.max_day = max_day
 		self.hours_noise_amp = hours_noise_amp
 		self.std_scale = std_scale
 		self.cpds_p = cpds_p
-
 		self.balanced_repeats = balanced_repeats
 		self.ds_mode = ds_mode
 		self.reset()
 
 	def reset(self):
-		self.training = False
-		self.precomputed_dict = {}
+		self.eval()
+
+		self.lcset = copy(self.lcdataset[self.lcset_name]) # copy
+		self.lcset_info = self.lcset.get_info()
 		self.band_names = self.lcset.band_names
 		self.class_names = self.lcset.class_names
 		self.survey = self.lcset.survey
+		self.add_serial_band()
+
+		self.append_in_ddays = 'd_days' in self.in_attrs
+		self.in_attrs = [ia for ia in self.in_attrs if not ia=='d_days']
+		self._max_day = self.max_day # save original to perform reset
+		self.max_len = self.calcule_max_len()
+
+		self.precomputed_dict = {}
 		self.automatic_diff()
-		self.calcule_in_scaler_bdict()
-		self.calcule_rec_scaler_bdict()
-		self.calcule_ddays_scaler_bdict()
-		self.reset_max_day()
+
+		self.scalers = nested_dict()
+		self.calcule_dtime_scaler()
+		self.calcule_in_scaler()
+		self.calcule_rec_scaler()
+		self.scalers = self.scalers.to_dict()
+
 		self.calcule_poblation_weights()
 		self.calcule_balanced_w_cdict()
-		self.generate_balanced_lcobj_names()
+
+	def train(self):
+		self.resample_lcobj_names() # important
+		self.training = True
+
+	def eval(self):
+		self.training = False
+
+	def add_serial_band(self):
+		# extra band used to statistics as scales
+		for lcobj_name in self.get_lcobj_names():
+			lcobj = self.lcset[lcobj_name]
+			lcobj.add_sublcobj_b('*', sum([lcobj.get_b(b) for b in self.band_names]))
+			lcobj.reset_day_offset_serial() # remove day offset!
+
+###################################################################################################################################################
 
 	def automatic_diff(self):
+		# used to statistics as scales
 		attrs = self.in_attrs+[self.rec_attr]
 		for attr in attrs: # calcule derivates!
 			if attr=='d_obs':
@@ -88,7 +109,7 @@ class CustomDataset(Dataset):
 			if attr=='d_obse':
 				self.lcset.set_diff_parallel('obse')
 
-		### needed always!
+		### almost needed always for RNN
 		self.lcset.set_diff_parallel('days')
 
 	def reset_max_day(self):
@@ -100,27 +121,16 @@ class CustomDataset(Dataset):
 	def calcule_poblation_weights(self):
 		self.populations_cdict = self.lcset.get_populations_cdict()
 
-	def generate_balanced_lcobj_names(self):
+	def resample_lcobj_names(self):
 		min_index = np.argmin([self.populations_cdict[c] for c in self.class_names])
 		min_c = self.class_names[min_index]
-		#min_c_pop = self.populations_cdict[min_c]
-		#print(min_c_pop, min_c)
-		self.balanced_lcobj_names = self.lcset.get_lcobj_names(min_c).copy()*self.balanced_repeats
+		self.balanced_lcobj_names = self.lcset.get_lcobj_names(min_c)*self.balanced_repeats
 		boostrap_n = len(self.balanced_lcobj_names)
-		#print(self.balanced_lcobj_names)
-		#assert 0
-		#to_fill_cdict = {c:max_pop-self.populations_cdict[c] for c in self.class_names}
 		for c in self.class_names:
 			if c==min_c:
 				continue
 			lcobj_names_c = self.lcset.get_boostrap_samples(c, boostrap_n)
-			#lcobj_names_c = get_random_subsampled_list(self.lcset.get_lcobj_names(c).copy(), boostrap_n)
 			self.balanced_lcobj_names += lcobj_names_c
-
-		#self.balanced_lcobj_names = balanced_lcobj_names*repeats
-
-	def get_balanced_w_cdict(self):
-		return self.balanced_w_cdict
 
 	def get_output_dims(self):
 		return len(self.in_attrs)+int(self.append_in_ddays)
@@ -141,135 +151,111 @@ class CustomDataset(Dataset):
 		return txt
 
 	def calcule_max_len(self):
-		max_len = max([len(self.lcset[lcobj_name].get_custom_x_serial(['days'], max_day=self.max_day)) for lcobj_name in self.get_lcobj_names()])
-		return max_len
+		lens = []
+		for lcobj_name in self.get_lcobj_names():
+			lcobjb = copy(self.lcset[lcobj_name].get_b('*')) # copy
+			lcobjb.clip_attrs_given_max_day(self.max_day)
+			lens += [len(lcobjb)]
+		return max(lens)
 
 	def get_max_len(self):
 		return self.max_len
 
-	def set_max_len(self, max_len:int):
-		self.max_len = max_len
-		
-	def get_max_day(self):
-		return self.max_day
-
-	def set_max_day(self, max_day:float):
+	def set_max_day(self, max_day):
+		assert max_day<=self._max_day
 		self.max_day = max_day
 
-	def get_max_duration(self):
-		self.max_duration = max([self.lcset[lcobj_name].get_days_serial_duration() for lcobj_name in self.get_lcobj_names()])
-		return self.max_duration
+	def transfer_scalers(self, other):
+		other.set_scalers(self.get_scalers())
 
-	def transfer_metadata_to(self, other):
-		other.set_max_day(self.get_max_day())
-		other.set_in_scaler_bdict(self.get_in_scaler_bdict())
-		other.set_rec_scaler_bdict(self.get_rec_scaler_bdict())
-		other.set_ddays_scaler_bdict(self.get_ddays_scaler_bdict())
-	
-	def get_in_scaler_bdict(self):
-		return self.in_scaler_bdict
+	def get_scalers(self):
+		return self.scalers
 
-	def get_rec_scaler_bdict(self):
-		return self.rec_scaler_bdict
-
-	def get_ddays_scaler_bdict(self):
-		return self.ddays_scaler_bdict
-
-	def set_in_scaler_bdict(self, scaler_bdict):
-		self.in_scaler_bdict = {k:scaler_bdict[k] for k in scaler_bdict.keys()}
-
-	def set_rec_scaler_bdict(self, scaler_bdict):
-		self.rec_scaler_bdict = {k:scaler_bdict[k] for k in scaler_bdict.keys()}
-
-	def set_ddays_scaler_bdict(self, scaler_bdict):
-		self.ddays_scaler_bdict = {k:scaler_bdict[k] for k in scaler_bdict.keys()}
+	def set_scalers(self, scalers):
+		self.scalers = scalers
 
 	def get_rec_inverse_transform(self, model_rec_x_b, b):
 		'''
 		x (t)
 		'''
 		assert len(model_rec_x_b.shape)==1
-		return self.rec_scaler_bdict[b].inverse_transform(model_rec_x_b[...,None])[...,0]
+		return self.scalers['rec'][b].inverse_transform(model_rec_x_b[...,None])[...,0]
 
 ###################################################################################################################################################
 
-	def calcule_ddays_scaler_bdict(self):
-		self.ddays_scaler_bdict = {}
-		for kb,b in enumerate(self.band_names):
+	def calcule_dtime_scaler(self):
+		SCALER_CLASS = CustomStandardScaler
+		#SCALER_CLASS = LogStandardScaler
+		#SCALER_CLASS = LogQuantileTransformer # slow
+		for kb,b in enumerate(self.band_names+['*']):
 			values = self.lcset.get_lcset_values_b(b, 'd_days')[...,None]
-			qt = CustomStandardScaler()
-			#qt = LogStandardScaler()
-			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
-			qt.fit(values)
-			self.ddays_scaler_bdict[b] = qt
+			scaler = SCALER_CLASS()
+			scaler.fit(values)
+			self.scalers['dtime'][b] = scaler
 
-	def calcule_in_scaler_bdict(self):
-		self.in_scaler_bdict = {}
-		for kb,b in enumerate(self.band_names):
+	def calcule_in_scaler(self):
+		#SCALER_CLASS = CustomStandardScaler
+		SCALER_CLASS = LogStandardScaler
+		#SCALER_CLASS = LogQuantileTransformer # slow
+		for kb,b in enumerate(self.band_names+['*']):
 			values = np.concatenate([self.lcset.get_lcset_values_b(b, in_attr)[...,None] for ka,in_attr in enumerate(self.in_attrs)], axis=-1)
-			#qt = CustomStandardScaler()
-			qt = LogStandardScaler()
-			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
-			qt.fit(values)
-			self.in_scaler_bdict[b] = qt
+			scaler = SCALER_CLASS()
+			scaler.fit(values)
+			self.scalers['in'][b] = scaler
 
-	def calcule_rec_scaler_bdict(self):
-		self.rec_scaler_bdict = {}
-		for kb,b in enumerate(self.band_names):
+	def calcule_rec_scaler(self):
+		#SCALER_CLASS = CustomStandardScaler
+		SCALER_CLASS = LogStandardScaler
+		#SCALER_CLASS = LogQuantileTransformer # slow
+		for kb,b in enumerate(self.band_names+['*']):
 			values = self.lcset.get_lcset_values_b(b, self.rec_attr)[...,None]
-			#qt = CustomStandardScaler()
-			qt = LogStandardScaler()
-			#qt = LogQuantileTransformer(n_quantiles=100, random_state=0) # slow
-			qt.fit(values)
-			self.rec_scaler_bdict[b] = qt
+			scaler = SCALER_CLASS()
+			scaler.fit(values)
+			self.scalers['rec'][b] = scaler
 
 ###################################################################################################################################################
 
-	def ddays_normalize(self, x, onehot):
+	def dtime_normalize(self, x, b):
 		'''
 		x (t,1)
 		'''
+		if len(x)==0:
+			return x
 		assert len(x.shape)==2
 		assert x.shape[-1]==1
-		new_x = np.zeros_like(x) # starts with zeros!!!
-		for kb,b in enumerate(self.band_names):
-			onehot_b = onehot[...,kb][...,None]
-			qt = self.ddays_scaler_bdict[b]
-			new_x += qt.transform(x)*onehot_b
-		return new_x
+		return self.scalers['dtime'][b].transform(x)
 
-	def in_normalize(self, x, onehot):
+	def in_normalize(self, x, b):
 		'''
 		x (t,f)
 		'''
+		if len(x)==0:
+			return x
 		assert len(x.shape)==2
 		assert x.shape[-1]==len(self.in_attrs)
-		new_x = np.zeros_like(x) # starts with zeros!!!
-		for kb,b in enumerate(self.band_names):
-			onehot_b = onehot[...,kb][...,None]
-			qt = self.in_scaler_bdict[b]
-			new_x += qt.transform(x)*onehot_b
-		return new_x
+		return self.scalers['in'][b].transform(x)
 	
-	def rec_normalize(self, x, onehot):
+	def rec_normalize(self, x, b):
 		'''
 		x (t,1)
 		'''
+		if len(x)==0:
+			return x
 		assert len(x.shape)==2
 		assert x.shape[-1]==1
-		new_x = np.zeros_like(x) # starts with zeros!!!
-		for kb,b in enumerate(self.band_names):
-			onehot_b = onehot[...,kb][...,None]
-			qt = self.rec_scaler_bdict[b]
-			new_x += qt.transform(x)*onehot_b
-		return new_x
+		return self.scalers['rec'][b].transform(x)
 
-	def train(self):
-		self.training = True
-		self.generate_balanced_lcobj_names() # important
+	###################################################################################################################################################
 
-	def eval(self):
-		self.training = False
+	def get_random_stratified_lcobj_names(self,
+		nc=1,
+		):
+		# stratified, mostly used for images in experiments
+		lcobj_names = []
+		random_ndict = self.lcset.get_random_stratified_lcobj_names(nc)
+		for c in self.class_names:
+			lcobj_names += random_ndict[c]
+		return lcobj_names
 
 	###################################################################################################################################################
 
@@ -282,35 +268,14 @@ class CustomDataset(Dataset):
 	def has_precomputed_samples(self):
 		return len(self.precomputed_dict.keys())>0
 
-	def get_random_stratified_lcobj_names(self,
-		nc=1,
-		):
-		# stratified, mostly used for images in experiments
-		lcobj_names = []
-		random_ndict = self.lcset.get_random_stratified_lcobj_names(nc)
-		for c in self.class_names:
-			lcobj_names += random_ndict[c]
-		return lcobj_names
-
 	def __len__(self):
 		lcobj_names = self.get_lcobj_names()
 		return len(lcobj_names)
 
-	def __getitem__(self, idx:int):
-		lcobj_names = self.get_lcobj_names()
-		lcobj_name = lcobj_names[idx]
-		if self.training:
-			if self.has_precomputed_samples():
-				#print('get_random_item!!')
-				return get_random_item(self.precomputed_dict[lcobj_name]) # all with data augmentation
-			else:
-				return self.get_item(self.lcset[lcobj_name], uses_daugm=True) # all with data augmentation
-		else:
-			return self.get_item(self.lcset[lcobj_name], uses_daugm=False) # no data augmentation
-
 	def precompute_samples(self, precomputed_copies,
 		device='cpu',
 		):
+		assert self.training==False
 		if precomputed_copies<=0:
 			return
 		if not self.has_precomputed_samples():
@@ -325,92 +290,83 @@ class CustomDataset(Dataset):
 
 			bar.done()
 
-	def precompute_samples_joblib(self, precomputed_copies,
-		device='cpu',
-		backend='threading',
-		n_jobs=1, # bug?
-		):
-		# don't use this!
-		if precomputed_copies<=0:
-			return
-		if not self.has_precomputed_samples():
-			def job(lcobj, uses_daugm):
-				return self.get_item(lcobj, uses_daugm=uses_daugm)
+	###################################################################################################################################################
 
-			lcobj_names = self.get_lcobj_names()
-			bar = ProgressBar(len(lcobj_names))
-			for k,lcobj_name in enumerate(lcobj_names):
-				bar(f'precomputed_copies={precomputed_copies} - device={device} - lcobj_name={lcobj_name}')
-				self.precomputed_dict[lcobj_name] = []
-				jobs = []
-				for _k,_lcobj_name in enumerate([lcobj_name]*precomputed_copies):
-					jobs.append(delayed(job)(
-						self.lcset[_lcobj_name],
-						_k>0,
-					))
-				results = Parallel(n_jobs=n_jobs, backend=backend)(jobs)
-				#self.precomputed_dict[lcobj_name] = results+[self.get_item(self.lcset[lcobj_name].copy(), uses_daugm=False)]
-				for r in results:
-					self.precomputed_dict[lcobj_name] += [r if device=='cpu' else TDictHolder(r).to(device)]
-
-			bar.done()
-
+	def __getitem__(self, idx:int):
+		lcobj_names = self.get_lcobj_names()
+		lcobj_name = lcobj_names[idx]
+		if self.training:
+			if self.has_precomputed_samples():
+				#print('get_random_item!')
+				return get_random_item(self.precomputed_dict[lcobj_name]) # all with data augmentation
+			else:
+				return self.get_item(self.lcset[lcobj_name], uses_daugm=True) # all with data augmentation
+		else:
+			return self.get_item(self.lcset[lcobj_name], uses_daugm=False) # no data augmentation
 
 	def get_item(self, _lcobj,
 		uses_daugm=False,
 		uses_len_clip=True,
 		return_lcobjs=False,
+		float_dtype=torch.float32,
 		):
 		'''
 		apply data augmentation, this overrides obj information
 		be sure to copy the input lcobj!!!!
 		'''
-		lcobj = self.lcset[_lcobj].copy() if isinstance(_lcobj, str) else _lcobj.copy()
+		lcobj = copy(self.lcset[_lcobj]) if isinstance(_lcobj, str) else copy(_lcobj) # copy
+		### perform da ignoring *
 		if uses_daugm:
-			for b in lcobj.bands:
+			for kb,b in enumerate(self.band_names):
 				lcobjb = lcobj.get_b(b)
 				lcobjb.apply_downsampling_window(self.ds_mode) # curve points downsampling we need to ensure the model to see compelte curves
 				lcobjb.apply_downsampling(0.1) # curve points downsampling
 				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
+			lcobj.reset_day_offset_serial(bands=self.band_names) # remove day offset!
 
-		### remove day offset!
-		day_offset = lcobj.reset_day_offset_serial()
+		### clip by max day
+		for kb,b in enumerate(self.band_names):
+			lcobjb = lcobj.get_b(b)
+			lcobjb.clip_attrs_given_max_day(self.max_day)
 
-		### prepare to export
-		max_day = self.max_day
-		sorted_time_indexs = lcobj.get_sorted_days_indexs_serial() # get just once for performance purposes
-		onehot = lcobj.get_onehot_serial(sorted_time_indexs, max_day)
-		x = self.in_normalize(lcobj.get_custom_x_serial(self.in_attrs, sorted_time_indexs, max_day), onehot)
-		d_days =self.ddays_normalize(lcobj.get_custom_x_serial(['d_days'], sorted_time_indexs, max_day), onehot)
-		days = lcobj.get_custom_x_serial(['days'], sorted_time_indexs, max_day)
-		x = np.concatenate([x, d_days], axis=-1) if self.append_in_ddays else x
-		#print('x',x.shape)
-		### tensor dict
-		model_input = {
-			'onehot':torch.as_tensor(onehot),
-			'x':torch.as_tensor(x, dtype=torch.float32),
-			'time':torch.as_tensor(days, dtype=torch.float32),
-			'dtime':torch.as_tensor(d_days, dtype=torch.float32),
-			}
+		### recompute *
+		new_lcobjb = sum([lcobj.get_b(b) for b in self.band_names])
+		new_lcobjb.set_diff('days') # recompute dtime
+		lcobj.add_sublcobj_b('*', new_lcobjb) # redefine serial band because da
 
 		###
-		rec_x =self.rec_normalize(lcobj.get_custom_x_serial([self.rec_attr], sorted_time_indexs, max_day), onehot)
-		error = lcobj.get_custom_x_serial(['obse'], sorted_time_indexs, max_day)
-		balanced_w = np.array([self.get_balanced_w_cdict()[self.class_names[lcobj.y]]])
-		#print(balanced_w, balanced_w.shape, c)
-		target = {
-			'y':torch.as_tensor(lcobj.y),
-			'rec_x':torch.as_tensor(rec_x, dtype=torch.float32),
-			'error':torch.as_tensor(error, dtype=torch.float32),
-			'balanced_w':torch.as_tensor(balanced_w, dtype=torch.float32),
-			}
+		tdict = nested_dict()
+		s_onehot = lcobj.get_onehot_serial(bands=self.band_names) # ignoring *
+		#print(s_onehot.shape, s_onehot)
+		tdict['input'][f's_onehot'] = torch.as_tensor(s_onehot) # (t,b)
+		for kb,b in enumerate(self.band_names+['*']):
+			lcobjb = lcobj.get_b(b)
 
-		###
-		tdict = {
-			'input':fix_new_len(model_input, uses_len_clip, self.max_len),
-			'target':fix_new_len(target, uses_len_clip, self.max_len),
-			}
-		#print_tdict(tdict)
+			onehot = np.ones(len(lcobjb), dtype=bool)[...,None] # (t,1)
+			x = self.in_normalize(lcobjb.get_custom_x(self.in_attrs), b) # (t,f) # norm
+			time = lcobjb.days[...,None] # (t,1)
+			dtime = self.dtime_normalize(lcobjb.d_days[...,None], b) # (t,1) # norm
+			x = np.concatenate([x, dtime], axis=-1) if self.append_in_ddays else x
+
+			tdict['input'][f'onehot.{b}'] = torch.as_tensor(onehot)
+			tdict['input'][f'time.{b}'] = torch.as_tensor(time, dtype=float_dtype)
+			tdict['input'][f'dtime.{b}'] = torch.as_tensor(dtime, dtype=float_dtype)
+			tdict['input'][f'x.{b}'] = torch.as_tensor(x, dtype=float_dtype)
+
+			recx = self.rec_normalize(lcobjb.get_custom_x([self.rec_attr]), b) # (t,1) # norm
+			error = lcobjb.obse[...,None] # (t,1)
+			assert np.all(error>=0)
+
+			tdict['target'][f'recx.{b}'] = torch.as_tensor(recx, dtype=float_dtype)
+			tdict['target'][f'error.{b}'] = torch.as_tensor(error, dtype=float_dtype)
+
+		y = lcobj.y
+		balanced_w = np.array([self.balanced_w_cdict[self.class_names[lcobj.y]]])
+		tdict['target']['y'] = torch.as_tensor(y)
+		tdict['target'][f'balanced_w'] = torch.as_tensor(balanced_w, dtype=float_dtype)
+
+		tdict = tdict.to_dict()
+		tdict = {k:fix_new_len(tdict[k], uses_len_clip, self.max_len) for k in tdict.keys()}
 		if return_lcobjs:
 			return tdict, lcobj
 		return tdict

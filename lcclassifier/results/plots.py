@@ -28,6 +28,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 		fig, axs = plt.subplots(1, 2, figsize=figsize)
 		ps_model_names = utils.get_sorted_model_names(model_names, merged=False)
 		for kax,ax in enumerate(axs):
+			if len(ps_model_names[kax])==0:
+				continue
 			color_dict = utils.get_color_dict(ps_model_names[kax])
 			ylims = [[],[]]
 			for kmn,model_name in enumerate(ps_model_names[kax]):

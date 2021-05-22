@@ -125,8 +125,9 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 		dataset_kwargs = mp_grid['dataset_kwargs']
 		s_balanced_repeats = 50
 		r_balanced_repeats = s_balanced_repeats*2
-		s_ds_mode={'left':.0, 'random':.9, 'none':.1}
-		r_ds_mode={'left':.45, 'random':.45, 'none':.1}
+		#s_ds_mode={'left':.0, 'random':.9, 'none':.1}
+		s_ds_mode={'left':.4, 'random':.4, 'none':.2}
+		r_ds_mode={'left':.4, 'random':.4, 'none':.2}
 		if main_args.bypass:
 			s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats, ds_mode=s_ds_mode)
 		else:
@@ -136,19 +137,19 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 		r_test_dataset = CustomDataset(f'{main_args.kf}@test', lcdataset, **dataset_kwargs)
 
 		mp_grid['mdl_kwargs']['curvelength_max'] = s_train_dataset.get_max_len()
-		s_train_dataset.transfer_metadata_to(r_train_dataset) # transfer metadata to val/test
-		s_train_dataset.transfer_metadata_to(r_val_dataset) # transfer metadata to val/test
-		s_train_dataset.transfer_metadata_to(r_test_dataset) # transfer metadata to val/test
-
-		s_precomputed_samples = 20 if train_ae else 0 # *** 0* 5 10 15 20 25
-		r_precomputed_samples = 0 # *** 0*
-		s_train_dataset.precompute_samples(s_precomputed_samples)
-		r_train_dataset.precompute_samples(r_precomputed_samples)
+		s_train_dataset.transfer_scalers(r_train_dataset) # transfer metadata to val/test
+		s_train_dataset.transfer_scalers(r_val_dataset) # transfer metadata to val/test
+		s_train_dataset.transfer_scalers(r_test_dataset) # transfer metadata to val/test
 
 		print('s_train_dataset:', s_train_dataset)
 		print('r_train_dataset:', r_train_dataset)
 		print('r_val_dataset:', r_val_dataset)
 		print('r_test_dataset:', r_test_dataset)
+
+		s_precomputed_samples = 0 if train_ae else 0 # *** 0* 5 10 15 20 25
+		r_precomputed_samples = 0 # *** 0*
+		s_train_dataset.precompute_samples(s_precomputed_samples)
+		r_train_dataset.precompute_samples(r_precomputed_samples)
 
 		### DATALOADERS
 		worker_init_fn = lambda id:np.random.seed(torch.initial_seed() // 2**32+id) # num_workers-numpy bug
@@ -156,7 +157,6 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 			'batch_size':main_args.batch_size,
 			'num_workers':2, # 0 2*
 			'pin_memory':True, # False True
-			#'prefetch_factor':1, # only if num_workers>0
 			'worker_init_fn':worker_init_fn,
 			}
 		s_train_loader = CustomDataLoader(s_train_dataset, shuffle=True, **loader_kwargs) # DataLoader CustomDataLoader

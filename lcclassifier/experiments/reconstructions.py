@@ -45,20 +45,26 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 		fig, axs = plt.subplots(len(lcobj_names), 1, figsize=figsize)
 		for k,lcobj_name in enumerate(lcobj_names):
 			ax = axs[k]
-			tdict, lcobj = dataset.get_item(lcobj_name, return_lcobjs=True)
-			out_tdict = train_handler.model(TDictHolder(tdict).to(train_handler.device, add_dummy_dim=True))
-			onehot = out_tdict['input']['onehot']
-			
+			in_tdict, lcobj = dataset.get_item(lcobj_name, return_lcobjs=True)
+			tdict = train_handler.model(TDictHolder(in_tdict).to(train_handler.device, add_dummy_dim=True))
+
 			for kb,b in enumerate(dataset.band_names):
-				b_len = onehot[...,kb].sum().item()
+				p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
+				p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+				#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
+				#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
+				#p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+				#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
+
+				b_len = p_onehot.sum().item()
 				lcobjb = lcobj.get_b(b)
 				plot_lightcurve(ax, lcobj, b, label=f'{b} obs', max_day=dataset.max_day)
 
-				### rec plot
-				days = tensor_to_numpy(out_tdict['input']['time'][0,onehot[0,:,kb]])
-				p_rx_pred = tensor_to_numpy(out_tdict['model'][f'rec_x.{b}'][0,:,0])
+				### rec plot)
+				p_time = tensor_to_numpy(p_time[0,:]) # (b,t) > (t)
+				p_rx_pred = tensor_to_numpy(tdict['model'][f'decx.{b}'][0,:,0]) # (b,t,1) > (t)
 				p_rx_pred = dataset.get_rec_inverse_transform(p_rx_pred, b)
-				ax.plot(days[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
+				ax.plot(p_time[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 
 			title = ''
 			title += f'model light curve reconstructions'+'\n' if k==0 else ''

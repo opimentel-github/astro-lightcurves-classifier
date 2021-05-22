@@ -65,27 +65,24 @@ class RNNEncoderP(nn.Module):
 
 	def forward(self, tdict:dict, **kwargs):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
-		model_input = tdict['input']
-		x = model_input['x']
-		onehot = model_input['onehot']
-
-		z_bdict = {}
+		encz_bdict = {}
 		for kb,b in enumerate(self.band_names):
-			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
-			p_x = seq_utils.serial_to_parallel(x, onehot[...,kb])
-			p_z = self.x_projection[b](p_x)
-			p_zs, _ = self.ml_rnn[b](p_z, p_onehot, **kwargs) # out, (ht, ct)
+			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
+			#p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+			#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
+			p_x = tdict['input'][f'x.{b}'] # (b,t,f)
+			#p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+			#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
 
+			p_encz = self.x_projection[b](p_x)
+			p_encz, _ = self.ml_rnn[b](p_encz, p_onehot, **kwargs) # out, (ht, ct)
 			### representative element
-			for layer in range(0, self.rnn_layers):
-				z_bdict[f'z-{layer}.{b}'] = seq_utils.seq_last_element(p_zs[layer], p_onehot) # last element
+			encz_bdict[f'encz.{b}'] = seq_utils.seq_last_element(p_encz, p_onehot) # last element
 
 		### BUILD OUT
-		z_last = self.z_projection(torch.cat([z_bdict[f'z-{self.rnn_layers-1}.{b}'] for b in self.band_names], dim=-1))
-		tdict['model']['z_last'] = z_last
-		tdict['model']['y_last_pt'] = self.xentropy_projection(z_last)
-		for layer in range(0, self.rnn_layers):
-			tdict['model'][f'z-{layer}'] = torch.mean(torch.cat([z_bdict[f'z-{layer}.{b}'][...,None] for b in self.band_names], dim=-1), dim=-1)
+		encz_last = self.z_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
+		tdict['model']['encz_last'] = encz_last
+		tdict['model']['y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict
 
 ###################################################################################################################################################
@@ -120,13 +117,6 @@ class RNNEncoderS(nn.Module):
 		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs)
 		print('ml_rnn:', self.ml_rnn)
 
-		### POST-PROJECTION
-		linear_kwargs = {
-			'activation':'linear',
-		}
-		self.z_projection = Linear(self.rnn_embd_dims, self.rnn_embd_dims, **linear_kwargs)
-		print('z_projection:', self.z_projection)
-
 		### XENTROPY REG
 		linear_kwargs = {
 			'activation':'linear',
@@ -143,23 +133,23 @@ class RNNEncoderS(nn.Module):
 
 	def forward(self, tdict:dict, **kwargs):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
-		model_input = tdict['input']
-		x = model_input['x']
-		onehot = model_input['onehot']
-		s_onehot = onehot.sum(dim=-1).bool()
+		encz_bdict = {}
 
-		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
-		zs, _ = self.ml_rnn(z, s_onehot, **kwargs) # out, (ht, ct)
+		s_onehot = tdict['input']['s_onehot'] # (b,t,d)
+		onehot = tdict['input']['onehot.*'][...,0] # (b,t)
+		#time = tdict['input']['time.*'][...,0] # (b,t)
+		#dtime = tdict['input'][f'dtime.*'][...,0] # (b,t)
+		x = tdict['input'][f'x.*'] # (b,t,f)
+		#error = tdict['target'][f'error.*'] # (b,t,1)
+		#rx = tdict['target'][f'rec_x.*'] # (b,t,1)
 
-		z_bdict = {}
+		encz = self.x_projection(torch.cat([x, s_onehot.float()], dim=-1)) # (b,t,f+d)
+		encz, _ = self.ml_rnn(encz, onehot, **kwargs) # out, (ht, ct)
 		### representative element
-		for layer in range(0, self.rnn_layers):
-			z_bdict[f'z-{layer}'] = seq_utils.seq_last_element(zs[layer], s_onehot) # last element
+		encz_bdict[f'encz'] = seq_utils.seq_last_element(encz, onehot) # last element
 
 		### BUILD OUT
-		z_last = self.z_projection(z_bdict[f'z-{self.rnn_layers-1}'])
-		tdict['model']['z_last'] = z_last
-		tdict['model']['y_last_pt'] = self.xentropy_projection(z_last)
-		for layer in range(0, self.rnn_layers):
-			tdict['model'][f'z-{layer}'] = z_bdict[f'z-{layer}']
+		encz_last = encz_bdict[f'encz']
+		tdict['model']['encz_last'] = encz_last
+		tdict['model']['y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict

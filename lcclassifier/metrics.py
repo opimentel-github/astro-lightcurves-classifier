@@ -21,20 +21,16 @@ class LCWMSE(FTMetric):
 		self.k = k
 
 	def __call__(self, tdict, **kwargs):
-		onehot = tdict['input']['onehot']
-		time = tdict['input']['time']
-		error = tdict['target']['error']
-		assert torch.all(error>=0)
-
-		t = onehot.shape[1]
 		mse_loss_bdict = {}
 		for kb,b in enumerate(self.band_names):
-			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
-			p_time = seq_utils.serial_to_parallel(time, onehot[...,kb]) # (b,t,1)
-			p_error = seq_utils.serial_to_parallel(error, onehot[...,kb]) # (b,t,1)
-			p_rx = seq_utils.serial_to_parallel(tdict['target']['rec_x'], onehot[...,kb]) # (b,t,1)
-			p_rx_pred = tdict['model'][f'rec_x.{b}'] # (b,t,1)
+			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
+			#p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+			#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
+			#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
+			p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+			p_rx = tdict['target'][f'recx.{b}'] # (b,t,1)
 
+			p_rx_pred = tdict['model'][f'decx.{b}'] # (b,t,1)
 			mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+C_.REC_LOSS_EPS) # (b,t,1)
 			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 			mse_loss_bdict[b] = mse_loss_b

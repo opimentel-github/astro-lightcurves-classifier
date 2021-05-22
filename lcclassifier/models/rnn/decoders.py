@@ -60,25 +60,22 @@ class RNNDecoderP(nn.Module):
 		
 	def forward(self, tdict:dict, **kwargs):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
-		model_input = tdict['input']
-		x = model_input['x']
-		onehot = model_input['onehot']
-
-		extra_info = {}
-		b,t,_ = onehot.size()
-		dz = tdict['model']['z_last'][:,None,:].repeat(1, t, 1) # dz: decoder z
-
 		for kb,b in enumerate(self.band_names):
-			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
-			p_dz = seq_utils.serial_to_parallel(dz, onehot[...,kb])
-			p_dtime = seq_utils.serial_to_parallel(model_input['dtime'], onehot[...,kb])
-			p_dz = torch.cat([p_dz, p_dtime], dim=-1) # cat dtime
+			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
+			#p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+			p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
+			#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
+			#p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+			#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
 
-			p_rx = self.x_projection[b](p_dz)
-			p_rx, _ = self.ml_rnn[b](p_rx, p_onehot, **kwargs) # out, (ht, ct)
-			p_rx = p_rx[-1]
-			p_rx = self.dz_projection[b](p_rx)
-			tdict['model'].update({f'rec_x.{b}':p_rx})
+			p_decz = tdict['model']['encz_last'][:,None,:].repeat(1, p_onehot.shape[1], 1) # decoder z
+			p_decz = torch.cat([p_decz, p_dtime[...,None]], dim=-1) # cat dtime
+			p_decz = self.x_projection[b](p_decz)
+			p_decz, _ = self.ml_rnn[b](p_decz, p_onehot, **kwargs) # out, (ht, ct)
+			p_decx = self.dz_projection[b](p_decz)
+			tdict['model'].update({
+				f'decx.{b}':p_decx,
+				})
 
 		return tdict
 
@@ -130,23 +127,24 @@ class RNNDecoderS(nn.Module):
 		
 	def forward(self, tdict:dict, **kwargs):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
-		model_input = tdict['input']
-		x = model_input['x']
-		onehot = model_input['onehot']
+		s_onehot = tdict['input']['s_onehot'] # (b,t,d)
+		onehot = tdict['input']['onehot.*'][...,0] # (b,t)
+		#time = tdict['input']['time.*'][...,0] # (b,t)
+		dtime = tdict['input'][f'dtime.*'][...,0] # (b,t)
+		#x = tdict['input'][f'x.*'] # (b,t,f)
+		#error = tdict['target'][f'error.*'] # (b,t,1)
+		#rx = tdict['target'][f'rec_x.*'] # (b,t,1)
 
-		b,t,_ = onehot.size()
-		dz = tdict['model']['z_last'][:,None,:].repeat(1,t,1) # dz: decoder z
-		dtime = model_input['dtime']
-		dz = torch.cat([dz, onehot.float(), dtime], dim=-1) # cat bands & dtime
-		s_onehot = onehot.sum(dim=-1).bool()
+		decz = tdict['model']['encz_last'][:,None,:].repeat(1,onehot.shape[1],1) # dz: decoder z
+		decz = torch.cat([decz, s_onehot.float(), dtime[...,None]], dim=-1) # cat bands & dtime # (b,t,f+d+1)
 		
-		rx = self.x_projection(dz)
-		rx, _ = self.ml_rnn(rx, s_onehot, **kwargs) # out, (ht, ct)
-		rx = rx[-1]
-		rx = self.dz_projection(rx)
-			
+		decz = self.x_projection(decz)
+		decz, _ = self.ml_rnn(decz, onehot, **kwargs) # out, (ht, ct)
+		decx = self.dz_projection(decz)
 		for kb,b in enumerate(self.band_names):
-			p_rx = seq_utils.serial_to_parallel(rx, onehot[...,kb])
-			tdict['model'].update({f'rec_x.{b}':p_rx})
+			p_decx = seq_utils.serial_to_parallel(decx, s_onehot[...,kb])
+			tdict['model'].update({
+				f'decx.{b}':p_decx,
+				})
 
 		return tdict

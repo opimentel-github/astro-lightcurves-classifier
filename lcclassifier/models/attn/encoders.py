@@ -74,31 +74,27 @@ class TimeSelfAttnEncoderP(nn.Module):
 
 	def forward(self, tdict:dict, **kwargs):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
-		model_input = tdict['input']
-		x = model_input['x']
-		onehot = model_input['onehot']
-
-		z_bdict = {}
+		encz_bdict = {}
 		attn_scores = {}
-		for kb,b in enumerate(self.band_names):
-			p_onehot = seq_utils.serial_to_parallel(onehot, onehot[...,kb])[...,kb] # (b,t)
-			p_x = seq_utils.serial_to_parallel(x, onehot[...,kb])
-			p_z = self.x_projection[b](p_x)
-			p_time = seq_utils.serial_to_parallel(model_input['time'], onehot[...,kb])
-			p_zs, p_scores = self.ml_attn[b](p_z, p_onehot, p_time[...,0], return_only_actual_scores=True)
 
+		for kb,b in enumerate(self.band_names):
+			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
+			p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+			#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
+			p_x = tdict['input'][f'x.{b}'] # (b,t,f)
+			#p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+			#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
+
+			p_encz = self.x_projection[b](p_x)
+			p_encz, p_scores = self.ml_attn[b](p_encz, p_onehot, p_time, return_only_actual_scores=True)
 			### representative element
-			for layer in range(0, self.attn_layers):
-				z_bdict[f'z-{layer}.{b}'] = seq_utils.seq_last_element(p_zs[layer], p_onehot) # last element
-				attn_scores[f'z-{layer}.{b}'] = p_scores[layer]
+			encz_bdict[f'encz.{b}'] = seq_utils.seq_last_element(p_encz, p_onehot) # last element
+			attn_scores[f'encz.{b}'] = p_scores
 		
 		### BUILD OUT
-		z_last = self.z_projection(torch.cat([z_bdict[f'z-{self.attn_layers-1}.{b}'] for b in self.band_names], dim=-1))
-		tdict['model']['z_last'] = z_last
-		tdict['model']['y_last_pt'] = self.xentropy_projection(z_last)
-		for layer in range(0, self.attn_layers):
-			tdict['model'][f'z-{layer}'] = torch.max(torch.cat([z_bdict[f'z-{layer}.{b}'][...,None] for b in self.band_names], dim=-1), dim=-1)[0]
-
+		encz_last = self.z_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
+		tdict['model']['encz_last'] = encz_last
+		tdict['model']['y_last_pt'] = self.xentropy_projection(encz_last)
 		if self.add_extra_return:
 			tdict['model'].update({
 				'attn_scores':attn_scores,
@@ -139,13 +135,6 @@ class TimeSelfAttnEncoderS(nn.Module):
 			}
 		self.ml_attn = ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs)
 		print('ml_attn:', self.ml_attn)
-		
-		### POST-PROJECTION
-		linear_kwargs = {
-			'activation':'linear',
-		}
-		self.z_projection = Linear(self.attn_embd_dims, self.attn_embd_dims, **linear_kwargs)
-		print('z_projection:', self.z_projection)
 
 		### XENTROPY REG
 		linear_kwargs = {
@@ -169,28 +158,27 @@ class TimeSelfAttnEncoderS(nn.Module):
 
 	def forward(self, tdict:dict, **kwargs):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
-		model_input = tdict['input']
-		x = model_input['x']
-		onehot = model_input['onehot']
-		s_onehot = onehot.sum(dim=-1).bool()
-		time = model_input['time']
-
-		z = self.x_projection(torch.cat([x, onehot.float()], dim=-1))
-		zs, scores = self.ml_attn(z, s_onehot, time[...,0], return_only_actual_scores=True)
-
-		z_bdict = {}
+		encz_bdict = {}
 		attn_scores = {}
+
+		s_onehot = tdict['input']['s_onehot'] # (b,t,d)
+		onehot = tdict['input']['onehot.*'][...,0] # (b,t)
+		time = tdict['input']['time.*'][...,0] # (b,t)
+		#dtime = tdict['input'][f'dtime.*'][...,0] # (b,t)
+		x = tdict['input'][f'x.*'] # (b,t,f)
+		#error = tdict['target'][f'error.*'] # (b,t,1)
+		#rx = tdict['target'][f'rec_x.*'] # (b,t,1)
+
+		encz = self.x_projection(torch.cat([x, s_onehot.float()], dim=-1)) # (b,t,f+d)
+		encz, scores = self.ml_attn(encz, onehot, time, return_only_actual_scores=True)
 		### representative element
-		for layer in range(0, self.attn_layers):
-			z_bdict[f'z-{layer}'] = seq_utils.seq_last_element(zs[layer], s_onehot) # last element
-			attn_scores[f'z-{layer}'] = scores[layer]
+		encz_bdict[f'encz'] = seq_utils.seq_last_element(encz, onehot) # last element
+		attn_scores[f'encz'] = scores
 
 		### BUILD OUT
-		z_last = self.z_projection(z_bdict[f'z-{self.attn_layers-1}'])
-		tdict['model']['z_last'] = z_last
-		tdict['model']['y_last_pt'] = self.xentropy_projection(z_last)
-		for layer in range(0, self.attn_layers):
-			tdict['model'][f'z-{layer}'] = z_bdict[f'z-{layer}']
+		encz_last = encz_bdict[f'encz']
+		tdict['model']['encz_last'] = encz_last
+		tdict['model']['y_last_pt'] = self.xentropy_projection(encz_last)
 		if self.add_extra_return:
 			tdict['model'].update({
 				'attn_scores':attn_scores,
