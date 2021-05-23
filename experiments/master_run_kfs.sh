@@ -2,8 +2,8 @@
 mc=$1
 gpu=$2
 mids=$3
-for kf in 0
-#for kf in 0 1 2 3 4
+#for kf in 0
+for kf in 0 1 2 3 4
 do
 SECONDS=0
 

@@ -64,15 +64,15 @@ class TimeSelfAttnDecoderP(nn.Module):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
 		for kb,b in enumerate(self.band_names):
 			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-			p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+			p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
 			#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
 			#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-			#p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+			#p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
 			#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
 
 			p_decz = tdict['model']['encz_last'][:,None,:].repeat(1, p_onehot.shape[1], 1) # decoder z
 			p_decz = self.x_projection[b](p_decz)
-			p_decz, p_scores = self.ml_attn[b](p_decz, p_onehot, p_time)
+			p_decz, p_scores = self.ml_attn[b](p_decz, p_onehot, p_rtime)
 			p_decx = self.dz_projection[b](p_decz)
 			tdict['model'].update({
 				f'decx.{b}':p_decx,
@@ -133,17 +133,16 @@ class TimeSelfAttnDecoderS(nn.Module):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
 		s_onehot = tdict['input']['s_onehot'] # (b,t,d)
 		onehot = tdict['input']['onehot.*'][...,0] # (b,t)
-		time = tdict['input']['time.*'][...,0] # (b,t)
+		rtime = tdict['input']['rtime.*'][...,0] # (b,t)
 		#dtime = tdict['input'][f'dtime.*'][...,0] # (b,t)
 		#x = tdict['input'][f'x.*'] # (b,t,f)
-		#error = tdict['target'][f'error.*'] # (b,t,1)
+		#rerror = tdict['target'][f'rerror.*'] # (b,t,1)
 		#rx = tdict['target'][f'rec_x.*'] # (b,t,1)
 
 		decz = tdict['model']['encz_last'][:,None,:].repeat(1,onehot.shape[1],1) # dz: decoder z
 		decz = torch.cat([decz, s_onehot.float()], dim=-1) # (b,t,f+d)
-		
 		decz = self.x_projection(decz)
-		decz, scores = self.ml_attn(decz, onehot, time, **kwargs)
+		decz, scores = self.ml_attn(decz, onehot, rtime, **kwargs)
 		decx = self.dz_projection(decz)
 		for kb,b in enumerate(self.band_names):
 			p_decx = seq_utils.serial_to_parallel(decx, s_onehot[...,kb])

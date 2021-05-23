@@ -50,10 +50,10 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 
 			for kb,b in enumerate(dataset.band_names):
 				p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-				p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+				p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
 				#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
 				#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-				#p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+				#p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
 				#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
 
 				b_len = p_onehot.sum().item()
@@ -61,10 +61,10 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 				plot_lightcurve(ax, lcobj, b, label=f'{b} obs', max_day=dataset.max_day)
 
 				### rec plot)
-				p_time = tensor_to_numpy(p_time[0,:]) # (b,t) > (t)
+				p_rtime = tensor_to_numpy(p_rtime[0,:]) # (b,t) > (t)
 				p_rx_pred = tensor_to_numpy(tdict['model'][f'decx.{b}'][0,:,0]) # (b,t,1) > (t)
 				p_rx_pred = dataset.get_rec_inverse_transform(p_rx_pred, b)
-				ax.plot(p_time[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
+				ax.plot(p_rtime[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 
 			title = ''
 			title += f'model light curve reconstructions'+'\n' if k==0 else ''

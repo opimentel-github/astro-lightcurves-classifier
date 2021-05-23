@@ -21,15 +21,14 @@ class LCMSEReconstruction(FTLoss):
 		mse_loss_bdict = {}
 		for kb,b in enumerate(self.band_names):
 			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-			#p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+			#p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
 			#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
 			#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-			p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+			p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
 			p_rx = tdict['target'][f'recx.{b}'] # (b,t,1)
 
 			p_rx_pred = tdict['model'][f'decx.{b}'] # (b,t,1)
-			mse_loss_b = (p_rx-p_rx_pred)**2/(p_error**2+C_.REC_LOSS_EPS) # (b,t,1)
-			#mse_loss_b = torch.abs(p_rx-p_rx_pred)/(p_error**2+C_.REC_LOSS_EPS) # (b,t,1)
+			mse_loss_b = (p_rx-p_rx_pred)**2/(p_rerror**2+C_.REC_LOSS_EPS) # (b,t,1)
 			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 			mse_loss_bdict[b] = mse_loss_b
 

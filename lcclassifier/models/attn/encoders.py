@@ -79,14 +79,14 @@ class TimeSelfAttnEncoderP(nn.Module):
 
 		for kb,b in enumerate(self.band_names):
 			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-			p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+			p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
 			#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
 			p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-			#p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+			#p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
 			#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
 
 			p_encz = self.x_projection[b](p_x)
-			p_encz, p_scores = self.ml_attn[b](p_encz, p_onehot, p_time, return_only_actual_scores=True)
+			p_encz, p_scores = self.ml_attn[b](p_encz, p_onehot, p_rtime, return_only_actual_scores=True)
 			### representative element
 			encz_bdict[f'encz.{b}'] = seq_utils.seq_last_element(p_encz, p_onehot) # last element
 			attn_scores[f'encz.{b}'] = p_scores
@@ -163,14 +163,14 @@ class TimeSelfAttnEncoderS(nn.Module):
 
 		s_onehot = tdict['input']['s_onehot'] # (b,t,d)
 		onehot = tdict['input']['onehot.*'][...,0] # (b,t)
-		time = tdict['input']['time.*'][...,0] # (b,t)
+		rtime = tdict['input']['rtime.*'][...,0] # (b,t)
 		#dtime = tdict['input'][f'dtime.*'][...,0] # (b,t)
 		x = tdict['input'][f'x.*'] # (b,t,f)
-		#error = tdict['target'][f'error.*'] # (b,t,1)
+		#rerror = tdict['target'][f'rerror.*'] # (b,t,1)
 		#rx = tdict['target'][f'rec_x.*'] # (b,t,1)
 
 		encz = self.x_projection(torch.cat([x, s_onehot.float()], dim=-1)) # (b,t,f+d)
-		encz, scores = self.ml_attn(encz, onehot, time, return_only_actual_scores=True)
+		encz, scores = self.ml_attn(encz, onehot, rtime, return_only_actual_scores=True)
 		### representative element
 		encz_bdict[f'encz'] = seq_utils.seq_last_element(encz, onehot) # last element
 		attn_scores[f'encz'] = scores

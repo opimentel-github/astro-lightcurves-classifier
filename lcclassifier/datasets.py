@@ -320,7 +320,7 @@ class CustomDataset(Dataset):
 			for kb,b in enumerate(self.band_names):
 				lcobjb = lcobj.get_b(b)
 				lcobjb.apply_downsampling_window(self.ds_mode) # curve points downsampling we need to ensure the model to see compelte curves
-				lcobjb.apply_downsampling(0.1) # curve points downsampling
+				lcobjb.apply_downsampling(.1) # curve points downsampling
 				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
 			lcobj.reset_day_offset_serial(bands=self.band_names) # remove day offset!
 
@@ -330,9 +330,7 @@ class CustomDataset(Dataset):
 			lcobjb.clip_attrs_given_max_day(self.max_day)
 
 		### recompute *
-		new_lcobjb = sum([lcobj.get_b(b) for b in self.band_names])
-		new_lcobjb.set_diff('days') # recompute dtime
-		lcobj.add_sublcobj_b('*', new_lcobjb) # redefine serial band because da
+		lcobj.add_sublcobj_b('*', sum([lcobj.get_b(b) for b in self.band_names])) # redefine serial band because da
 
 		###
 		tdict = nested_dict()
@@ -341,24 +339,32 @@ class CustomDataset(Dataset):
 		tdict['input'][f's_onehot'] = torch.as_tensor(s_onehot) # (t,b)
 		for kb,b in enumerate(self.band_names+['*']):
 			lcobjb = lcobj.get_b(b)
+			lcobjb.set_diff('days') # recompute dtime just in case (it's already implemented in da)
 
 			onehot = np.ones(len(lcobjb), dtype=bool)[...,None] # (t,1)
-			x = self.in_normalize(lcobjb.get_custom_x(self.in_attrs), b) # (t,f) # norm
-			time = lcobjb.days[...,None] # (t,1)
-			dtime = self.dtime_normalize(lcobjb.d_days[...,None], b) # (t,1) # norm
-			x = np.concatenate([x, dtime], axis=-1) if self.append_in_ddays else x
+			rx = lcobjb.get_custom_x(self.in_attrs) # raw_x (t,f)
+			x = self.in_normalize(rx, b) # norm_x (t,f)
+			rtime = lcobjb.days[...,None] # raw_time t,1) - timeselfattn
+			#time
+			rdtime = lcobjb.d_days[...,None] # raw_dtime (t,1) - gru-d
+			dtime = self.dtime_normalize(rdtime, b) # norm_dtime (t,1) - rnn/tcnn
+
+			x = np.concatenate([x, dtime], axis=-1) if self.append_in_ddays else x # new x
 
 			tdict['input'][f'onehot.{b}'] = torch.as_tensor(onehot)
-			tdict['input'][f'time.{b}'] = torch.as_tensor(time, dtype=float_dtype)
+			tdict['input'][f'rtime.{b}'] = torch.as_tensor(rtime, dtype=float_dtype)
+			#time
+			tdict['input'][f'rdtime.{b}'] = torch.as_tensor(rdtime, dtype=float_dtype)
 			tdict['input'][f'dtime.{b}'] = torch.as_tensor(dtime, dtype=float_dtype)
 			tdict['input'][f'x.{b}'] = torch.as_tensor(x, dtype=float_dtype)
 
-			recx = self.rec_normalize(lcobjb.get_custom_x([self.rec_attr]), b) # (t,1) # norm
-			error = lcobjb.obse[...,None] # (t,1)
-			assert np.all(error>=0)
+			rrecx = lcobjb.get_custom_x([self.rec_attr]) # raw_recx (t,1)
+			recx = self.rec_normalize(rrecx, b) # norm_recx (t,1)
+			rerror = lcobjb.obse[...,None] # raw_error (t,1)
+			assert np.all(rerror>=0)
 
 			tdict['target'][f'recx.{b}'] = torch.as_tensor(recx, dtype=float_dtype)
-			tdict['target'][f'error.{b}'] = torch.as_tensor(error, dtype=float_dtype)
+			tdict['target'][f'rerror.{b}'] = torch.as_tensor(rerror, dtype=float_dtype)
 
 		y = lcobj.y
 		balanced_w = np.array([self.balanced_w_cdict[self.class_names[lcobj.y]]])

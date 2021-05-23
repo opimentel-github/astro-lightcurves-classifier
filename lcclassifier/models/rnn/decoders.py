@@ -62,10 +62,10 @@ class RNNDecoderP(nn.Module):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
 		for kb,b in enumerate(self.band_names):
 			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-			#p_time = tdict['input'][f'time.{b}'][...,0] # (b,t)
+			#p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
 			p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
 			#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-			#p_error = tdict['target'][f'error.{b}'] # (b,t,1)
+			#p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
 			#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
 
 			p_decz = tdict['model']['encz_last'][:,None,:].repeat(1, p_onehot.shape[1], 1) # decoder z
@@ -129,15 +129,14 @@ class RNNDecoderS(nn.Module):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
 		s_onehot = tdict['input']['s_onehot'] # (b,t,d)
 		onehot = tdict['input']['onehot.*'][...,0] # (b,t)
-		#time = tdict['input']['time.*'][...,0] # (b,t)
+		#rtime = tdict['input']['rtime.*'][...,0] # (b,t)
 		dtime = tdict['input'][f'dtime.*'][...,0] # (b,t)
 		#x = tdict['input'][f'x.*'] # (b,t,f)
-		#error = tdict['target'][f'error.*'] # (b,t,1)
+		#rerror = tdict['target'][f'rerror.*'] # (b,t,1)
 		#rx = tdict['target'][f'rec_x.*'] # (b,t,1)
 
 		decz = tdict['model']['encz_last'][:,None,:].repeat(1,onehot.shape[1],1) # dz: decoder z
 		decz = torch.cat([decz, s_onehot.float(), dtime[...,None]], dim=-1) # cat bands & dtime # (b,t,f+d+1)
-		
 		decz = self.x_projection(decz)
 		decz, _ = self.ml_rnn(decz, onehot, **kwargs) # out, (ht, ct)
 		decx = self.dz_projection(decz)
