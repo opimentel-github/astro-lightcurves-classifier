@@ -58,10 +58,11 @@ def get_ps_times_df(rootdir, cfilename, kf, method, model_names,
 	train_mode='pre-training',
 	):
 	info_df = DFBuilder()
-	for kmn,model_name in enumerate(utils.get_sorted_model_names(model_names)):
+	new_model_names = utils.get_sorted_model_names(model_names)
+	for kmn,model_name in enumerate(new_model_names):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/model_info/{cfilename}'
 		files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, f'train.{method}', fext='d')
-		print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
+		#print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
 		if len(files)==0:
 			continue
 
@@ -74,7 +75,7 @@ def get_ps_times_df(rootdir, cfilename, kf, method, model_names,
 
 		d = {}
 		parameters = [f()['parameters'] for f in files][0]
-		d['parameters'] = XError([parameters])
+		d['parameters'] = parameters
 		d['best_epoch'] = XError([f()['monitors']['wmse-xentropy']['best_epoch'] for f in files])
 		d['time_per_iteration'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration'] for f in files])
 		x = files[0]()['monitors']['wmse-xentropy']['time_per_iteration']

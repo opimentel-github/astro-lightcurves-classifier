@@ -16,8 +16,8 @@ class ModelCollections():
 		self.max_day = C_.MAX_DAY
 
 		bands = 2
-		self.embd_dims = GDIter(28*bands) # 
-		self.embd_layers = GDIter(2) # 2 3
+		self.embd_dims = GDIter(32*bands) # 16 20 24 28 32 64
+		self.embd_layers = GDIter(3) # 2 3
 		#self.rnn_cell_names = GDIter('GRU')
 		self.rnn_cell_names = GDIter('GRU', 'LSTM') # GRU LSTM
 		self.te_features_gd = GDIter(6,2) # ***
@@ -37,7 +37,7 @@ class ModelCollections():
 				'C':mclass.SimpleClassifier,
 				'embd_layers':2, # 1 2
 				'dropout':{
-					'p':.3, # *** .1 .25 .3 .5
+					'p':.25, # *** .1 .25 .3 .5
 					},
 				},
 			}

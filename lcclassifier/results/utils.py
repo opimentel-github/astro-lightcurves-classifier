@@ -50,8 +50,10 @@ def get_sorted_model_names(model_names,
 			s_model_names += [model_name]
 	p_model_names = sorted(p_model_names)
 	s_model_names = sorted(s_model_names)
-	new_model_names = p_model_names+s_model_names if merged else p_model_names, s_model_names
-	return new_model_names
+	if merged:
+		return p_model_names+s_model_names
+	else:
+		return p_model_names, s_model_names
 
 ###################################################################################################################################################
 

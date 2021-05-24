@@ -14,8 +14,8 @@ parser = argparse.ArgumentParser('usage description')
 parser.add_argument('-method',  type=str, default='spm-mcmc-estw', help='method')
 parser.add_argument('-gpu',  type=int, default=-1, help='gpu')
 parser.add_argument('-mc',  type=str, default='parallel_rnn_models', help='model_collections method')
-parser.add_argument('-batch_size',  type=int, default=512, help='batch_size') # *** 64 128 512 1024
-parser.add_argument('-batch_size_c',  type=int, default=128, help='batch_size') # *** 8 16 32 64 128
+parser.add_argument('-batch_size',  type=int, default=128, help='batch_size') # *** 16 32 64 128
+parser.add_argument('-batch_size_c',  type=int, default=16, help='batch_size') # *** 16 32 64 128
 parser.add_argument('-load_model',  type=bool, default=False, help='load_model')
 parser.add_argument('-epochs_max',  type=int, default=1e4, help='epochs_max')
 parser.add_argument('-save_rootdir',  type=str, default='../save', help='save_rootdir')
@@ -23,7 +23,7 @@ parser.add_argument('-mids',  type=str, default='0-10', help='initial_id-final_i
 parser.add_argument('-kf',  type=str, default='0', help='kf')
 parser.add_argument('-bypass',  type=int, default=0, help='bypass')
 parser.add_argument('-attn_exp',  type=bool, default=False)
-parser.add_argument('-always_train_ae',  type=bool, default=False)
+parser.add_argument('-always_train_ae',  type=bool, default=True) # False True
 #main_args = parser.parse_args([])
 main_args = parser.parse_args()
 print_big_bar()
@@ -119,13 +119,13 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 	for kmodel_id,model_id in enumerate(model_ids):
 		is_first_model_id = model_id==model_ids[0]
 		train_ae = is_first_model_id or main_args.always_train_ae
-		#train_ae = 0 # dummy
+		#train_ae = 0
 
 		### DATASETS
 		dataset_kwargs = mp_grid['dataset_kwargs']
-		s_balanced_repeats = 50
-		r_balanced_repeats = s_balanced_repeats*2
-		sne_ds_mode = {'none':.1, 'left':.7, 'random':.2,}
+		s_balanced_repeats = 10
+		r_balanced_repeats = 10
+		sne_ds_mode = {'none':.2, 'left':.4, 'random':.4,}
 		if main_args.bypass:
 			s_train_dataset = CustomDataset(f'{main_args.kf}@train', lcdataset, **dataset_kwargs, balanced_repeats=r_balanced_repeats, ds_mode=sne_ds_mode)
 		else:
@@ -144,15 +144,15 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 		print('r_val_dataset:', r_val_dataset)
 		print('r_test_dataset:', r_test_dataset)
 
-		s_precomputed_samples = 20 if train_ae else 0 # *** 0* 5 10 15 20 25
+		s_precomputed_samples = 10 if train_ae else 0 # *** 0* 5 10 15 20 25
 		r_precomputed_samples = 0 # *** 0*
-		s_train_dataset.precompute_samples(s_precomputed_samples)
+		s_train_dataset.precompute_samples(s_precomputed_samples) # f'cuda:{main_args.gpu}'
 		r_train_dataset.precompute_samples(r_precomputed_samples)
 
 		### DATALOADERS
 		loader_kwargs = {
 			'batch_size':main_args.batch_size,
-			'num_workers':4, # 0 2 4
+			'num_workers':8, # 0 2 4 8
 			'pin_memory':True, # False True
 			'worker_init_fn':lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
 			}
@@ -219,7 +219,7 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 				#'mode':train_mode,
 				#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 				#'ef-be':s_train_loader.dataset.effective_beta_eps,
-				'b':main_args.batch_size,
+				'b':f'{main_args.batch_size}.{main_args.batch_size_c}',
 				'bypass':main_args.bypass,
 				},
 			'uses_train_eval_loader_methods':True,
@@ -325,7 +325,7 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 
 		monitor_config = {
 			'val_epoch_counter_duration':0, # every k epochs check
-			'earlystop_epoch_duration':1e6,
+			'earlystop_epoch_duration':250,
 			'target_metric_crit':'b-xentropy',
 			#'save_mode':C_.SM_NO_SAVE,
 			#'save_mode':C_.SM_ALL,
@@ -340,13 +340,13 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 		train_mode = 'fine-tuning'
 		mtrain_config = {
 			'id':model_id,
-			'epochs_max':250, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+			'epochs_max':1e6, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 			'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 			'extra_model_name_dict':{
 				#'mode':train_mode,
 				#'ef-be':f'1e{math.log10(s_train_loader.dataset.effective_beta_eps)}',
 				#'ef-be':s_train_loader.dataset.effective_beta_eps,
-				'b':main_args.batch_size,
+				'b':f'{main_args.batch_size}.{main_args.batch_size_c}',
 				'bypass':main_args.bypass,
 				},
 			'uses_train_eval_loader_methods':True,
