@@ -24,12 +24,10 @@ def save_performance(train_handler, data_loader, save_rootdir,
 	days_n:int=C_.DEFAULT_DAYS_N,
 	**kwargs):
 	train_handler.load_model() # important, refresh to best model
-	train_handler.model.eval() # model eval
-	data_loader.eval() # set mode
+	train_handler.model.eval() # important, model eval mode
 	dataset = data_loader.dataset # get dataset
-	dataset.reset_max_day() # always reset max day
-	dataset.uses_precomputed_samples = False
 
+	dataset.reset_max_day() # always reset max day
 	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_n)#[::-1]
 	days_rec_metrics_df = DFBuilder()
 	days_class_metrics_df = DFBuilder()
@@ -42,6 +40,7 @@ def save_performance(train_handler, data_loader, save_rootdir,
 		can_be_in_loop = True
 		for day in days: # along days
 			dataset.set_max_day(day)
+			dataset.calcule_precomputed()
 			try:
 				if can_be_in_loop:
 					tdict = []
@@ -67,12 +66,11 @@ def save_performance(train_handler, data_loader, save_rootdir,
 						mse_loss_bdict[b] = mse_loss_b[...,0] # (b,1) > (b)
 
 					mse_loss = torch.cat([mse_loss_bdict[b][...,None] for b in dataset.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
-					mse_loss = tensor_to_numpy(mse_loss)
 					mse_loss = mse_loss.mean()
 
 					days_rec_metrics_df.append(day, {
 						'_day':day,
-						'mse':mse_loss,
+						'mse':tensor_to_numpy(mse_loss),
 						})
 
 					### class prediction
@@ -136,4 +134,5 @@ def save_performance(train_handler, data_loader, save_rootdir,
 	save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}.d'
 	files.save_pickle(save_filedir, results) # save file
 	dataset.reset_max_day() # very important!!
+	dataset.calcule_precomputed()
 	return

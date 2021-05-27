@@ -37,8 +37,8 @@ class LCWMSE(FTMetric):
 
 		mse_loss = torch.cat([mse_loss_bdict[b][...,None] for b in self.band_names], axis=-1).mean(dim=-1)*self.k # (b,d) > (b)
 		if self.balanced:
-			balanced_w = tdict['target']['balanced_w']
-			mse_loss = mse_loss*balanced_w[...,0]
+			balanced_w = tdict['target']['balanced_w'] # (b)
+			mse_loss = mse_loss*balanced_w
 			return MetricResult(mse_loss, reduction_mode='sum')
 		else:
 			return MetricResult(mse_loss)
@@ -69,8 +69,8 @@ class LCXEntropyMetric(FTMetric):
 
 		xentropy_loss = self.xentropy(tdict, **kwargs)._batch_loss*self.k # (b)
 		if self.balanced:
-			balanced_w = tdict['target']['balanced_w']
-			xentropy_loss = xentropy_loss*balanced_w[...,0]
+			balanced_w = tdict['target']['balanced_w'] # (b)
+			xentropy_loss = xentropy_loss*balanced_w
 			return MetricResult(xentropy_loss, reduction_mode='sum')
 		else:
 			return MetricResult(xentropy_loss)
@@ -103,8 +103,8 @@ class LCAccuracy(FTMetric):
 
 		accuracies = (y_pred==y_target).float()*100  # (b)
 		if self.balanced:
-			balanced_w = tdict['target']['balanced_w']
-			accuracies = accuracies*balanced_w[...,0]
+			balanced_w = tdict['target']['balanced_w'] # (b)
+			accuracies = accuracies*balanced_w
 			return MetricResult(accuracies, reduction_mode='sum')
 		else:
 			return MetricResult(accuracies)
@@ -135,8 +135,8 @@ class LCBinXEntropyMetric(FTMetric):
 
 		xentropy_loss = self.xentropy(tdict, **kwargs)._batch_loss*self.k # (b)
 		if self.balanced:
-			balanced_w = tdict['target']['balanced_w']
-			xentropy_loss = xentropy_loss*balanced_w[...,0]
+			balanced_w = tdict['target']['balanced_w'] # (b)
+			xentropy_loss = xentropy_loss*balanced_w
 			return MetricResult(xentropy_loss, reduction_mode='sum')
 		else:
 			return MetricResult(xentropy_loss)

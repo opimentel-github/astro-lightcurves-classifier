@@ -34,10 +34,8 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 	figsize:tuple=C_.DEFAULT_FIGSIZE_BOX,
 	nc:int=1,
 	**kwargs):
-	### dataloader and extract dataset - important
 	train_handler.load_model() # important, refresh to best model
 	train_handler.model.eval() # important, model eval mode
-	data_loader.eval() # set mode
 	dataset = data_loader.dataset # get dataset
 	
 	with torch.no_grad():
@@ -60,10 +58,10 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 				lcobjb = lcobj.get_b(b)
 				plot_lightcurve(ax, lcobj, b, label=f'{b} obs', max_day=dataset.max_day)
 
-				### rec plot)
+				### rec plot
 				p_rtime = tensor_to_numpy(p_rtime[0,:]) # (b,t) > (t)
-				p_rx_pred = tensor_to_numpy(tdict['model'][f'decx.{b}'][0,:,0]) # (b,t,1) > (t)
-				p_rx_pred = dataset.get_rec_inverse_transform(p_rx_pred, b)
+				p_rx_pred = tdict['model'][f'decx.{b}'][0,:,0] # (b,t,1) > (t)
+				p_rx_pred = dataset.get_rec_inverse_transform(tensor_to_numpy(p_rx_pred), b)
 				ax.plot(p_rtime[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 
 			title = ''

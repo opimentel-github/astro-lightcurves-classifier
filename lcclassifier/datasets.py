@@ -8,7 +8,7 @@ import torch.tensor as Tensor
 import numpy as np
 from torch.utils.data import Dataset
 import random
-from .scalers import CustomStandardScaler, LogStandardScaler, LogQuantileTransformer
+from .scalers import CustomStandardScaler, LogStandardScaler
 import fuzzytools.strings as strings
 from joblib import Parallel, delayed
 from fuzzytools.lists import get_list_chunks, get_random_item
@@ -18,13 +18,14 @@ import fuzzytorch.models.seq_utils as seq_utils
 from fuzzytorch.utils import TDictHolder
 from lchandler.lc_classes import diff_vector
 from nested_dict import nested_dict
-from copy import copy
+from copy import copy, deepcopy
 
 ###################################################################################################################################################
 
 def fix_new_len(tdict, uses_len_clip, max_len):
 	new_tdict = {}
 	for key in tdict.keys():
+		#print('key',key)
 		x = tdict[key]
 		is_seq_tensor = len(x.shape)==2
 		if uses_len_clip and is_seq_tensor:
@@ -36,43 +37,50 @@ def fix_new_len(tdict, uses_len_clip, max_len):
 ###################################################################################################################################################
 
 class CustomDataset(Dataset):
-	def __init__(self, lcset_name, lcdataset, in_attrs, rec_attr,
+	def __init__(self, lcset_name, lcset, device,
+		in_attrs=None,
+		rec_attr=None,
 		max_day:float=np.infty,
 		hours_noise_amp:float=C_.HOURS_NOISE_AMP,
 		std_scale:float=C_.OBSE_STD_SCALE,
 		cpds_p:float=C_.CPDS_P,
 		balanced_repeats=1,
+		precomputed_copies=1,
+		uses_precomputed_copies=True,
+		uses_daugm=False,
+		uses_dynamic_balance=False,
 		ds_mode={},
 		):
 		self.lcset_name = lcset_name
-		self.lcdataset = lcdataset
+		self.lcset = lcset
+		self.device = device
+
 		self.in_attrs = in_attrs
 		self.rec_attr = rec_attr
-
 		self.max_day = max_day
 		self.hours_noise_amp = hours_noise_amp
 		self.std_scale = std_scale
 		self.cpds_p = cpds_p
 		self.balanced_repeats = balanced_repeats
+		self.precomputed_copies = precomputed_copies
+		self.uses_precomputed_copies = uses_precomputed_copies
+		self.uses_daugm = uses_daugm
+		self.uses_dynamic_balance = uses_dynamic_balance
 		self.ds_mode = ds_mode
 		self.reset()
 
 	def reset(self):
-		self.eval()
-
-		self.lcset = copy(self.lcdataset[self.lcset_name]) # copy
+		torch.cuda.empty_cache()
+		self.generate_serial()
 		self.lcset_info = self.lcset.get_info()
 		self.band_names = self.lcset.band_names
 		self.class_names = self.lcset.class_names
 		self.survey = self.lcset.survey
-		self.add_serial_band()
 
 		self.append_in_ddays = 'd_days' in self.in_attrs
 		self.in_attrs = [ia for ia in self.in_attrs if not ia=='d_days']
 		self._max_day = self.max_day # save original to perform reset
 		self.max_len = self.calcule_max_len()
-
-		self.precomputed_dict = {}
 		self.automatic_diff()
 
 		self.scalers = nested_dict()
@@ -84,18 +92,19 @@ class CustomDataset(Dataset):
 		self.calcule_poblation_weights()
 		self.calcule_balanced_w_cdict()
 
-	def train(self):
-		self.resample_lcobj_names() # important
-		self.training = True
+	def calcule_precomputed(self):
+		self.precomputed_dict = {}
+		for lcobj_name in self.lcset.get_lcobj_names():
+			self.precomputed_dict[lcobj_name] = []
+			for k in range(0, self.precomputed_copies):
+				in_tdict = self.get_item(lcobj_name)
+				self.precomputed_dict[lcobj_name] += [TDictHolder(in_tdict).to(self.device)]
 
-	def eval(self):
-		self.training = False
-
-	def add_serial_band(self):
+	def generate_serial(self):
 		# extra band used to statistics as scales
-		for lcobj_name in self.get_lcobj_names():
+		for lcobj_name in self.lcset.get_lcobj_names():
 			lcobj = self.lcset[lcobj_name]
-			lcobj.add_sublcobj_b('*', sum([lcobj.get_b(b) for b in self.band_names]))
+			lcobj.add_sublcobj_b('*', sum([lcobj.get_b(b) for b in self.lcset.band_names]))
 			lcobj.reset_day_offset_serial() # remove day offset!
 
 ###################################################################################################################################################
@@ -124,13 +133,14 @@ class CustomDataset(Dataset):
 	def resample_lcobj_names(self):
 		min_index = np.argmin([self.populations_cdict[c] for c in self.class_names])
 		min_c = self.class_names[min_index]
-		self.balanced_lcobj_names = self.lcset.get_lcobj_names(min_c)*self.balanced_repeats
-		boostrap_n = len(self.balanced_lcobj_names)
+		balanced_lcobj_names = self.lcset.get_lcobj_names(min_c)*self.balanced_repeats
+		boostrap_n = len(balanced_lcobj_names)
 		for c in self.class_names:
 			if c==min_c:
 				continue
 			lcobj_names_c = self.lcset.get_boostrap_samples(c, boostrap_n)
-			self.balanced_lcobj_names += lcobj_names_c
+			balanced_lcobj_names += lcobj_names_c
+		return balanced_lcobj_names
 
 	def get_output_dims(self):
 		return len(self.in_attrs)+int(self.append_in_ddays)
@@ -146,6 +156,8 @@ class CustomDataset(Dataset):
 			'in_attrs':self.in_attrs,
 			'rec_attr':self.rec_attr,
 			'append_in_ddays':self.append_in_ddays,
+			'balanced_w_cdict':self.balanced_w_cdict,
+			'populations_cdict':self.populations_cdict,
 			}, ', ', '=')
 		txt += ')'
 		return txt
@@ -165,21 +177,15 @@ class CustomDataset(Dataset):
 		assert max_day<=self._max_day
 		self.max_day = max_day
 
-	def transfer_scalers(self, other):
-		other.set_scalers(self.get_scalers())
+	def set_scalers_from(self, other):
+		self.set_scalers(other.get_scalers())
+		return self
 
 	def get_scalers(self):
 		return self.scalers
 
 	def set_scalers(self, scalers):
-		self.scalers = scalers
-
-	def get_rec_inverse_transform(self, model_rec_x_b, b):
-		'''
-		x (t)
-		'''
-		assert len(model_rec_x_b.shape)==1
-		return self.scalers['rec'][b].inverse_transform(model_rec_x_b[...,None])[...,0]
+		self.scalers = deepcopy(scalers)
 
 ###################################################################################################################################################
 
@@ -245,6 +251,13 @@ class CustomDataset(Dataset):
 		assert x.shape[-1]==1
 		return self.scalers['rec'][b].transform(x)
 
+	def get_rec_inverse_transform(self, model_rec_x_b, b):
+		'''
+		x (t)
+		'''
+		assert len(model_rec_x_b.shape)==1
+		return self.scalers['rec'][b].inverse_transform(model_rec_x_b[...,None])[...,0]
+
 	###################################################################################################################################################
 
 	def get_random_stratified_lcobj_names(self,
@@ -260,67 +273,49 @@ class CustomDataset(Dataset):
 	###################################################################################################################################################
 
 	def get_lcobj_names(self):
-		if self.training: # training
-			return self.balanced_lcobj_names
-		else: # eval
-			return self.lcset.get_lcobj_names()
+		return self.lcset.get_lcobj_names()
 
-	def has_precomputed_samples(self):
-		return len(self.precomputed_dict.keys())>0
+	def get_train_lcobj_names(self):
+		if self.uses_dynamic_balance:
+			return self.balanced_lcobj_names
+		else:
+			return self.get_lcobj_names()
+
+	def pre_training_step(self):
+		if self.uses_dynamic_balance:
+			self.balanced_lcobj_names = self.resample_lcobj_names() # important
 
 	def __len__(self):
-		lcobj_names = self.get_lcobj_names()
+		self.pre_training_step()
+		lcobj_names = self.get_train_lcobj_names()
 		return len(lcobj_names)
-
-	def precompute_samples(self, precomputed_copies,
-		device='cpu',
-		):
-		assert self.training==False
-		if precomputed_copies<=0:
-			return
-		if not self.has_precomputed_samples():
-			lcobj_names = self.get_lcobj_names()
-			bar = ProgressBar(len(lcobj_names))
-			for k,lcobj_name in enumerate(lcobj_names):
-				bar(f'precomputed_copies={precomputed_copies} - device={device} - lcobj_name={lcobj_name}')
-				self.precomputed_dict[lcobj_name] = []
-				for _k,_lcobj_name in enumerate([lcobj_name]*precomputed_copies):
-					r = self.get_item(self.lcset[_lcobj_name], uses_daugm=True)
-					self.precomputed_dict[lcobj_name] += [r if device=='cpu' else TDictHolder(r).to(device)]
-
-			bar.done()
 
 	###################################################################################################################################################
 
 	def __getitem__(self, idx:int):
-		lcobj_names = self.get_lcobj_names()
+		lcobj_names = self.get_train_lcobj_names()
 		lcobj_name = lcobj_names[idx]
-		if self.training:
-			if self.has_precomputed_samples():
-				#print('get_random_item!')
-				return get_random_item(self.precomputed_dict[lcobj_name]) # all with data augmentation
-			else:
-				return self.get_item(self.lcset[lcobj_name], uses_daugm=True) # all with data augmentation
+		if self.uses_precomputed_copies:
+			item = get_random_item(self.precomputed_dict[lcobj_name])
+			return item
 		else:
-			return self.get_item(self.lcset[lcobj_name], uses_daugm=False) # no data augmentation
+			item = self.get_item(lcobj_name) # cpu
+			return item
 
-	def get_item(self, _lcobj,
-		uses_daugm=False,
+	def get_item(self, lcobj_name,
 		uses_len_clip=True,
 		return_lcobjs=False,
-		float_dtype=torch.float32,
 		):
 		'''
 		apply data augmentation, this overrides obj information
 		be sure to copy the input lcobj!!!!
 		'''
-		lcobj = copy(self.lcset[_lcobj]) if isinstance(_lcobj, str) else copy(_lcobj) # copy
+		lcobj = copy(self.lcset[lcobj_name]) # copy
 		### perform da ignoring *
-		if uses_daugm:
+		if self.uses_daugm:
 			for kb,b in enumerate(self.band_names):
 				lcobjb = lcobj.get_b(b)
-				lcobjb.apply_downsampling_window(self.ds_mode) # curve points downsampling we need to ensure the model to see compelte curves
-				lcobjb.apply_downsampling(.1) # curve points downsampling
+				lcobjb.apply_downsampling_window(self.ds_mode, .1) # curve points downsampling we need to ensure the model to see compelte curves
 				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
 			lcobj.reset_day_offset_serial(bands=self.band_names) # remove day offset!
 
@@ -341,7 +336,7 @@ class CustomDataset(Dataset):
 			lcobjb = lcobj.get_b(b)
 			lcobjb.set_diff('days') # recompute dtime just in case (it's already implemented in da)
 
-			onehot = np.ones(len(lcobjb), dtype=bool)[...,None] # (t,1)
+			onehot = np.ones((len(lcobjb),), dtype=bool)[...,None] # (t,1)
 			rx = lcobjb.get_custom_x(self.in_attrs) # raw_x (t,f)
 			x = self.in_normalize(rx, b) # norm_x (t,f)
 			rtime = lcobjb.days[...,None] # raw_time t,1) - timeselfattn
@@ -352,24 +347,22 @@ class CustomDataset(Dataset):
 			x = np.concatenate([x, dtime], axis=-1) if self.append_in_ddays else x # new x
 
 			tdict['input'][f'onehot.{b}'] = torch.as_tensor(onehot)
-			tdict['input'][f'rtime.{b}'] = torch.as_tensor(rtime, dtype=float_dtype)
+			tdict['input'][f'rtime.{b}'] = torch.as_tensor(rtime)
 			#time
-			tdict['input'][f'rdtime.{b}'] = torch.as_tensor(rdtime, dtype=float_dtype)
-			tdict['input'][f'dtime.{b}'] = torch.as_tensor(dtime, dtype=float_dtype)
-			tdict['input'][f'x.{b}'] = torch.as_tensor(x, dtype=float_dtype)
+			tdict['input'][f'rdtime.{b}'] = torch.as_tensor(rdtime)
+			tdict['input'][f'dtime.{b}'] = torch.as_tensor(dtime)
+			tdict['input'][f'x.{b}'] = torch.as_tensor(x, dtype=torch.float32) # fixme
 
 			rrecx = lcobjb.get_custom_x([self.rec_attr]) # raw_recx (t,1)
 			recx = self.rec_normalize(rrecx, b) # norm_recx (t,1)
 			rerror = lcobjb.obse[...,None] # raw_error (t,1)
 			assert np.all(rerror>=0)
 
-			tdict['target'][f'recx.{b}'] = torch.as_tensor(recx, dtype=float_dtype)
-			tdict['target'][f'rerror.{b}'] = torch.as_tensor(rerror, dtype=float_dtype)
+			tdict['target'][f'recx.{b}'] = torch.as_tensor(recx)
+			tdict['target'][f'rerror.{b}'] = torch.as_tensor(rerror)
 
-		y = lcobj.y
-		balanced_w = np.array([self.balanced_w_cdict[self.class_names[lcobj.y]]])
-		tdict['target']['y'] = torch.as_tensor(y)
-		tdict['target'][f'balanced_w'] = torch.as_tensor(balanced_w, dtype=float_dtype)
+		tdict['target']['y'] = torch.LongTensor([lcobj.y])[0] # ()
+		tdict['target'][f'balanced_w'] = torch.Tensor([self.balanced_w_cdict[self.class_names[lcobj.y]]])[0] # ()
 
 		tdict = tdict.to_dict()
 		tdict = {k:fix_new_len(tdict[k], uses_len_clip, self.max_len) for k in tdict.keys()}

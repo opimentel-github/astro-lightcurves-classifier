@@ -37,7 +37,7 @@ class ModelCollections():
 				'C':mclass.SimpleClassifier,
 				'embd_layers':2, # 1 2
 				'dropout':{
-					'p':.25, # *** .1 .25 .3 .5
+					'p':.5, # *** .1 .25 .3 .5
 					},
 				},
 			}
