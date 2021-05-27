@@ -241,7 +241,6 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 				#'b':f'{main_args.batch_size}.{main_args.batch_size_c}',
 				'bypass':main_args.bypass,
 				},
-			'evaluate_train':False, # False True # to speed up training
 			}
 		pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors, **mtrain_config)
 		complete_model_name = pt_model_train_handler.get_complete_model_name()
@@ -249,7 +248,10 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 		pt_model_train_handler.build_gpu(device if main_args.gpu>=0 else None)
 		print(pt_model_train_handler)
 		if train_ae:
-			pt_model_train_handler.fit_loader(s_train_loader_da, {'train':s_train_loader, 'eval':r_val_loader}) # main fit
+			pt_model_train_handler.fit_loader(s_train_loader_da, {
+				#'train':s_train_loader,
+				'val':r_val_loader,
+				}) # main fit
 			pass
 		else:
 			filedirs = get_filedirs(pt_model_train_handler.complete_save_roodir, fext='tfes')
@@ -367,14 +369,16 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 				#'b':f'{main_args.batch_size}.{main_args.batch_size_c}',
 				'bypass':main_args.bypass,
 				},
-			'evaluate_train':False, # False True # to speed up training
 			}
 		ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
 		complete_model_name = ft_model_train_handler.get_complete_model_name()
 		ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 		ft_model_train_handler.build_gpu(device if main_args.gpu>=0 else None)
 		print(ft_model_train_handler)
-		ft_model_train_handler.fit_loader(r_train_loader_da, {'train':r_train_loader, 'eval':r_val_loader}) # main fit
+		ft_model_train_handler.fit_loader(r_train_loader_da, {
+			'train':r_train_loader,
+			'val':r_val_loader,
+			}) # main fit
 		ft_model_train_handler.load_model() # important, refresh to best model
 
 		###################################################################################################################################################
