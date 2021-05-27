@@ -118,7 +118,7 @@ if main_args.gpu>=0:
 model_ids = list(range(*[int(mi) for mi in main_args.mids.split('-')])) # IDS
 for mp_grid in model_collections.mps: # MODEL CONFIGS
 	for kmodel_id,model_id in enumerate(model_ids):
-		
+
 		from lcclassifier.datasets import CustomDataset
 		from torch.utils.data import DataLoader
 		from fuzzytools.files import get_filedirs, copy_filedir
@@ -139,7 +139,7 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 		lcset_name = f'{main_args.kf}@train.{main_args.method}'
 		s_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device,
 			balanced_repeats=repeats,
-			precomputed_copies=8, # 1 2 4 8
+			precomputed_copies=10, # 1 10
 			uses_daugm=True,
 			uses_dynamic_balance=True,
 			ds_mode={'random':.75, 'left':.0, 'none':.25,},
