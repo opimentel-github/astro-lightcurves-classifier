@@ -30,7 +30,7 @@ def get_ps_performance_df(rootdir, cfilename, kf, lcset_name, model_names, dmetr
 	for kmn,model_name in enumerate(utils.get_sorted_model_names(model_names)):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
 		files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
-		#print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
+		print(f'{model_name} {files_ids}({len(files_ids)}#)')
 		if len(files)==0:
 			continue
 
@@ -62,7 +62,7 @@ def get_ps_times_df(rootdir, cfilename, kf, method, model_names,
 	for kmn,model_name in enumerate(new_model_names):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/model_info/{cfilename}'
 		files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, f'train.{method}', fext='d')
-		#print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
+		print(f'{model_name} {files_ids}({len(files_ids)}#)')
 		if len(files)==0:
 			continue
 
@@ -74,16 +74,16 @@ def get_ps_times_df(rootdir, cfilename, kf, method, model_names,
 		print(files[0]()['monitors']['wmse-xentropy'].keys())
 
 		d = {}
-		parameters = [f()['parameters'] for f in files][0]
+		parameters = [f()['params'] for f in files][0]
 		d['parameters'] = parameters
-		d['best_epoch'] = XError([f()['monitors']['wmse-xentropy']['best_epoch'] for f in files])
-		d['time_per_iteration'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration'] for f in files])
+		#d['best_epoch'] = XError([f()['monitors']['wmse-xentropy']['best_epoch'] for f in files])
+		d['time-per-iteration [segs]'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration'] for f in files])
 		x = files[0]()['monitors']['wmse-xentropy']['time_per_iteration']
 		new_x = x/parameters*1e6
 		print(x, parameters, new_x)
-		d['time_per_iteration/params*1e6'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration']/parameters*1e6 for f in files])
-		d['time_per_epoch'] = sum([f()['monitors']['wmse-xentropy']['time_per_epoch'] for f in files])
-		d['total_time'] = XError([f()['monitors']['wmse-xentropy']['total_time'] for f in files])
+		d['time-per-iteration/params 1e6[segs]'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration']/parameters*1e6 for f in files])
+		#d['time_per_epoch'] = sum([f()['monitors']['wmse-xentropy']['time_per_epoch'] for f in files])
+		d['total-time [mins]'] = XError([f()['monitors']['wmse-xentropy']['total_time'] for f in files])/60
 
 		index = f'model={utils.get_fmodel_name(model_name)}'
 		info_df.append(index, d)

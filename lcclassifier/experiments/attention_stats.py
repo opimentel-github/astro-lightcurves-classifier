@@ -18,7 +18,7 @@ from lchandler.plots.lc import plot_lightcurve
 
 ###################################################################################################################################################
 
-def lineal_trend_f(time, m, n):
+def linear_trend_f(time, m, n):
 	return time*m+n
 
 def min_max_norm(x,
@@ -76,12 +76,17 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 			lcobj_names = dataset.get_lcobj_names()
 			bar = ProgressBar(len(lcobj_names))
 			for k,lcobj_name in enumerate(lcobj_names):
-				bar(f'{lcobj_name} - attn_scores:{attn_scores.shape}')
 				lcobj = dataset.lcset[lcobj_name]
 				lcobjb = lcobj.get_b(b) # complete
 				p_onehot_k = tensor_to_numpy(p_onehot[k]) # (b,t) > (t)
 				b_len = p_onehot_k.sum()
 				assert b_len<=len(lcobjb), f'{b_len}=={len(lcobjb)}'
+
+				bar(f'{lcobj_name} - attn_scores={attn_scores.shape} - b_len={b_len}')
+
+				dj = 3
+				if b_len<=dj:
+					continue
 
 				attn_scores_k = tensor_to_numpy(attn_scores[k,:b_len,0]) # (b,qt,1)>(t)
 				attn_scores_min_max_k = tensor_to_numpy(attn_scores_min_max[k,:b_len,0]) # (b,qt,1)>(t)
@@ -93,17 +98,16 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 
 				obs_min_max = min_max_norm(obs) # (t)
 				obse_min_max = min_max_norm(obse) # (t)
-
-				dj = 3
+				
 				for j in range(dj, b_len): # dj,dj+1,...,b_len-1
 					#print(days[j-dj:j])
-					lineal_trend_days = days[j-dj:j] # (dj)
-					lineal_trend_obs = obs[j-dj:j] # (dj)
-					popt, pcov = curve_fit(lineal_trend_f, lineal_trend_days, lineal_trend_obs, p0=[0,0])
-					lineal_trend_m, lineal_trend_n = popt
+					linear_trend_days = days[j-dj:j] # (dj)
+					linear_trend_obs = obs[j-dj:j] # (dj)
+					popt, pcov = curve_fit(linear_trend_f, linear_trend_days, linear_trend_obs, p0=[0,0])
+					linear_trend_m, linear_trend_n = popt
 
 					r = {
-						'lcobj_name':lcobj_name,
+						#'lcobj_name':lcobj_name,
 						'c':dataset.class_names[lcobj.y],
 						'b_len':b_len,
 						'peak_day':peak_day,
@@ -113,10 +117,10 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 						'attn_scores_min_max_k.j':attn_scores_min_max_k[j],
 						
 						'days.j':days[j],
-						'days_from_peak1.j':lineal_trend_days.mean()-peak_day,
+						'days_from_peak1.j':linear_trend_days.mean()-peak_day,
 						'days_from_peak2.j':days[j]-peak_day,
-						'lineal_trend_m.j':lineal_trend_m,
-						'lineal_trend_n.j':lineal_trend_n,
+						'linear_trend_m.j':linear_trend_m,
+						'linear_trend_n.j':linear_trend_n,
 
 						'obs.j':obs[j],
 						'obs_min_max.j':obs_min_max[j],

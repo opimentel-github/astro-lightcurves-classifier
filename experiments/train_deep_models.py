@@ -108,9 +108,11 @@ ft_metrics = [
 
 ###################################################################################################################################################
 import os
+device = 'cpu'
 if main_args.gpu>=0:
 	os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID' # see issue #152
 	os.environ['CUDA_VISIBLE_DEVICES'] = str(main_args.gpu) # CUDA-GPU
+	device = 'cuda:0' # cpu
 
 ###################################################################################################################################################
 
@@ -123,8 +125,6 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 
 	### DATASETS
 	dataset_kwargs = mp_grid['dataset_kwargs']
-	device = 'cuda:0'
-	#device = 'cpu'
 	repeats = 5
 	synth_repeats = 12
 

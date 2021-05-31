@@ -35,7 +35,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			for kmn,model_name in enumerate(ps_model_names[kax]):
 				load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
 				files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
-				print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
+				print(f'{model_name} {files_ids}({len(files_ids)}#)')
 				if len(files)==0:
 					continue
 
@@ -168,7 +168,7 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 	for kmn,model_name in enumerate(model_names):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/temporal_encoding/{cfilename}/{kf}@{lcset_name}'
 		files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
-		print(f'ids={files_ids}({len(files_ids)}#) - model={model_name}')
+		print(f'{model_name} {files_ids}({len(files_ids)}#)')
 		if len(files)==0:
 			continue
 
