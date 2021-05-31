@@ -13,7 +13,7 @@ from fuzzytools.lists import flat_list
 
 def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	train_mode='pre-training',
-	figsize=(6*2,6),
+	figsize=(14,8),
 	#attn_key='attn_scores_min_max',
 	#attn_entropy_key='attn_entropy',
 	attn_th=0.95,
@@ -69,8 +69,6 @@ def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	yrange0 = xy[:,1].min() if bins_yrange[0] is None else bins_yrange[0]
 	yrange1 = xy[:,1].max() if bins_yrange[1] is None else bins_yrange[1]
 
-	
-
 	### marginals
 	ax = axs[0]
 	H, xedges, yedges = np.histogram2d(xy_marginal[:,0], xy_marginal[:,1], bins=(np.linspace(xrange0, xrange1, n_bins), np.linspace(yrange0, yrange1, n_bins)))
@@ -95,9 +93,9 @@ def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	ylabel = label_dict[y_key]
 	ax.set_xlabel(xlabel)
 	ax.set_ylabel(ylabel)
-	txt_y = 0.04
-	ax.text(0, txt_y, ' pre-peak ', fontsize=12, c='w', ha='right')
-	ax.text(0, txt_y, ' post-peak ', fontsize=12, c='w', ha='left')
+	txt_y = yedges[0]
+	ax.text(0, txt_y, ' pre-peak ', fontsize=12, c='w', ha='right', va='bottom')
+	ax.text(0, txt_y, ' post-peak ', fontsize=12, c='w', ha='left', va='bottom')
 
 	### attn stats
 	ax = axs[1]
@@ -111,12 +109,12 @@ def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	#title += f'\nsurvey: {survey} - bands: {band_names}'
 	#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
 	title = ''
-	title += f'conditional joint distribution w/ '+'$s_{ij}\\geq'+str(attn_th)+'$'+'\n'
+	title += f'conditional joint distribution w/ '+'$\\bar{s}_{ij}\\geq'+str(attn_th)+'$'+'\n'
 	ax.set_title(title[:-1])
 	ax.set_xlabel(xlabel)
 	ax.set_yticks([])
-	ax.text(0, txt_y, ' pre-peak ', fontsize=12, c='w', ha='right')
-	ax.text(0, txt_y, ' post-peak ', fontsize=12, c='w', ha='left')
+	ax.text(0, txt_y, ' pre-peak ', fontsize=12, c='w', ha='right', va='bottom')
+	ax.text(0, txt_y, ' post-peak ', fontsize=12, c='w', ha='left', va='bottom')
 
 	fig.tight_layout()
 	plt.show()

@@ -10,7 +10,7 @@ sys.path.append('../../astro-lightcurves-handler') # or just install the module
 import argparse
 from fuzzytools.prints import print_big_bar
 
-parser = argparse.ArgumentParser('usage description')
+parser = argparse.ArgumentParser(prefix_chars='--')
 parser.add_argument('--method',  type=str, default='spm-mcmc-estw')
 parser.add_argument('--gpu',  type=int, default=-1)
 parser.add_argument('--mc',  type=str, default='parallel_rnn_models')
@@ -108,11 +108,13 @@ ft_metrics = [
 
 ###################################################################################################################################################
 import os
-device = 'cpu'
+
 if main_args.gpu>=0:
 	os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID' # see issue #152
 	os.environ['CUDA_VISIBLE_DEVICES'] = str(main_args.gpu) # CUDA-GPU
-	device = 'cuda:0' # cpu
+	device = 'cuda:0'
+else:
+	device = 'cpu'
 
 ###################################################################################################################################################
 
@@ -254,7 +256,7 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 	pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors, **mtrain_config)
 	complete_model_name = pt_model_train_handler.get_complete_model_name()
 	pt_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
-	pt_model_train_handler.build_gpu(device if main_args.gpu>=0 else None)
+	pt_model_train_handler.build_gpu(device)
 	print(pt_model_train_handler)
 	if main_args.only_attn_exp:
 		pass
@@ -385,7 +387,7 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 	ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
 	complete_model_name = ft_model_train_handler.get_complete_model_name()
 	ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
-	ft_model_train_handler.build_gpu(device if main_args.gpu>=0 else None)
+	ft_model_train_handler.build_gpu(device)
 	print(ft_model_train_handler)
 	ft_model_train_handler.fit_loader(r_train_loader_da, {
 		'train':r_train_loader,

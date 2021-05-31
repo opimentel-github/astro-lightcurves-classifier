@@ -109,7 +109,7 @@ class CustomDataset(Dataset):
 		precomputed_lcobj_names = lcobj_names*self.precomputed_copies
 
 		if verbose:
-			print(f'[{self.lcset_name}] computing {self.precomputed_copies} copies for {len(lcobj_names)} elements')
+			print(f'[{self.lcset_name}] computing {self.precomputed_copies} copies for {len(lcobj_names)} elements to {self.device}')
 
 		precomputed_lcobj_names_chunks = get_list_chunks(precomputed_lcobj_names, chunk_size)
 		for precomputed_lcobj_names_chunk in precomputed_lcobj_names_chunks:
