@@ -7,7 +7,7 @@ EPS = 1e-5
 
 ### JOBLIB
 import os
-JOBLIB_BACKEND = 'loky' # loky multiprocessing threading
+JOBLIB_BACKEND = 'threading' # loky multiprocessing threading
 N_JOBS = -1 # The number of jobs to use for the computation. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all CPUs but one are used.
 CHUNK_SIZE = os.cpu_count() if N_JOBS<0 else N_JOBS
 
@@ -23,7 +23,7 @@ MSE_K = 5e2
 
 MAX_DAY = 100.
 DEFAULT_DAYS_N = 100
-DEFAULT_DAYS_N_AN = 25 # 25 50 100
+DEFAULT_DAYS_N_AN = 50 # 5 50 100
 DEFAULT_MIN_DAY = 2.
 
 ### PLOTS

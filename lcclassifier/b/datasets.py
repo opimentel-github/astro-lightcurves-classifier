@@ -19,7 +19,6 @@ from fuzzytorch.utils import TDictHolder
 from lchandler.lc_classes import diff_vector
 from nested_dict import nested_dict
 from copy import copy, deepcopy
-import time
 
 ###################################################################################################################################################
 
@@ -34,9 +33,6 @@ def fix_new_len(tdict, uses_len_clip, max_len):
 		else:
 			new_tdict[key] = x
 	return new_tdict
-
-def _get_item(args):
-	return CustomDataset.get_item(*args)
 
 ###################################################################################################################################################
 
@@ -96,32 +92,14 @@ class CustomDataset(Dataset):
 		self.calcule_poblation_weights()
 		self.calcule_balanced_w_cdict()
 
-	def calcule_precomputed(self,
-		backend='threading',
-		n_jobs=1,
-		chunk_size=C_.CHUNK_SIZE,
-		verbose=0,
-		):
-		start_time = time.time()
-		dummy_tensor = torch.Tensor([0]).to(self.device) # for phantom gpu allocation
-		lcobj_names = self.lcset.get_lcobj_names()
-		self.precomputed_dict = {lcobj_name:[] for lcobj_name in lcobj_names}
-		precomputed_lcobj_names = lcobj_names*self.precomputed_copies
-
-		if verbose:
-			print(f'[{self.lcset_name}] computing {self.precomputed_copies} copies for {len(lcobj_names)} elements')
-
-		precomputed_lcobj_names_chunks = get_list_chunks(precomputed_lcobj_names, chunk_size)
-		for precomputed_lcobj_names_chunk in precomputed_lcobj_names_chunks:
-			#print(precomputed_lcobj_names_chunk)
-			jobs = [delayed(_get_item)((self, lcobj_name)) for lcobj_name in precomputed_lcobj_names_chunk]
-			results = Parallel(n_jobs=n_jobs, backend=backend)(jobs)
-			for in_tdict,lcobj_name in zip(results, precomputed_lcobj_names_chunk):
+	def calcule_precomputed(self):
+		self.precomputed_dict = {}
+		for lcobj_name in self.lcset.get_lcobj_names():
+			self.precomputed_dict[lcobj_name] = []
+			for k in range(0, self.precomputed_copies):
+				in_tdict = self.get_item(lcobj_name)
 				self.precomputed_dict[lcobj_name] += [TDictHolder(in_tdict).to(self.device)]
 
-		if verbose:
-			print("--- %s seconds ---" % (time.time() - start_time))
-			
 	def generate_serial(self):
 		# extra band used to statistics as scales
 		for lcobj_name in self.lcset.get_lcobj_names():

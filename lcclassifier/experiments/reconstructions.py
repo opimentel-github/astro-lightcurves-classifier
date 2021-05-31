@@ -3,7 +3,7 @@ from __future__ import division
 from . import C_
 
 import torch
-from fuzzytorch.utils import get_model_name, TDictHolder, tensor_to_numpy
+from fuzzytorch.utils import TDictHolder, tensor_to_numpy, minibatch_dict_collate
 import numpy as np
 from lchandler import C_ as C_lchandler
 from lchandler.plots.lc import plot_lightcurve

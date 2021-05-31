@@ -13,6 +13,7 @@ def get_model_names(rootdir, cfilename, kf, lcset_name,
 	train_mode='fine-tuning',
 	):
 	roodirs = [r.split('/')[-1] for r in ftfiles.get_roodirs(rootdir)]
+	return [r for r in roodirs if not r[0]=='-']
 	model_names = []
 	for r in roodirs:
 		load_roodir = f'{rootdir}/{r}/{train_mode}/performance/{cfilename}'

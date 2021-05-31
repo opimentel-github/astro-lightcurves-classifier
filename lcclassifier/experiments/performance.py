@@ -3,7 +3,7 @@ from __future__ import division
 from . import C_
 
 import torch
-from fuzzytorch.utils import get_model_name, TDictHolder, tensor_to_numpy, minibatch_dict_collate
+from fuzzytorch.utils import TDictHolder, tensor_to_numpy, minibatch_dict_collate
 from fuzzytorch.models.utils import count_parameters
 import numpy as np
 from fuzzytools.progress_bars import ProgressBar, ProgressBarMulti
@@ -43,12 +43,11 @@ def save_performance(train_handler, data_loader, save_rootdir,
 			dataset.calcule_precomputed()
 			try:
 				if can_be_in_loop:
-					tdict = []
+					tdicts = []
 					for ki,in_tdict in enumerate(data_loader):
 						_tdict = train_handler.model(TDictHolder(in_tdict).to(train_handler.device))
-						_tdict = TDictHolder(_tdict).to('cpu') # cpu to save gpu memory
-						tdict.append(_tdict)
-					tdict = minibatch_dict_collate(tdict)
+						tdicts += [_tdict]
+					tdict = minibatch_dict_collate(tdicts)
 
 					### decoder
 					mse_loss_bdict = {}

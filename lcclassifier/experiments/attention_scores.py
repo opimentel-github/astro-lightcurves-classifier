@@ -3,7 +3,7 @@ from __future__ import division
 from . import C_
 
 import torch
-from fuzzytorch.utils import get_model_name, TDictHolder, tensor_to_numpy
+from fuzzytorch.utils import TDictHolder, tensor_to_numpy, minibatch_dict_collate
 import numpy as np
 import fuzzytools.files as files
 from fuzzytools.cuteplots.utils import save_fig
@@ -40,12 +40,14 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 	days_n:int=C_.DEFAULT_DAYS_N_AN,
 	animation_duration=10,
 	**kwargs):
-	### dataloader and extract dataset - important
 	train_handler.load_model() # important, refresh to best model
 	train_handler.model.eval() # important, model eval mode
-	data_loader.eval() # set mode
 	dataset = data_loader.dataset # get dataset
 	
+	is_parallel = 'Parallel' in train_handler.model.get_name()
+	if not is_parallel:
+		return
+
 	animation = PlotAnimation(animation_duration, save_end_frame=True)
 	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_n)#[::-1]
 	with torch.no_grad():
@@ -54,43 +56,47 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 		ylims = {lcobj_name:None for lcobj_name in lcobj_names}
 		for day in days[::-1]: # along days
 			dataset.set_max_day(day)
+			dataset.calcule_precomputed()
+
 			fig, axs = plt.subplots(len(lcobj_names), 1, figsize=figsize)
 			for k,lcobj_name in enumerate(lcobj_names):
 				ax = axs[k]
-				tdict, lcobj = dataset.get_item(lcobj_name, return_lcobjs=True)
+				in_tdict, lcobj = dataset.get_item(lcobj_name, return_lcobjs=True)
 				train_handler.model.autoencoder['encoder'].add_extra_return = True
-				out_tdict = train_handler.model(TDictHolder(tdict).to(train_handler.device, add_dummy_dim=True))
+				tdict = train_handler.model(TDictHolder(in_tdict).to(train_handler.device, add_dummy_dim=True))
 				train_handler.model.autoencoder['encoder'].add_extra_return = False
-				onehot = out_tdict['input']['onehot']
-				t = onehot.shape[1]
 
-				#print(out_tdict['model'].keys())
-				uses_attn = 'attn_scores' in out_tdict['model'].keys()
-				is_parallel = 'Parallel' in train_handler.model.get_name()
-				if not all([uses_attn, is_parallel]):
+				#print(tdict['model'].keys())
+				uses_attn = 'attn_scores' in tdict['model'].keys()
+				if not uses_attn:
 					plt.close(fig)
 					dataset.reset_max_day() # very important!!
+					dataset.calcule_precomputed()
 					return
 
 				for kb,b in enumerate(dataset.band_names):
 					lcobjb = lcobj.get_b(b)
-					b_len = onehot[...,kb].sum()
-					dummy_p_onehot = seq_utils.get_seq_onehot_mask(onehot[...,kb].sum(dim=-1), t)
 					plot_lightcurve(ax, lcobj, b, label=f'{b} obs', max_day=day)
 					if kb==0:
-						threshold_day = min([day, max([lcobj.get_b(_b).days[-1] for _b in dataset.band_names])])
-						ax.axvline(threshold_day, linestyle='--', c='k', label=f'threshold day')
+						lcobj_max_day = max([lcobj.get_b(_b).days[-1] for _b in dataset.band_names if len(lcobj.get_b(_b))>0])
+						threshold_day = min([day, lcobj_max_day])
+						ax.axvline(threshold_day, linestyle='--', c='k', label=f'threshold day {threshold_day:.3f}')
 
 					### attn scores
-					last_layer = train_handler.model.autoencoder['encoder'].attn_layers-1
-					attn_scores = out_tdict['model']['attn_scores'][f'z-{last_layer}.{b}'] # (b,h,qt)
-					attn_scores = attn_scores.mean(dim=1)[...,None] # mean along heads (b,h,qt) > (b,qt,1)
+					p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
+					attn_scores = tdict['model']['attn_scores'][f'encz.{b}'] # (b,h,qt)
+					attn_scores = attn_scores.mean(dim=1)[...,None] # (b,h,qt)>(b,qt,1) # mean along heads 
 					#print('attn_scores',attn_scores.shape)
-					attn_scores_min_max = tensor_to_numpy(seq_utils.seq_min_max_norm(attn_scores, dummy_p_onehot)) # (b,qt,1)
-
-					c = C_lchandler.COLOR_DICT[b]
+					attn_scores_min_max = tensor_to_numpy(seq_utils.seq_min_max_norm(attn_scores, p_onehot)) # (b,qt,1)
+					
+					b_len = p_onehot.sum().item()
+					assert b_len<=len(lcobjb), f'{b_len}=={len(lcobjb)}'
 					for i in range(0, b_len):
-						markersize = attn_scores_min_max[0,i,0]*25
+						c = C_lchandler.COLOR_DICT[b]
+						min_makersize = 12
+						max_makersize = 30
+						p = attn_scores_min_max[0,i,0]
+						markersize = max_makersize*p+min_makersize*(1-p)
 						ax.plot(lcobjb.days[i], lcobjb.obs[i], 'o', markersize=markersize, markeredgewidth=0, c=c, alpha=alpha)
 					ax.plot([None], [None], 'o', markeredgewidth=0, c=c, label=f'{b} attention scores', alpha=alpha)
 
@@ -114,4 +120,5 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 	image_save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}~exp_id={experiment_id}.mp4' # gif mp4
 	animation.save(image_save_filedir, reverse=True)
 	dataset.reset_max_day() # very important!!
+	dataset.calcule_precomputed()
 	return
