@@ -16,14 +16,13 @@ parser.add_argument('--gpu',  type=int, default=-1)
 parser.add_argument('--mc',  type=str, default='parallel_rnn_models')
 parser.add_argument('--batch_size',  type=int, default=128) # *** 16 32 64 128
 parser.add_argument('--batch_size_c',  type=int, default=128) # *** 16 32 64 128
-parser.add_argument('--load_model',  type=bool, default=False)
 parser.add_argument('--epochs_max',  type=int, default=1e4)
 parser.add_argument('--save_rootdir',  type=str, default='../save')
 parser.add_argument('--mid',  type=str, default='1000')
 parser.add_argument('--kf',  type=str, default='0')
-parser.add_argument('--bypass',  type=int, default=0)
-parser.add_argument('--train_ae',  type=bool, default=True) # False True
-parser.add_argument('--only_attn_exp',  type=bool, default=False)
+parser.add_argument('--bypass',  type=int, default=0) # 0 1
+parser.add_argument('--train_ae',  type=int, default=1) # 0 1
+parser.add_argument('--only_attn_exp',  type=int, default=0) # 0 1
 #main_args = parser.parse_args([])
 main_args = parser.parse_args()
 print_big_bar()
@@ -144,8 +143,8 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 		batch_size=main_args.batch_size,
 		)
 
-	R_CLASS_CPU = 1
-	if R_CLASS_CPU: # CPU
+	USES_CPU = 0
+	if USES_CPU: # CPU
 		lcset_name = f'{main_args.kf}@train'
 		r_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), 'cpu',
 			balanced_repeats=repeats*synth_repeats,
@@ -167,7 +166,7 @@ for mp_grid in model_collections.mps: # MODEL CONFIGS
 		lcset_name = f'{main_args.kf}@train'
 		r_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device,
 			balanced_repeats=repeats*synth_repeats,
-			uses_precomputed_copies=100, # 1 50 100
+			precomputed_copies=50, # 1 50 100
 			uses_daugm=True,
 			uses_dynamic_balance=True,
 			ds_mode={'random':.9, 'left':.1, 'none':.0,}, # avoid none as it's not random
