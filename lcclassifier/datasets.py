@@ -45,15 +45,14 @@ class CustomDataset(Dataset):
 		in_attrs=None,
 		rec_attr=None,
 		max_day:float=np.infty,
-		hours_noise_amp:float=C_.HOURS_NOISE_AMP,
 		std_scale:float=C_.OBSE_STD_SCALE,
-		cpds_p:float=C_.CPDS_P,
 		balanced_repeats=1,
 		precomputed_copies=1,
 		uses_precomputed_copies=True,
 		uses_daugm=False,
 		uses_dynamic_balance=False,
 		ds_mode={},
+		ds_p=0.1,
 		):
 		self.lcset_name = lcset_name
 		self.lcset = lcset
@@ -62,15 +61,14 @@ class CustomDataset(Dataset):
 		self.in_attrs = in_attrs
 		self.rec_attr = rec_attr
 		self.max_day = max_day
-		self.hours_noise_amp = hours_noise_amp
 		self.std_scale = std_scale
-		self.cpds_p = cpds_p
 		self.balanced_repeats = balanced_repeats
 		self.precomputed_copies = precomputed_copies
 		self.uses_precomputed_copies = uses_precomputed_copies
 		self.uses_daugm = uses_daugm
 		self.uses_dynamic_balance = uses_dynamic_balance
 		self.ds_mode = ds_mode
+		self.ds_p = ds_p
 		self.reset()
 
 	def reset(self):
@@ -237,7 +235,7 @@ class CustomDataset(Dataset):
 		#SCALER_CLASS = LogQuantileTransformer # slow
 		for kb,b in enumerate(self.band_names+['*']):
 			values = self.lcset.get_lcset_values_b(b, self.rec_attr)[...,None]
-			scaler = SCALER_CLASS()
+			scaler = SCALER_CLASS(uses_mean=True) # False True
 			scaler.fit(values)
 			self.scalers['rec'][b] = scaler
 
@@ -337,7 +335,7 @@ class CustomDataset(Dataset):
 		if self.uses_daugm:
 			for kb,b in enumerate(self.band_names):
 				lcobjb = lcobj.get_b(b)
-				lcobjb.apply_downsampling_window(self.ds_mode, .1) # curve points downsampling we need to ensure the model to see compelte curves
+				lcobjb.apply_downsampling_window(self.ds_mode, self.ds_p) # curve points downsampling we need to ensure the model to see compelte curves
 				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
 			lcobj.reset_day_offset_serial(bands=self.band_names) # remove day offset!
 

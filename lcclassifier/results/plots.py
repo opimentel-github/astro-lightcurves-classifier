@@ -141,6 +141,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			if export_animation:
 				#title += str(bar)+'\n'
 				title += f'day-threshold={day:.3f}/{days[-1]:.3f} [days]'+'\n'
+				pass
 			cm_kwargs = {
 				#'fig':fig,
 				#'ax':ax,

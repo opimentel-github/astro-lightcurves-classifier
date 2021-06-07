@@ -36,7 +36,9 @@ class TimeSelfAttnEncoderP(nn.Module):
 		### ATTN
 		attn_kwargs = {
 			'num_heads':NUM_HEADS,
-			'scale_mode':self.scale_mode,
+			'kernel_size':self.kernel_size,
+			'time_noise_window':self.time_noise_window,
+			'fourier_dims':self.fourier_dims,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'activation':'relu',
@@ -47,15 +49,16 @@ class TimeSelfAttnEncoderP(nn.Module):
 
 		### POST-PROJECTION
 		linear_kwargs = {
+			'in_dropout':self.dropout['p'],
 			'activation':'linear',
 			}
-		self.z_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands, **linear_kwargs)
-		print('z_projection:', self.z_projection)
+		self.mb_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands, **linear_kwargs)
+		print('mb_projection:', self.mb_projection)
 
 		### XENTROPY REG
 		linear_kwargs = {
-			'activation':'linear',
 			'in_dropout':self.dropout['p'],
+			'activation':'linear',
 			}
 		self.xentropy_projection = Linear(band_embedding_dims*len_bands, self.output_dims, **linear_kwargs)
 		print('xentropy_projection:', self.xentropy_projection)
@@ -92,7 +95,7 @@ class TimeSelfAttnEncoderP(nn.Module):
 			attn_scores[f'encz.{b}'] = p_scores
 		
 		### BUILD OUT
-		encz_last = self.z_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
+		encz_last = self.mb_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
 		tdict['model']['encz_last'] = encz_last
 		tdict['model']['y_last_pt'] = self.xentropy_projection(encz_last)
 		if self.add_extra_return:
@@ -126,8 +129,10 @@ class TimeSelfAttnEncoderS(nn.Module):
 		
 		### ATTN
 		attn_kwargs = {
-			'num_heads':NUM_HEADS,
-			'scale_mode':self.scale_mode,
+			'num_heads':NUM_HEADS*len_bands,
+			'kernel_size':self.kernel_size,
+			'time_noise_window':self.time_noise_window,
+			'fourier_dims':self.fourier_dims,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'activation':'relu',
@@ -138,8 +143,8 @@ class TimeSelfAttnEncoderS(nn.Module):
 
 		### XENTROPY REG
 		linear_kwargs = {
-			'activation':'linear',
 			'in_dropout':self.dropout['p'],
+			'activation':'linear',
 			}
 		self.xentropy_projection = Linear(self.attn_embd_dims, self.output_dims, **linear_kwargs)
 		print('xentropy_projection:', self.xentropy_projection)

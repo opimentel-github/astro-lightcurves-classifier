@@ -19,7 +19,7 @@ class TimeSelfAttnDecoderP(nn.Module):
 		self.add_extra_return = False
 		for name, val in kwargs.items():
 			setattr(self, name, val)
-		assert self.te_features>0, 'attn needs to work with temporal encoding'
+		assert self.te_features>=2, 'attn needs to work with temporal encoding'
 		self.reset()
 	
 	def reset(self):
@@ -29,20 +29,24 @@ class TimeSelfAttnDecoderP(nn.Module):
 			}
 		len_bands = len(self.band_names)
 		extra_dims = 0
-		band_embedding_dims = self.attn_embd_dims//len_bands
+		band_embedding_dims = int(self.attn_embd_dims/len_bands*C_.DECODER_EMB_K)
 		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, band_embedding_dims, **linear_kwargs) for b in self.band_names})
 		print('x_projection:',self.x_projection)
 
 		### ATTN
 		attn_kwargs = {
 			'num_heads':NUM_HEADS,
-			'scale_mode':self.scale_mode,
+			'kernel_size':self.kernel_size,
+			'time_noise_window':self.time_noise_window,
+			'fourier_dims':self.fourier_dims,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'activation':'relu',
 			'last_activation':'relu',
 			}
-		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs) for b in self.band_names})
+		te_features = self.te_features
+		# te_features = 2
+		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.attn_layers-1), te_features, self.max_period, **attn_kwargs) for b in self.band_names})
 		print('ml_attn:', self.ml_attn)
 
 		### DEC MLP
@@ -89,7 +93,7 @@ class TimeSelfAttnDecoderS(nn.Module):
 		### ATTRIBUTES
 		for name, val in kwargs.items():
 			setattr(self, name, val)
-		assert self.te_features>0, 'attn needs to work with temporal encoding'
+		assert self.te_features>=2, 'attn needs to work with temporal encoding'
 		self.reset()
 
 	def reset(self):
@@ -99,19 +103,24 @@ class TimeSelfAttnDecoderS(nn.Module):
 		}
 		len_bands = len(self.band_names)
 		extra_dims = len_bands+0
-		self.x_projection = Linear(self.input_dims+extra_dims, self.attn_embd_dims, **linear_kwargs)
+		embedding_dims = int(self.attn_embd_dims*C_.DECODER_EMB_K)
+		self.x_projection = Linear(self.input_dims+extra_dims, embedding_dims, **linear_kwargs)
 		print('x_projection:', self.x_projection)
 
 		### ATTN
 		attn_kwargs = {
-			'num_heads':NUM_HEADS,
-			'scale_mode':self.scale_mode,
+			'num_heads':NUM_HEADS*len_bands,
+			'kernel_size':self.kernel_size,
+			'time_noise_window':self.time_noise_window,
+			'fourier_dims':self.fourier_dims,
 			'in_dropout':self.dropout['p'],
 			'dropout':self.dropout['p'],
 			'activation':'relu',
 			'last_activation':'relu',
 			}
-		self.ml_attn = ft_attn.MLTimeSelfAttn(self.attn_embd_dims, self.attn_embd_dims, [self.attn_embd_dims]*(self.attn_layers-1), self.te_features, self.max_period, **attn_kwargs)
+		te_features = self.te_features
+		# te_features = 2
+		self.ml_attn = ft_attn.MLTimeSelfAttn(embedding_dims, embedding_dims, [embedding_dims]*(self.attn_layers-1), te_features, self.max_period, **attn_kwargs)
 		print('ml_attn:', self.ml_attn)
 
 		### DEC MLP
@@ -120,7 +129,7 @@ class TimeSelfAttnDecoderS(nn.Module):
 			'dropout':self.dropout['p'],
 			'activation':'relu',
 			}
-		self.dz_projection = MLP(self.attn_embd_dims, 1, [self.attn_embd_dims]*C_.DECODER_MLP_LAYERS, **mlp_kwargs)
+		self.dz_projection = MLP(embedding_dims, 1, [embedding_dims]*C_.DECODER_MLP_LAYERS, **mlp_kwargs)
 		print('dz_projection:', self.dz_projection)
 
 	def get_output_dims(self):

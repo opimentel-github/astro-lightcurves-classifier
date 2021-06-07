@@ -16,17 +16,24 @@ class ModelCollections():
 		self.max_day = C_.MAX_DAY
 
 		bands = 2
-		self.embd_dims = GDIter(32*bands) # 16 20 24 28 32 64
-		self.embd_layers = GDIter(3) # 2 3
-		#self.rnn_cell_names = GDIter('GRU')
-		self.rnn_cell_names = GDIter('GRU', 'LSTM') # GRU LSTM
-		self.te_features_gd = GDIter(6,2) # ***
-		self.scale_mode_gd = GDIter(None) # None 'softmax', 'hardsigmoid', 'softmax'
-		#self.scale_mode_gd = GDIter('softmax', 'hardsigmoid', 'softmax')
+		d = 64 # 16 32 64 128
+		self.gd_embd_dims = GDIter(d*bands)
+		self.gd_embd_layers = GDIter(2) # 1 2 3
+		#self.gd_rnn_cell_names = GDIter('GRU')
+		self.gd_rnn_cell_names = GDIter('GRU', 'LSTM') # GRU LSTM
+		self.gd_te_features = GDIter(8*2)
+		self.gd_fourier_dims = GDIter(1/2)
+
+		# self.gd_time_noise_window = GDIter('1*24**-1')
+		self.gd_time_noise_window = GDIter('1*24**-1', '0*24**-1', '24*24**-1')
+
+		self.gd_kernel_size = GDIter(2)
+		# self.gd_kernel_size = GDIter(1, 2, 3)
+
 		self.cnn_aggregation = GDIter('avg')
 		#self.cnn_aggregation = GDIter('max', 'avg')
 
-		self.dropout_p = 0.0
+		self.dropout_p = 10/100
 		self.common_dict = {
 			'max_period':self.max_day*1.25, # ***
 			'band_names':lcdataset['raw'].band_names,
@@ -37,7 +44,7 @@ class ModelCollections():
 				'C':mclass.SimpleClassifier,
 				'embd_layers':2, # 1 2
 				'dropout':{
-					'p':.5, # *** .1 .25 .3 .5
+					'p':50/100,
 					},
 				},
 			}
@@ -94,9 +101,9 @@ class ModelCollections():
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.ParallelRNNClassifier,
-				'rnn_cell_name':self.rnn_cell_names,
-				'rnn_embd_dims':self.embd_dims,
-				'rnn_layers':self.embd_layers,
+				'rnn_cell_name':self.gd_rnn_cell_names,
+				'rnn_embd_dims':self.gd_embd_dims,
+				'rnn_layers':self.gd_embd_layers,
 				'dropout':{'p':self.dropout_p},
 			},
 		})
@@ -106,9 +113,9 @@ class ModelCollections():
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.SerialRNNClassifier,
-				'rnn_cell_name':self.rnn_cell_names,
-				'rnn_embd_dims':self.embd_dims,
-				'rnn_layers':self.embd_layers,
+				'rnn_cell_name':self.gd_rnn_cell_names,
+				'rnn_embd_dims':self.gd_embd_dims,
+				'rnn_layers':self.gd_embd_layers,
 				'dropout':{'p':self.dropout_p},
 			},
 		})
@@ -124,8 +131,8 @@ class ModelCollections():
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.ParallelTCNNClassifier,
-				'tcnn_embd_dims':self.embd_dims,
-				'tcnn_layers':self.embd_layers,
+				'tcnn_embd_dims':self.gd_embd_dims,
+				'tcnn_layers':self.gd_embd_layers,
 				'dropout':{'p':self.dropout_p},
 				'aggregation':self.cnn_aggregation,
 			},
@@ -136,8 +143,8 @@ class ModelCollections():
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.SerialTCNNClassifier,
-				'tcnn_embd_dims':self.embd_dims,
-				'tcnn_layers':self.embd_layers,
+				'tcnn_embd_dims':self.gd_embd_dims,
+				'tcnn_layers':self.gd_embd_layers,
 				'dropout':{'p':self.dropout_p},
 				'aggregation':self.cnn_aggregation,
 			},
@@ -154,11 +161,13 @@ class ModelCollections():
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.ParallelTimeSelfAttn,
-				'attn_embd_dims':self.embd_dims,
-				'attn_layers':self.embd_layers,
+				'attn_embd_dims':self.gd_embd_dims,
+				'attn_layers':self.gd_embd_layers,
 				'dropout':{'p':self.dropout_p},
-				'te_features':self.te_features_gd,
-				'scale_mode':self.scale_mode_gd,
+				'te_features':self.gd_te_features,
+				'fourier_dims':self.gd_fourier_dims,
+				'kernel_size':self.gd_kernel_size,
+				'time_noise_window':self.gd_time_noise_window,
 			},
 		})
 		self.add_gs(self.update_te(gs))
@@ -167,11 +176,13 @@ class ModelCollections():
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.SerialTimeSelfAttn,
-				'attn_embd_dims':self.embd_dims,
-				'attn_layers':self.embd_layers,
+				'attn_embd_dims':self.gd_embd_dims,
+				'attn_layers':self.gd_embd_layers,
 				'dropout':{'p':self.dropout_p},
-				'te_features':self.te_features_gd,
-				'scale_mode':self.scale_mode_gd,
+				'te_features':self.gd_te_features,
+				'fourier_dims':self.gd_fourier_dims,
+				'kernel_size':self.gd_kernel_size,
+				'time_noise_window':self.gd_time_noise_window,
 			},
 		})
 		self.add_gs(self.update_te(gs))

@@ -71,19 +71,27 @@ def get_ps_times_df(rootdir, cfilename, kf, method, model_names,
 		class_names = files[0]()['class_names']
 		is_parallel = 'Parallel' in model_name
 
-		print(files[0]()['monitors']['wmse-xentropy'].keys())
+		loss_name = 'wmse-xentropy'
+		print(files[0]()['monitors'][loss_name].keys())
 
+		#th = 1 # bug?
 		d = {}
-		parameters = [f()['params'] for f in files][0]
-		d['parameters'] = parameters
+		parameters = [f()['parameters'] for f in files][0]
+		d['params'] = parameters
 		#d['best_epoch'] = XError([f()['monitors']['wmse-xentropy']['best_epoch'] for f in files])
-		d['time-per-iteration [segs]'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration'] for f in files])
-		x = files[0]()['monitors']['wmse-xentropy']['time_per_iteration']
-		new_x = x/parameters*1e6
-		print(x, parameters, new_x)
-		d['time-per-iteration/params 1e6[segs]'] = sum([f()['monitors']['wmse-xentropy']['time_per_iteration']/parameters*1e6 for f in files])
+		d['time-per-iteration [segs]'] = sum([f()['monitors'][loss_name]['time_per_iteration'] for f in files])
+		#print(d['time-per-iteration [segs]'].max())
+		#d['time-per-iteration/params $1e6\\cdot$[segs]'] = sum([f()['monitors'][loss_name]['time_per_iteration']/parameters*1e6 for f in files])
 		#d['time_per_epoch'] = sum([f()['monitors']['wmse-xentropy']['time_per_epoch'] for f in files])
-		d['total-time [mins]'] = XError([f()['monitors']['wmse-xentropy']['total_time'] for f in files])/60
+		
+
+		print(files[0]()['monitors'][loss_name]['time_per_epoch'])
+
+		#d['time_per_epoch [segs]'] = sum([f()['monitors'][loss_name]['time_per_epoch'] for f in files])
+		d['time-per-epoch [segs]'] = XError([f()['monitors'][loss_name]['total_time']/1500 for f in files])
+
+		d['total-time [mins]'] = XError([f()['monitors'][loss_name]['total_time']/60 for f in files])
+		
 
 		index = f'model={utils.get_fmodel_name(model_name)}'
 		info_df.append(index, d)

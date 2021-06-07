@@ -43,6 +43,7 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 	if not is_parallel:
 		return
 
+	dj = 3
 	attn_scores_collection = {b:[] for kb,b in enumerate(dataset.band_names)}
 	with torch.no_grad():
 		tdicts = []
@@ -80,11 +81,9 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 				lcobjb = lcobj.get_b(b) # complete
 				p_onehot_k = tensor_to_numpy(p_onehot[k]) # (b,t) > (t)
 				b_len = p_onehot_k.sum()
-				assert b_len<=len(lcobjb), f'{b_len}=={len(lcobjb)}'
+				assert b_len<=len(lcobjb), f'{b_len}<={len(lcobjb)}'
+				bar(f'{lcobj_name} - b_len={b_len}')
 
-				bar(f'{lcobj_name} - attn_scores={attn_scores.shape} - b_len={b_len}')
-
-				dj = 3
 				if b_len<=dj:
 					continue
 
@@ -138,7 +137,8 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 		'band_names':dataset.band_names,
 		'class_names':dataset.class_names,
 
-		'day':dataset.max_day,
+		'max_day':dataset.max_day,
+		'dj':dj,
 		'attn_scores_collection':attn_scores_collection,
 	}
 

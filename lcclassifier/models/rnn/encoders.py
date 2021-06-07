@@ -44,15 +44,16 @@ class RNNEncoderP(nn.Module):
 
 		### POST-PROJECTION
 		linear_kwargs = {
+			'in_dropout':self.dropout['p'],
 			'activation':'linear',
 			}
-		self.z_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands, **linear_kwargs)
-		print('z_projection:', self.z_projection)
+		self.mb_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands, **linear_kwargs)
+		print('mb_projection:', self.mb_projection)
 
 		### XENTROPY REG
 		linear_kwargs = {
-			'activation':'linear',
 			'in_dropout':self.dropout['p'],
+			'activation':'linear',
 			}
 		self.xentropy_projection = Linear(band_embedding_dims*len_bands, self.output_dims, **linear_kwargs)
 		print('xentropy_projection:', self.xentropy_projection)
@@ -80,7 +81,7 @@ class RNNEncoderP(nn.Module):
 			encz_bdict[f'encz.{b}'] = seq_utils.seq_last_element(p_encz, p_onehot) # last element
 
 		### BUILD OUT
-		encz_last = self.z_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
+		encz_last = self.mb_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
 		tdict['model']['encz_last'] = encz_last
 		tdict['model']['y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict
@@ -119,8 +120,8 @@ class RNNEncoderS(nn.Module):
 
 		### XENTROPY REG
 		linear_kwargs = {
-			'activation':'linear',
 			'in_dropout':self.dropout['p'],
+			'activation':'linear',
 			}
 		self.xentropy_projection = Linear(self.rnn_embd_dims, self.output_dims, **linear_kwargs)
 		print('xentropy_projection:', self.xentropy_projection)

@@ -23,9 +23,8 @@ def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	bins_xrange=[None, None],
 	bins_yrange=[None, None],
 	):
-	load_roodir = f'{rootdir}/{model_name}/{train_mode}/attn_stats/{cfilename}/{kf}@{lcset_name}'
-	print(load_roodir)
-	files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
+	load_roodir = f'{rootdir}/{model_name}/{train_mode}/attn_stats/{cfilename}'
+	files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
 	print(f'{model_name} {files_ids}({len(files_ids)}#)')
 	assert len(files)>0
 
@@ -39,13 +38,14 @@ def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	label = f'{utils.get_fmodel_name(model_name)}'
 
 	title = ''
-	title += f'linear-trend v/s days-from-peak'+'\n'
+	title += f'linear-trend v/s time-from-peak'+'\n'
 	title += f'train-mode={train_mode} - survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
 	title += f'{label}'+'\n'
 	fig.suptitle(title[:-1], va='bottom')
 
 	target_class_names = class_names
-	#target_class_names = ['SLSN']
+	#target_class_names = ['SNIbc'] # SNIa SNIbc
+	dj = 3
 	x_key = 'days_from_peak1.j'
 	y_key = 'linear_trend_m.j'
 
@@ -77,6 +77,7 @@ def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	ax.imshow(H, interpolation='nearest', origin='lower', aspect='auto', extent=extent)
 	ax.axvline(0, linewidth=.5, color='w')
 	ax.axhline(0, linewidth=.5, color='w')
+	assert 0, 'change viridis'
 	#title = f'{metric_name} v/s days - mode: {mode}'
 	#title += f'\nsurvey: {survey} - bands: {band_names}'
 	#title += f'\nshadow region: {xe.get_symbol("std")} ({len(xe)} itrs)'
@@ -85,8 +86,8 @@ def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	ax.set_title(title[:-1])
 
 	label_dict = {
-		'linear_trend_m.j':'linear-trend',
-		'days_from_peak1.j':'days-from-peak',
+		'linear_trend_m.j':'linear-trend $\\Delta j='+str(dj)+'$',
+		'days_from_peak1.j':'time-from-peak [days]',
 	}
 
 	xlabel = label_dict[x_key]
@@ -94,8 +95,8 @@ def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	ax.set_xlabel(xlabel)
 	ax.set_ylabel(ylabel)
 	txt_y = yedges[0]
-	ax.text(0, txt_y, ' pre-peak ', fontsize=12, c='w', ha='right', va='bottom')
-	ax.text(0, txt_y, ' post-peak ', fontsize=12, c='w', ha='left', va='bottom')
+	ax.text(0, txt_y, 'pre-peak < ', fontsize=12, c='w', ha='right', va='bottom')
+	ax.text(0, txt_y, ' > post-peak', fontsize=12, c='w', ha='left', va='bottom')
 
 	### attn stats
 	ax = axs[1]
@@ -113,8 +114,8 @@ def plot_attention_statistics(rootdir, cfilename, kf, lcset_name, model_name,
 	ax.set_title(title[:-1])
 	ax.set_xlabel(xlabel)
 	ax.set_yticks([])
-	ax.text(0, txt_y, ' pre-peak ', fontsize=12, c='w', ha='right', va='bottom')
-	ax.text(0, txt_y, ' post-peak ', fontsize=12, c='w', ha='left', va='bottom')
+	ax.text(0, txt_y, 'pre-peak < ', fontsize=12, c='w', ha='right', va='bottom')
+	ax.text(0, txt_y, ' > post-peak', fontsize=12, c='w', ha='left', va='bottom')
 
 	fig.tight_layout()
 	plt.show()

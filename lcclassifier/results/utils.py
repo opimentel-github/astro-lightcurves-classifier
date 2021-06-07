@@ -28,12 +28,18 @@ def get_model_names(rootdir, cfilename, kf, lcset_name,
 def get_fmodel_name(model_name):
 	mn_dict = strings.get_dict_from_string(model_name)
 	mdl = mn_dict['mdl']
-	te_dims = int(mn_dict.get('te-dims', 0))
+	b = mn_dict['b']
 	cell = mn_dict.get('cell', None)
+	m = mn_dict.get('m', None)
+	kernel_size = mn_dict.get('kernel_size', None)
+	time_noise_window = mn_dict.get('time_noise_window', None)
 	model_name = []
 	model_name += [mdl]
+	model_name += [f'w/ {b}' if not b is None else '']
 	model_name += [f'w/ {cell}' if not cell is None else '']
-	model_name += [f'w/ M={te_dims//2}' if te_dims>0 else '']
+	model_name += [f'w/ M={int(m)//2}' if not m is None else ''] # fixme
+	model_name += [f'w/ k={kernel_size}' if not kernel_size is None else '']
+	model_name += [f'w/ r={time_noise_window}' if not time_noise_window is None else '']
 	return ' '.join(model_name)
 
 ###################################################################################################################################################

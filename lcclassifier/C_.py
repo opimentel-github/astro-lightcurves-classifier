@@ -13,13 +13,12 @@ CHUNK_SIZE = os.cpu_count() if N_JOBS<0 else N_JOBS
 
 ### SYNTHETIC
 OBSE_STD_SCALE = 1/2 # ***
-CPDS_P = 10./100. # ***
-HOURS_NOISE_AMP = 8. # ***
 
 ### important
-REC_LOSS_EPS = .1 # *** 0.01 is not working as good
+REC_LOSS_EPS = 1
+REC_LOSS_K = .2
+MSE_K = 1e4
 XENTROPY_K = 1
-MSE_K = 5e2
 
 MAX_DAY = 100.
 DEFAULT_DAYS_N = 100
@@ -36,8 +35,10 @@ FONTSIZE = 14
 
 
 ### ARCH
-DECODER_MLP_LAYERS = 1
-NUM_HEADS = 4 # 4
+DECODER_MLP_LAYERS = 0
+DECODER_EMB_K = 0.5 # 0.5 0.25
+DECODER_LAYERS = 1 # 1 None
+NUM_HEADS = 4 # 4 8
 
 '''
 FNAME_REPLACE_DICT = { # formating

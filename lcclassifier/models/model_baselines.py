@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from fuzzytorch.utils import get_model_name, print_tdict
+from copy import copy, deepcopy
 
 ###################################################################################################################################################
 
@@ -56,8 +57,9 @@ class ParallelRNNClassifier(ModelBaseline):
 		embd_dims = self.mdl_kwargs['rnn_embd_dims']
 		
 		### DECODER
-		dec_mdl_kwargs = self.mdl_kwargs.copy()
+		dec_mdl_kwargs = deepcopy(self.mdl_kwargs)
 		dec_mdl_kwargs['input_dims'] = embd_dims
+		dec_mdl_kwargs['rnn_layers'] = dec_mdl_kwargs['rnn_layers'] if C_.DECODER_LAYERS is None else C_.DECODER_LAYERS
 		decoder = rnn_decoders.RNNDecoderP(**dec_mdl_kwargs)
 
 		### MODEL
@@ -70,8 +72,7 @@ class ParallelRNNClassifier(ModelBaseline):
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
 			'mdl':f'ParallelRNN',
-			'in-dims':f'{self.input_dims}',
-			'te-dims':'0',
+			'input_dims':f'{self.input_dims}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
 			'cell':f'{self.rnn_cell_name}',
@@ -103,8 +104,9 @@ class SerialRNNClassifier(ModelBaseline):
 		embd_dims = self.mdl_kwargs['rnn_embd_dims']
 
 		### DECODER
-		dec_mdl_kwargs = self.mdl_kwargs.copy()
+		dec_mdl_kwargs = deepcopy(self.mdl_kwargs)
 		dec_mdl_kwargs['input_dims'] = embd_dims
+		dec_mdl_kwargs['rnn_layers'] = dec_mdl_kwargs['rnn_layers'] if C_.DECODER_LAYERS is None else C_.DECODER_LAYERS
 		decoder = rnn_decoders.RNNDecoderS(**dec_mdl_kwargs)
 		
 		### MODEL
@@ -117,8 +119,7 @@ class SerialRNNClassifier(ModelBaseline):
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
 			'mdl':f'SerialRNN',
-			'in-dims':f'{self.input_dims}',
-			'te-dims':f'0',
+			'input_dims':f'{self.input_dims}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
 			'cell':f'{self.rnn_cell_name}',
@@ -153,8 +154,9 @@ class ParallelTimeSelfAttn(ModelBaseline):
 		embd_dims = self.mdl_kwargs['attn_embd_dims']
 			
 		### DECODER
-		dec_mdl_kwargs = self.mdl_kwargs.copy()
+		dec_mdl_kwargs = deepcopy(self.mdl_kwargs)
 		dec_mdl_kwargs['input_dims'] = embd_dims
+		dec_mdl_kwargs['attn_layers'] = dec_mdl_kwargs['attn_layers'] if C_.DECODER_LAYERS is None else C_.DECODER_LAYERS
 		decoder = attn_decoders.TimeSelfAttnDecoderP(**dec_mdl_kwargs)
 		
 		### MODEL
@@ -172,10 +174,12 @@ class ParallelTimeSelfAttn(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'ParallelTimeSelfAttn',
-			'in-dims':f'{self.input_dims}',
-			'te-dims':self.mdl_kwargs['te_features'],
-			'scale':self.mdl_kwargs['scale_mode'],
+			'mdl':f'ParallelTimeModAttn',
+			'input_dims':f'{self.input_dims}',
+			'm':self.mdl_kwargs['te_features'],
+			'kernel_size':self.mdl_kwargs['kernel_size'],
+			'fourier_dims':self.mdl_kwargs['fourier_dims'],
+			'time_noise_window':self.mdl_kwargs['time_noise_window'],
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
 		})
@@ -204,8 +208,9 @@ class SerialTimeSelfAttn(ModelBaseline):
 		embd_dims = self.mdl_kwargs['attn_embd_dims']
 		
 		### DECODER
-		dec_mdl_kwargs = self.mdl_kwargs.copy()
+		dec_mdl_kwargs = deepcopy(self.mdl_kwargs)
 		dec_mdl_kwargs['input_dims'] = embd_dims
+		dec_mdl_kwargs['attn_layers'] = dec_mdl_kwargs['attn_layers'] if C_.DECODER_LAYERS is None else C_.DECODER_LAYERS
 		decoder = attn_decoders.TimeSelfAttnDecoderS(**dec_mdl_kwargs)
 
 		### MODEL
@@ -223,10 +228,12 @@ class SerialTimeSelfAttn(ModelBaseline):
 		encoder = self.autoencoder['encoder']
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
-			'mdl':f'SerialTimeSelfAttn',
-			'in-dims':f'{self.input_dims}',
-			'te-dims':self.mdl_kwargs['te_features'],
-			'scale':self.mdl_kwargs['scale_mode'],
+			'mdl':f'SerialTimeModAttn',
+			'input_dims':f'{self.input_dims}',
+			'm':self.mdl_kwargs['te_features'],
+			'kernel_size':self.mdl_kwargs['kernel_size'],
+			'fourier_dims':self.mdl_kwargs['fourier_dims'],
+			'time_noise_window':self.mdl_kwargs['time_noise_window'],
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
 		})
@@ -269,8 +276,7 @@ class ParallelTCNNClassifier(ModelBaseline):
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
 			'mdl':f'ParallelTCNN',
-			'in-dims':f'{self.input_dims}',
-			'te-dims':f'0',
+			'input_dims':f'{self.input_dims}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
 			'aggr':f'{self.aggregation}',
@@ -311,8 +317,7 @@ class SerialTCNNClassifier(ModelBaseline):
 		decoder = self.autoencoder['decoder']
 		return get_model_name({
 			'mdl':f'SerialTCNN',
-			'in-dims':f'{self.input_dims}',
-			'te-dims':f'0',
+			'input_dims':f'{self.input_dims}',
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
 			'aggr':f'{self.aggregation}',
