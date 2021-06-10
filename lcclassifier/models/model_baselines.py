@@ -9,6 +9,9 @@ import torch.nn.functional as F
 from fuzzytorch.utils import get_model_name, print_tdict
 from copy import copy, deepcopy
 
+from .rnn import decoders as rnn_decoders
+GLOBAL_DECODER_CLASS = rnn_decoders.LatentGRUDecoderP
+
 ###################################################################################################################################################
 
 def get_enc_emb_str(mdl, band_names):
@@ -19,8 +22,6 @@ def get_enc_emb_str(mdl, band_names):
 	else:
 		txts = [f'{d}' for d in dims]
 		return '-'.join(txts)
-
-from .rnn import encoders as rnn_encoders
 
 class ModelBaseline(nn.Module):
 	def __init__(self, **raw_kwargs):
@@ -35,10 +36,13 @@ class ModelBaseline(nn.Module):
 	def get_classifier_model(self):
 		return self.classifier
 
+	def init_fine_tuning(self):
+		encoder = self.autoencoder['encoder']
+		encoder.init_fine_tuning()
+
 ###################################################################################################################################################
 
 from .rnn import encoders as rnn_encoders
-from .rnn import decoders as rnn_decoders
 
 class ParallelRNNClassifier(ModelBaseline):
 	def __init__(self, **raw_kwargs):
@@ -54,13 +58,12 @@ class ParallelRNNClassifier(ModelBaseline):
 
 		### ENCODER
 		encoder = rnn_encoders.RNNEncoderP(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['rnn_embd_dims']
+		embd_dims = self.mdl_kwargs['embd_dims']
 		
-		### DECODER
+		# ### DECODER
 		dec_mdl_kwargs = deepcopy(self.mdl_kwargs)
-		dec_mdl_kwargs['input_dims'] = embd_dims
-		dec_mdl_kwargs['rnn_layers'] = dec_mdl_kwargs['rnn_layers'] if C_.DECODER_LAYERS is None else C_.DECODER_LAYERS
-		decoder = rnn_decoders.RNNDecoderP(**dec_mdl_kwargs)
+		dec_mdl_kwargs['embd_dims'] = dec_mdl_kwargs['embd_dims']
+		decoder = GLOBAL_DECODER_CLASS(**dec_mdl_kwargs)
 
 		### MODEL
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
@@ -101,13 +104,12 @@ class SerialRNNClassifier(ModelBaseline):
 
 		### ENCODER
 		encoder = rnn_encoders.RNNEncoderS(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['rnn_embd_dims']
+		embd_dims = self.mdl_kwargs['embd_dims']
 
 		### DECODER
 		dec_mdl_kwargs = deepcopy(self.mdl_kwargs)
-		dec_mdl_kwargs['input_dims'] = embd_dims
-		dec_mdl_kwargs['rnn_layers'] = dec_mdl_kwargs['rnn_layers'] if C_.DECODER_LAYERS is None else C_.DECODER_LAYERS
-		decoder = rnn_decoders.RNNDecoderS(**dec_mdl_kwargs)
+		dec_mdl_kwargs['embd_dims'] = dec_mdl_kwargs['embd_dims']
+		decoder = GLOBAL_DECODER_CLASS(**dec_mdl_kwargs)
 		
 		### MODEL
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
@@ -136,7 +138,6 @@ class SerialRNNClassifier(ModelBaseline):
 ###################################################################################################################################################
 
 from .attn import encoders as attn_encoders
-from .attn import decoders as attn_decoders
 
 class ParallelTimeSelfAttn(ModelBaseline):
 	def __init__(self, **raw_kwargs):
@@ -151,13 +152,12 @@ class ParallelTimeSelfAttn(ModelBaseline):
 
 		### ENCODER
 		encoder = attn_encoders.TimeSelfAttnEncoderP(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['attn_embd_dims']
+		embd_dims = self.mdl_kwargs['embd_dims']
 			
 		### DECODER
 		dec_mdl_kwargs = deepcopy(self.mdl_kwargs)
-		dec_mdl_kwargs['input_dims'] = embd_dims
-		dec_mdl_kwargs['attn_layers'] = dec_mdl_kwargs['attn_layers'] if C_.DECODER_LAYERS is None else C_.DECODER_LAYERS
-		decoder = attn_decoders.TimeSelfAttnDecoderP(**dec_mdl_kwargs)
+		dec_mdl_kwargs['embd_dims'] = dec_mdl_kwargs['embd_dims']
+		decoder = GLOBAL_DECODER_CLASS(**dec_mdl_kwargs)
 		
 		### MODEL
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
@@ -205,13 +205,12 @@ class SerialTimeSelfAttn(ModelBaseline):
 
 		### ENCODER
 		encoder = attn_encoders.TimeSelfAttnEncoderS(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['attn_embd_dims']
+		embd_dims = self.mdl_kwargs['embd_dims']
 		
 		### DECODER
 		dec_mdl_kwargs = deepcopy(self.mdl_kwargs)
-		dec_mdl_kwargs['input_dims'] = embd_dims
-		dec_mdl_kwargs['attn_layers'] = dec_mdl_kwargs['attn_layers'] if C_.DECODER_LAYERS is None else C_.DECODER_LAYERS
-		decoder = attn_decoders.TimeSelfAttnDecoderS(**dec_mdl_kwargs)
+		dec_mdl_kwargs['embd_dims'] = dec_mdl_kwargs['embd_dims']
+		decoder = GLOBAL_DECODER_CLASS(**dec_mdl_kwargs)
 
 		### MODEL
 		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
@@ -236,91 +235,6 @@ class SerialTimeSelfAttn(ModelBaseline):
 			'time_noise_window':self.mdl_kwargs['time_noise_window'],
 			'enc-emb':get_enc_emb_str(encoder, self.band_names),
 			'dec-emb':get_enc_emb_str(decoder, self.band_names),
-		})
-
-	def forward(self, tdict:dict, **kwargs):
-		encoder = self.autoencoder['encoder']
-		decoder = self.autoencoder['decoder']
-		encoder_tdict = encoder(tdict, **kwargs)
-		decoder_tdict = decoder(encoder_tdict)
-		classifier_tdict = self.classifier(encoder_tdict)
-		return classifier_tdict
-
-###################################################################################################################################################
-
-from .tcnn import encoders as tcnn_encoders
-
-class ParallelTCNNClassifier(ModelBaseline):
-	def __init__(self, **raw_kwargs):
-		super().__init__()
-
-		### ATTRIBUTES
-		for name, val in raw_kwargs.items():
-			setattr(self, name, val)
-
-		self.input_dims = self.mdl_kwargs['input_dims']
-		self.band_names = self.mdl_kwargs['band_names']
-		self.aggregation = self.mdl_kwargs['aggregation']
-
-		### MODEL DEFINITION
-		encoder = tcnn_encoders.TCNNEncoderP(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
-		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
-		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
-		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
-		self.class_mdl_kwargs.update({'input_dims':embd_dims})
-		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)
-
-	def get_name(self):
-		encoder = self.autoencoder['encoder']
-		decoder = self.autoencoder['decoder']
-		return get_model_name({
-			'mdl':f'ParallelTCNN',
-			'input_dims':f'{self.input_dims}',
-			'enc-emb':get_enc_emb_str(encoder, self.band_names),
-			'dec-emb':get_enc_emb_str(decoder, self.band_names),
-			'aggr':f'{self.aggregation}',
-		})
-
-	def forward(self, tdict, **kwargs):
-		encoder = self.autoencoder['encoder']
-		decoder = self.autoencoder['decoder']
-		encoder_tdict = encoder(tdict, **kwargs)
-		decoder_tdict = decoder(encoder_tdict)
-		classifier_tdict = self.classifier(encoder_tdict)
-		#print_tdict(encoder_tdict)
-		return classifier_tdict
-
-class SerialTCNNClassifier(ModelBaseline):
-	def __init__(self, **raw_kwargs):
-		super().__init__()
-
-		### ATTRIBUTES
-		for name, val in raw_kwargs.items():
-			setattr(self, name, val)
-
-		self.input_dims = self.mdl_kwargs['input_dims']
-		self.band_names = self.mdl_kwargs['band_names']
-		self.aggregation = self.mdl_kwargs['aggregation']
-
-		### MODEL DEFINITION
-		encoder = tcnn_encoders.TCNNEncoderS(**self.mdl_kwargs)
-		embd_dims = self.mdl_kwargs['tcnn_embd_dims']
-		self.dec_mdl_kwargs.update({'input_dims':embd_dims, 'rnn_embd_dims':embd_dims})
-		decoder = self.dec_mdl_kwargs['C'](**self.dec_mdl_kwargs)
-		self.autoencoder = nn.ModuleDict({'encoder':encoder, 'decoder':decoder})
-		self.class_mdl_kwargs.update({'input_dims':embd_dims})
-		self.classifier = self.class_mdl_kwargs['C'](**self.class_mdl_kwargs)
-
-	def get_name(self):
-		encoder = self.autoencoder['encoder']
-		decoder = self.autoencoder['decoder']
-		return get_model_name({
-			'mdl':f'SerialTCNN',
-			'input_dims':f'{self.input_dims}',
-			'enc-emb':get_enc_emb_str(encoder, self.band_names),
-			'dec-emb':get_enc_emb_str(decoder, self.band_names),
-			'aggr':f'{self.aggregation}',
 		})
 
 	def forward(self, tdict:dict, **kwargs):

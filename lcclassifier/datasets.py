@@ -11,7 +11,8 @@ import random
 from .scalers import CustomStandardScaler, LogStandardScaler
 import fuzzytools.strings as strings
 from joblib import Parallel, delayed
-from fuzzytools.lists import get_list_chunks, get_random_item
+from fuzzytools.lists import get_random_item
+from fuzzytools.multiprocessing import get_joblib_config_batches
 from fuzzytools.progress_bars import ProgressBar
 from fuzzytorch.utils import print_tdict
 import fuzzytorch.models.seq_utils as seq_utils
@@ -95,9 +96,7 @@ class CustomDataset(Dataset):
 		self.calcule_balanced_w_cdict()
 
 	def calcule_precomputed(self,
-		backend='threading',
-		n_jobs=1,
-		chunk_size=C_.CHUNK_SIZE,
+		backend=None,
 		verbose=0,
 		):
 		start_time = time.time()
@@ -105,16 +104,15 @@ class CustomDataset(Dataset):
 		lcobj_names = self.lcset.get_lcobj_names()
 		self.precomputed_dict = {lcobj_name:[] for lcobj_name in lcobj_names}
 		precomputed_lcobj_names = lcobj_names*self.precomputed_copies
-
 		if verbose:
 			print(f'[{self.lcset_name}] computing {self.precomputed_copies} copies for {len(lcobj_names)} elements to {self.device}')
 
-		precomputed_lcobj_names_chunks = get_list_chunks(precomputed_lcobj_names, chunk_size)
-		for precomputed_lcobj_names_chunk in precomputed_lcobj_names_chunks:
-			#print(precomputed_lcobj_names_chunk)
-			jobs = [delayed(_get_item)((self, lcobj_name)) for lcobj_name in precomputed_lcobj_names_chunk]
+		batches, n_jobs = get_joblib_config_batches(precomputed_lcobj_names, backend=backend)
+		for batch in batches:
+			#print(batch)
+			jobs = [delayed(_get_item)((self, lcobj_name)) for lcobj_name in batch]
 			results = Parallel(n_jobs=n_jobs, backend=backend)(jobs)
-			for in_tdict,lcobj_name in zip(results, precomputed_lcobj_names_chunk):
+			for in_tdict,lcobj_name in zip(results, batch):
 				self.precomputed_dict[lcobj_name] += [TDictHolder(in_tdict).to(self.device)]
 
 		if verbose:
@@ -348,7 +346,7 @@ class CustomDataset(Dataset):
 		lcobj.add_sublcobj_b('*', sum([lcobj.get_b(b) for b in self.band_names])) # redefine serial band because da
 
 		###
-		tdict = nested_dict()
+		tdict = {'input':{}, 'target':{}}
 		s_onehot = lcobj.get_onehot_serial(bands=self.band_names) # ignoring *
 		#print(s_onehot.shape, s_onehot)
 		tdict['input'][f's_onehot'] = torch.as_tensor(s_onehot) # (t,b)
@@ -384,7 +382,6 @@ class CustomDataset(Dataset):
 		tdict['target']['y'] = torch.LongTensor([lcobj.y])[0] # ()
 		tdict['target'][f'balanced_w'] = torch.Tensor([self.balanced_w_cdict[self.class_names[lcobj.y]]])[0] # ()
 
-		tdict = tdict.to_dict()
 		tdict = {k:fix_new_len(tdict[k], uses_len_clip, self.max_len) for k in tdict.keys()}
 		if return_lcobjs:
 			return tdict, lcobj

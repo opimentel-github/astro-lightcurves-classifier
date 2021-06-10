@@ -13,7 +13,8 @@ def get_model_names(rootdir, cfilename, kf, lcset_name,
 	train_mode='fine-tuning',
 	):
 	roodirs = [r.split('/')[-1] for r in ftfiles.get_roodirs(rootdir)]
-	return [r for r in roodirs if not r[0]=='-']
+	return [r for r in roodirs if '=' in r]
+
 	model_names = []
 	for r in roodirs:
 		load_roodir = f'{rootdir}/{r}/{train_mode}/performance/{cfilename}'
@@ -27,7 +28,7 @@ def get_model_names(rootdir, cfilename, kf, lcset_name,
 
 def get_fmodel_name(model_name):
 	mn_dict = strings.get_dict_from_string(model_name)
-	mdl = mn_dict['mdl']
+	mdl = mn_dict.get('mdl', '???')
 	b = mn_dict['b']
 	cell = mn_dict.get('cell', None)
 	m = mn_dict.get('m', None)

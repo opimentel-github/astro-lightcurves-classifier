@@ -2,23 +2,23 @@
 SECONDS=0
 clear
 
-mc_gpu="--mc parallel_attn_models --gpu 0 --invert_mpg 0"
+# mc_gpu="--mc parallel_attn_models --gpu 0 --invert_mpg 0"
 # mc_gpu="--mc parallel_rnn_models --gpu 0 --invert_mpg 0"
 
 # mc_gpu="--mc serial_attn_models --gpu 1 --invert_mpg 0"
-# mc_gpu="--mc serial_rnn_models --gpu 1 --invert_mpg 0"
+mc_gpu="--mc serial_rnn_models --gpu 1 --invert_mpg 0"
 
-# extras="--s_precomputed_copies 10 --batch_size 128 --only_attn_exp 0 --classifier_mids 10"
-extras="--s_precomputed_copies 1 --batch_size 129 --only_attn_exp 0 --classifier_mids 10"
+b=64
+extras="--s_precomputed_copies 0 --batch_size $b --only_attn_exp 0 --classifier_mids 5"
+# extras="--s_precomputed_copies 1 --batch_size $b --only_attn_exp 0 --classifier_mids 5"
+# extras="--s_precomputed_copies 5 --batch_size $b --only_attn_exp 0 --classifier_mids 5"
 
-for mid in {1000..1002} # [a,b]
-do
-	for kf in {0..4} # [a,b]
-	do
+for mid in {1000..1002}; do
+	# for kf in {0..4} # [a,b]
+	for kf in 1 0 2 3 4; do
 		mid_kf="--mid $mid --kf $kf"
 		script="python train_deep_models.py $mc_gpu $extras $mid_kf"
-		echo "eval $script"
-		eval "$script"
+		echo "$script"; eval "$script"
 	done
 done
 mins=$((SECONDS/60))

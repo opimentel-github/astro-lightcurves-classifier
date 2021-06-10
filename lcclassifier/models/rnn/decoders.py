@@ -4,52 +4,39 @@ from . import C_
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F 
+import torch.nn.functional as F
 import fuzzytorch.models.rnn.basics as ft_rnn
 from fuzzytorch.models.basics import MLP, Linear
 import fuzzytorch.models.seq_utils as seq_utils
 
+DECODER_MLP_LAYERS = 1
+DECODER_LAYERS = 1
+
 ###################################################################################################################################################
 
-class RNNDecoderP(nn.Module):
+class LatentGRUDecoderP(nn.Module):
 	def __init__(self, **kwargs):
 		super().__init__()
-
 		### ATTRIBUTES
-		setattr(self, 'uses_batchnorm', False)
-		setattr(self, 'bidirectional', False)
 		for name, val in kwargs.items():
 			setattr(self, name, val)
 		self.reset()
 	
 	def reset(self):
-		### PRE-INPUT
-		linear_kwargs = {
-			'activation':'linear',
-		}
-
-		len_bands = len(self.band_names)
-		extra_dims = 1
-		band_embedding_dims = int(self.rnn_embd_dims/len_bands*C_.DECODER_EMB_K)
-		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, band_embedding_dims, **linear_kwargs) for b in self.band_names})
-		print('x_projection:',self.x_projection)
-
 		### RNN
-		rnn_kwargs = {
-			'in_dropout':self.dropout['p'],
-			'dropout':self.dropout['p'],
-			'bidirectional':self.bidirectional,
-			}
-		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.rnn_layers-1), **rnn_kwargs) for b in self.band_names})
+		dec_input_dims = 1 # dt
+		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'MLGRU')(dec_input_dims, self.embd_dims, [self.embd_dims]*(DECODER_LAYERS-1),
+			in_dropout=0,
+			dropout=self.dropout['p'],
+			) for b in self.band_names})
 		print('ml_rnn:', self.ml_rnn)
 
 		### DEC MLP
-		mlp_kwargs = {
-			'in_dropout':self.dropout['p'],
-			'dropout':self.dropout['p'],
-			'activation':'relu',
-			}
-		self.dz_projection = nn.ModuleDict({b:MLP(band_embedding_dims, 1, [band_embedding_dims]*C_.DECODER_MLP_LAYERS, **mlp_kwargs) for b in self.band_names})
+		self.dz_projection = nn.ModuleDict({b:MLP(self.embd_dims, 1, [self.embd_dims]*DECODER_MLP_LAYERS,
+			in_dropout=self.dropout['p'],
+			dropout=self.dropout['p'],
+			activation='relu',
+			) for b in self.band_names})
 		print('dz_projection:', self.dz_projection)
 
 	def get_output_dims(self):
@@ -60,6 +47,7 @@ class RNNDecoderP(nn.Module):
 		
 	def forward(self, tdict:dict, **kwargs):
 		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
+
 		for kb,b in enumerate(self.band_names):
 			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
 			#p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
@@ -68,10 +56,9 @@ class RNNDecoderP(nn.Module):
 			#p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
 			#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
 
-			p_decz = tdict['model']['encz_last'][:,None,:].repeat(1, p_onehot.shape[1], 1) # decoder z
-			p_decz = torch.cat([p_decz, p_dtime[...,None]], dim=-1) # cat dtime
-			p_decz = self.x_projection[b](p_decz)
-			p_decz, _ = self.ml_rnn[b](p_decz, p_onehot, **kwargs) # out, (ht, ct)
+			encz_last = tdict['model']['encz_last'][None,:,:] # (b,f) > (1,b,f)
+			p_decz = p_dtime[...,None] # (b,t) > (b,t,1)
+			p_decz, _ = self.ml_rnn[b](p_decz, p_onehot, h0=encz_last) # out, (ht, ct)
 			p_decx = self.dz_projection[b](p_decz)
 			tdict['model'].update({
 				f'decx.{b}':p_decx,
@@ -81,7 +68,7 @@ class RNNDecoderP(nn.Module):
 
 ###################################################################################################################################################
 
-class RNNDecoderS(nn.Module):
+'''class LatentGRUDecoderS(nn.Module):
 	def __init__(self,
 		**kwargs):
 		super().__init__()
@@ -97,10 +84,10 @@ class RNNDecoderS(nn.Module):
 			'activation':'linear',
 		}
 		len_bands = len(self.band_names)
-		extra_dims = len_bands+1
-		embedding_dims = int(self.rnn_embd_dims*C_.DECODER_EMB_K)
-		self.x_projection = Linear(self.input_dims+extra_dims, embedding_dims, **linear_kwargs)
-		print('x_projection:', self.x_projection)
+		extra_dims = len_bands+1 # bands+dt
+		embedding_dims = int(self.embd_dims*C_.DECODER_EMB_K)
+		self.h0_projection = Linear(self.input_dims+extra_dims, embedding_dims, **linear_kwargs)
+		print('h0_projection:', self.h0_projection)
 
 		### RNN
 		rnn_kwargs = {
@@ -138,7 +125,7 @@ class RNNDecoderS(nn.Module):
 
 		decz = tdict['model']['encz_last'][:,None,:].repeat(1,onehot.shape[1],1) # dz: decoder z
 		decz = torch.cat([decz, s_onehot.float(), dtime[...,None]], dim=-1) # cat bands & dtime # (b,t,f+d+1)
-		decz = self.x_projection(decz)
+		decz = self.h0_projection(decz)
 		decz, _ = self.ml_rnn(decz, onehot, **kwargs) # out, (ht, ct)
 		decx = self.dz_projection(decz)
 		for kb,b in enumerate(self.band_names):
@@ -147,4 +134,4 @@ class RNNDecoderS(nn.Module):
 				f'decx.{b}':p_decx,
 				})
 
-		return tdict
+		return tdict'''

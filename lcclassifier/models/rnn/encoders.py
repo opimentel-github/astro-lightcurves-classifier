@@ -23,43 +23,45 @@ class RNNEncoderP(nn.Module):
 
 	def reset(self):
 		### PRE-INPUT
-		linear_kwargs = {
-			'activation':'linear',
-		}
 		len_bands = len(self.band_names)
 		extra_dims = 0
-		band_embedding_dims = self.rnn_embd_dims//len_bands
-		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, band_embedding_dims, **linear_kwargs) for b in self.band_names})
+		band_embedding_dims = self.embd_dims//len_bands
+		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, band_embedding_dims,
+			activation='linear',
+			) for b in self.band_names})
 		print('x_projection:', self.x_projection)
 
 		### RNN STACK
-		rnn_kwargs = {
-			'in_dropout':self.dropout['p'],
-			'dropout':self.dropout['p'],
-			'bidirectional':self.bidirectional,
-			'uses_batchnorm':self.uses_batchnorm,
-			}
-		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.rnn_layers-1), **rnn_kwargs) for b in self.band_names})
+		self.ml_rnn = nn.ModuleDict({b:getattr(ft_rnn, f'ML{self.rnn_cell_name}')(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.layers-1),
+			in_dropout=self.dropout['p'],
+			dropout=self.dropout['p'],
+			bidirectional=self.bidirectional,
+			uses_batchnorm=self.uses_batchnorm,
+			) for b in self.band_names})
 		print('ml_rnn:', self.ml_rnn)
 
 		### POST-PROJECTION
-		linear_kwargs = {
-			'in_dropout':self.dropout['p'],
-			'activation':'linear',
-			}
-		self.mb_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands, **linear_kwargs)
+		self.mb_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands,
+			in_dropout=self.dropout['p'],
+			activation='linear',
+			)
 		print('mb_projection:', self.mb_projection)
 
 		### XENTROPY REG
-		linear_kwargs = {
-			'in_dropout':self.dropout['p'],
-			'activation':'linear',
-			}
-		self.xentropy_projection = Linear(band_embedding_dims*len_bands, self.output_dims, **linear_kwargs)
+		self.xentropy_projection = Linear(band_embedding_dims*len_bands, self.output_dims,
+			in_dropout=self.dropout['p'],
+			activation='linear',
+			)
 		print('xentropy_projection:', self.xentropy_projection)
 
+	def get_info(self):
+		pass
+
+	def init_fine_tuning(self):
+		pass
+
 	def get_output_dims(self):
-		return self.rnn_embd_dims
+		return self.embd_dims
 	
 	def get_embd_dims_list(self):
 		return {b:self.ml_rnn[b].get_embd_dims_list() for b in self.band_names}
@@ -98,36 +100,41 @@ class RNNEncoderS(nn.Module):
 		setattr(self, 'bidirectional', False)
 		for name, val in kwargs.items():
 			setattr(self, name, val)
+		self.reset()
 
+	def reset(self):
 		### PRE-INPUT
-		linear_kwargs = {
-			'activation':'linear',
-			}
 		len_bands = len(self.band_names)
 		extra_dims = len_bands
-		self.x_projection = Linear(self.input_dims+extra_dims, self.rnn_embd_dims, **linear_kwargs)
+		self.x_projection = Linear(self.input_dims+extra_dims, self.embd_dims,
+			activation='linear',
+			)
 		print('x_projection:', self.x_projection)
 
 		### RNN STACK
-		rnn_kwargs = {
-			'in_dropout':self.dropout['p'],
-			'dropout':self.dropout['p'],
-			'bidirectional':self.bidirectional,
-			'uses_batchnorm':self.uses_batchnorm,
-			}
-		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.rnn_embd_dims, self.rnn_embd_dims, [self.rnn_embd_dims]*(self.rnn_layers-1), **rnn_kwargs)
+		self.ml_rnn = getattr(ft_rnn, f'ML{self.rnn_cell_name}')(self.embd_dims, self.embd_dims, [self.embd_dims]*(self.layers-1),
+			in_dropout=self.dropout['p'],
+			dropout=self.dropout['p'],
+			bidirectional=self.bidirectional,
+			uses_batchnorm=self.uses_batchnorm,
+			)
 		print('ml_rnn:', self.ml_rnn)
 
 		### XENTROPY REG
-		linear_kwargs = {
-			'in_dropout':self.dropout['p'],
-			'activation':'linear',
-			}
-		self.xentropy_projection = Linear(self.rnn_embd_dims, self.output_dims, **linear_kwargs)
+		self.xentropy_projection = Linear(self.embd_dims, self.output_dims,
+			in_dropout=self.dropout['p'],
+			activation='linear',
+			)
 		print('xentropy_projection:', self.xentropy_projection)
 
+	def get_info(self):
+		pass
+
+	def init_fine_tuning(self):
+		pass
+
 	def get_output_dims(self):
-		return self.rnn_embd_dims
+		return self.embd_dims
 	
 	def get_embd_dims_list(self):
 		return self.ml_rnn.get_embd_dims_list()

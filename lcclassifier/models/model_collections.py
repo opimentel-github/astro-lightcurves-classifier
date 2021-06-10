@@ -16,24 +16,28 @@ class ModelCollections():
 		self.max_day = C_.MAX_DAY
 
 		bands = 2
-		d = 64 # 16 32 64 128
+		d = 32 # 16 32 64 128
 		self.gd_embd_dims = GDIter(d*bands)
-		self.gd_embd_layers = GDIter(2) # 1 2 3
-		#self.gd_rnn_cell_names = GDIter('GRU')
-		self.gd_rnn_cell_names = GDIter('GRU', 'LSTM') # GRU LSTM
-		self.gd_te_features = GDIter(8*2)
+		self.gd_layers = GDIter(1) # 1 2 3
+		self.gd_rnn_cell_names = GDIter('GRU', 'LSTM')
+		# self.gd_rnn_cell_names = GDIter('GRU')
+		self.gd_te_features = GDIter(2*2, 8*2)
 		self.gd_fourier_dims = GDIter(1/2)
 
-		# self.gd_time_noise_window = GDIter('1*24**-1')
-		self.gd_time_noise_window = GDIter('1*24**-1', '0*24**-1', '24*24**-1')
+		self.gd_time_noise_window = GDIter('24*24**-1', '0*24**-1')
+		# self.gd_time_noise_window = GDIter('0*24**-1', '1*24**-1', '24*24**-1')
 
-		self.gd_kernel_size = GDIter(2)
+		self.gd_kernel_size = GDIter(1,2)
 		# self.gd_kernel_size = GDIter(1, 2, 3)
 
 		self.cnn_aggregation = GDIter('avg')
 		#self.cnn_aggregation = GDIter('max', 'avg')
 
-		self.dropout_p = 10/100
+		p = 1/100
+		self.dropout_d = {
+			'p':p,
+			'r':p,
+			}
 		self.common_dict = {
 			'max_period':self.max_day*1.25, # ***
 			'band_names':lcdataset['raw'].band_names,
@@ -42,7 +46,7 @@ class ModelCollections():
 		self.base_dict = {
 			'class_mdl_kwargs':{
 				'C':mclass.SimpleClassifier,
-				'embd_layers':2, # 1 2
+				'layers':2, # 1 2
 				'dropout':{
 					'p':50/100,
 					},
@@ -102,9 +106,9 @@ class ModelCollections():
 			'mdl_kwargs':{
 				'C':mbls.ParallelRNNClassifier,
 				'rnn_cell_name':self.gd_rnn_cell_names,
-				'rnn_embd_dims':self.gd_embd_dims,
-				'rnn_layers':self.gd_embd_layers,
-				'dropout':{'p':self.dropout_p},
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
 			},
 		})
 		self.add_gs(self.update_dt(gs))
@@ -114,9 +118,9 @@ class ModelCollections():
 			'mdl_kwargs':{
 				'C':mbls.SerialRNNClassifier,
 				'rnn_cell_name':self.gd_rnn_cell_names,
-				'rnn_embd_dims':self.gd_embd_dims,
-				'rnn_layers':self.gd_embd_layers,
-				'dropout':{'p':self.dropout_p},
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
 			},
 		})
 		self.add_gs(self.update_dt(gs))
@@ -127,43 +131,13 @@ class ModelCollections():
 
 ###################################################################################################################################################
 
-	def parallel_tcnn_models(self):
-		gs = GridSeacher({
-			'mdl_kwargs':{
-				'C':mbls.ParallelTCNNClassifier,
-				'tcnn_embd_dims':self.gd_embd_dims,
-				'tcnn_layers':self.gd_embd_layers,
-				'dropout':{'p':self.dropout_p},
-				'aggregation':self.cnn_aggregation,
-			},
-		})
-		self.add_gs(self.update_dt(gs))
-
-	def serial_tcnn_models(self):
-		gs = GridSeacher({
-			'mdl_kwargs':{
-				'C':mbls.SerialTCNNClassifier,
-				'tcnn_embd_dims':self.gd_embd_dims,
-				'tcnn_layers':self.gd_embd_layers,
-				'dropout':{'p':self.dropout_p},
-				'aggregation':self.cnn_aggregation,
-			},
-		})
-		self.add_gs(self.update_dt(gs))
-
-	def all_tcnn_models(self):
-		self.parallel_tcnn_models()
-		self.serial_tcnn_models()
-
-###################################################################################################################################################
-
 	def parallel_attn_models(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.ParallelTimeSelfAttn,
-				'attn_embd_dims':self.gd_embd_dims,
-				'attn_layers':self.gd_embd_layers,
-				'dropout':{'p':self.dropout_p},
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
 				'te_features':self.gd_te_features,
 				'fourier_dims':self.gd_fourier_dims,
 				'kernel_size':self.gd_kernel_size,
@@ -176,9 +150,9 @@ class ModelCollections():
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.SerialTimeSelfAttn,
-				'attn_embd_dims':self.gd_embd_dims,
-				'attn_layers':self.gd_embd_layers,
-				'dropout':{'p':self.dropout_p},
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
 				'te_features':self.gd_te_features,
 				'fourier_dims':self.gd_fourier_dims,
 				'kernel_size':self.gd_kernel_size,
@@ -190,3 +164,33 @@ class ModelCollections():
 	def all_attn_models(self):
 		self.parallel_attn_models()
 		self.serial_attn_models()
+
+###################################################################################################################################################
+
+	def parallel_tcnn_models(self):
+		gs = GridSeacher({
+			'mdl_kwargs':{
+				'C':mbls.ParallelTCNNClassifier,
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
+				'aggregation':self.cnn_aggregation,
+			},
+		})
+		self.add_gs(self.update_dt(gs))
+
+	def serial_tcnn_models(self):
+		gs = GridSeacher({
+			'mdl_kwargs':{
+				'C':mbls.SerialTCNNClassifier,
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
+				'aggregation':self.cnn_aggregation,
+			},
+		})
+		self.add_gs(self.update_dt(gs))
+
+	def all_tcnn_models(self):
+		self.parallel_tcnn_models()
+		self.serial_tcnn_models()

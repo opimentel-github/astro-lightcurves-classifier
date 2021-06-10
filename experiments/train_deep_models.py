@@ -24,6 +24,7 @@ parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=10)
 parser.add_argument('--s_precomputed_copies',  type=int, default=1) # 2 5 10
+parser.add_argument('--num_workers',  type=int, default=4)
 #main_args = parser.parse_args([])
 main_args = parser.parse_args()
 print_big_bar()
@@ -134,8 +135,9 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	synth_repeats = 12
 
 	### WITH DATA
-	ds_mode = {'random':0.0, 'left':0.0, 'none':1.0} # ?
-	print('s_ds_mode',ds_mode)
+	# ds_mode = {'random':0.0, 'left':0.0, 'none':1.0}
+	ds_mode = {'random':1.0, 'left':0.0, 'none':0.0}
+	print('s_ds_mode', ds_mode)
 	ds_p = 10/1000
 	lcset_name = f'{main_args.kf}@train.{main_args.method}'
 	s_precomputed_copies = 0 if bypass_autoencoder else main_args.s_precomputed_copies
@@ -144,6 +146,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			balanced_repeats=repeats,
 			uses_precomputed_copies=False,
 			uses_daugm=True,
+			# uses_daugm=False,
 			uses_dynamic_balance=True,
 			ds_mode=ds_mode,
 			ds_p=ds_p,
@@ -151,8 +154,9 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			)
 		s_train_loader_da = DataLoader(s_train_dataset_da,
 			shuffle=True,
+			drop_last=True,
 			batch_size=main_args.batch_size,
-			num_workers=4, # 0 2 4 # memory leak with too much workers?
+			num_workers=main_args.num_workers,
 			pin_memory=True, # False True
 			persistent_workers=True,
 			worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
@@ -162,6 +166,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			balanced_repeats=repeats,
 			precomputed_copies=main_args.s_precomputed_copies,
 			uses_daugm=True,
+			# uses_daugm=False,
 			uses_dynamic_balance=True,
 			ds_mode=ds_mode,
 			ds_p=ds_p,
@@ -169,6 +174,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			)
 		s_train_loader_da = DataLoader(s_train_dataset_da,
 			shuffle=True,
+			drop_last=True,
 			batch_size=main_args.batch_size,
 			)
 
@@ -205,15 +211,22 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	from fuzzytorch.optimizers import LossOptimizer
 	import math
 
+	def pt_lr_f(epoch):
+		initial_lr = 1e-10
+		max_lr = 1e-3
+		d_epochs = 20
+		p = np.clip(epoch/d_epochs, 0, 1)
+		return initial_lr+p*(max_lr-initial_lr)
+
 	pt_opt_kwargs_f = {
-		'lr':lambda epoch:1e-3, # ***
-		# 'lr':lambda epoch:1e-3*math.sqrt(main_args.batch_size/32), # ***
-		# 'lr':lambda epoch:.5e-4*math.sqrt(main_args.batch_size/32), # ***
+		# 'lr':lambda epoch:1e-3,
+		# 'lr':lambda epoch:1e-3*math.sqrt(main_args.batch_size/32),
+		# 'lr':lambda epoch:.5e-4*math.sqrt(main_args.batch_size/32),
+		'lr':pt_lr_f,
 		}
-	pt_optimizer_kwargs = {
-		'clip_grad':1.,
-		}
-	pt_optimizer = LossOptimizer(model, optims.Adam, pt_opt_kwargs_f, **pt_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+	pt_optimizer = LossOptimizer(model, optims.Adam, pt_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
+		clip_grad=1.,
+		)
 
 	### MONITORS
 	from fuzzytools.prints import print_bar
@@ -222,18 +235,17 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	from fuzzytorch import C_
 	import math
 
-	monitor_config = {
-		'val_epoch_counter_duration':0, # every k epochs check
-		'earlystop_epoch_duration':1e6,
-		'target_metric_crit':'b-wmse',
-		#'save_mode':C_.SM_NO_SAVE,
-		#'save_mode':C_.SM_ALL,
-		#'save_mode':C_.SM_ONLY_ALL,
-		'save_mode':C_.SM_ONLY_INF_METRIC,
-		#'save_mode':C_.SM_ONLY_INF_LOSS,
-		#'save_mode':C_.SM_ONLY_SUP_METRIC,
-		}
-	pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics, **monitor_config)
+	pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics,
+		val_epoch_counter_duration=0, # every k epochs check
+		earlystop_epoch_duration=1e6,
+		target_metric_crit='b-wmse',
+		#save_mode=C_.SM_NO_SAVE,
+		#save_mode=C_.SM_ALL,
+		#save_mode=C_.SM_ONLY_ALL,
+		save_mode=C_.SM_ONLY_INF_METRIC,
+		#save_mode=C_.SM_ONLY_INF_LOSS,
+		#save_mode=C_.SM_ONLY_SUP_METRIC,
+		)
 
 	### TRAIN
 	train_mode = 'pre-training'
@@ -242,12 +254,11 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			's_precomputed_copies':main_args.s_precomputed_copies,
 			}
 	extra_model_name_dict.update(get_dict_from_string(main_args.extra_model_name))
-	mtrain_config = {
-		'id':main_args.mid,
-		'epochs_max':3000, #  500 1000 1500 2000 10000 1e6 # limit this as the pre-training is very time consuming
-		'extra_model_name_dict':extra_model_name_dict,
-		}
-	pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors, **mtrain_config)
+	pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors,
+		id=main_args.mid,
+		epochs_max=3000, #  500 1000 1500 2000 10000 1e6 # limit this as the pre-training is very time consuming
+		extra_model_name_dict=extra_model_name_dict,
+		)
 	complete_model_name = pt_model_train_handler.get_complete_model_name()
 	pt_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 	pt_model_train_handler.build_gpu(device)
@@ -315,6 +326,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	###################################################################################################################################################
 	###################################################################################################################################################
 
+	model_copy = deepcopy(model)
 	for classifier_mid in range(0, main_args.classifier_mids):
 		### fine-tuning
 		### OPTIMIZER
@@ -333,8 +345,9 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			)
 		r_train_loader_da = DataLoader(r_train_dataset_da,
 			shuffle=True,
+			drop_last=True,
 			batch_size=32,
-			num_workers=4, # 0 2 4 # memory leak with too much workers?
+			num_workers=main_args.num_workers,
 			pin_memory=True, # False True
 			persistent_workers=True,
 			worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
@@ -351,6 +364,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		# 	)
 		# r_train_loader_da = DataLoader(r_train_dataset_da,
 		# 	shuffle=True,
+		# drop_last=True,
 		# 	batch_size=32,
 		# 	)
 
@@ -360,23 +374,24 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		from fuzzytorch.optimizers import LossOptimizer
 
 		def ft_lr_f(epoch):
-			initial_lr = 1e-6
-			max_lr = 1e-3*1
+			initial_lr = 1e-10
+			max_lr = .5e-3
 			d_epochs = 20
 			p = np.clip(epoch/d_epochs, 0, 1)
 			return initial_lr+p*(max_lr-initial_lr)
 
 		ft_opt_kwargs_f = {
-			# 'lr':lambda epoch:1e-3*1, # ***
-			'lr':ft_lr_f, # ***
+			'lr':lambda epoch:.1e-3,
+			# 'lr':ft_lr_f,
 			#'weight_decay':lambda epoch:1e-5,
 			}
-		ft_optimizer_kwargs = {
-			'clip_grad':1.,
-			}
-		classifier = model.get_classifier_model()
-		classifier.reset_parameters() # to ensure random init
-		ft_optimizer = LossOptimizer(classifier, optims.Adam, ft_opt_kwargs_f, **ft_optimizer_kwargs) # SGD Adagrad Adadelta RMSprop Adam AdamW
+		ft_model = deepcopy(model_copy)
+		ft_model.init_fine_tuning()
+		ft_classifier = ft_model.get_classifier_model()
+		ft_classifier.reset_parameters()
+		ft_optimizer = LossOptimizer(ft_classifier, optims.Adam, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
+			clip_grad=1.,
+			)
 
 		### MONITORS
 		from fuzzytools.prints import print_bar
@@ -385,19 +400,17 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		from fuzzytorch import C_
 		import math
 
-		monitor_config = {
-			'val_epoch_counter_duration':0, # every k epochs check
-			'earlystop_epoch_duration':300,
-			'target_metric_crit':'b-xentropy',
-			#'save_mode':C_.SM_NO_SAVE,
-			#'save_mode':C_.SM_ALL,
-			#'save_mode':C_.SM_ONLY_ALL,
-			'save_mode':C_.SM_ONLY_INF_METRIC,
-			#'save_mode':C_.SM_ONLY_INF_LOSS,
-			#'save_mode':C_.SM_ONLY_SUP_METRIC,
-			}
-		ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics, **monitor_config)
-
+		ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics,
+			val_epoch_counter_duration=0, # every k epochs check
+			earlystop_epoch_duration=500,
+			target_metric_crit='b-xentropy',
+			#save_mode=C_.SM_NO_SAVE,
+			#save_mode=C_.SM_ALL,
+			#save_mode=C_.SM_ONLY_ALL,
+			save_mode=C_.SM_ONLY_INF_METRIC,
+			#save_mode=C_.SM_ONLY_INF_LOSS,
+			#save_mode=C_.SM_ONLY_SUP_METRIC,
+			)
 		### TRAIN
 		train_mode = 'fine-tuning'
 		extra_model_name_dict = {
@@ -411,7 +424,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 			'extra_model_name_dict':extra_model_name_dict,
 			}
-		ft_model_train_handler = ModelTrainHandler(model, ft_loss_monitors, **mtrain_config)
+		ft_model_train_handler = ModelTrainHandler(ft_model, ft_loss_monitors, **mtrain_config)
 		complete_model_name = ft_model_train_handler.get_complete_model_name()
 		ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 		ft_model_train_handler.build_gpu(device)
