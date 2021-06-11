@@ -9,9 +9,6 @@ import fuzzytorch.models.attn.basics as ft_attn
 from fuzzytorch.models.basics import MLP, Linear
 import fuzzytorch.models.seq_utils as seq_utils
 
-# NUM_HEADS = 64//4 # 4 8
-NUM_HEADS = 8 # 4 8
-
 ###################################################################################################################################################
 
 class TimeSelfAttnEncoderP(nn.Module):
@@ -38,7 +35,7 @@ class TimeSelfAttnEncoderP(nn.Module):
 
 		### ATTN
 		attn_kwargs = {
-			'num_heads':NUM_HEADS,
+			'num_heads':self.heads,
 			'kernel_size':self.kernel_size,
 			'time_noise_window':self.time_noise_window,
 			'fourier_dims':self.fourier_dims,
@@ -137,7 +134,7 @@ class TimeSelfAttnEncoderS(nn.Module):
 		
 		### ATTN
 		self.ml_attn = ft_attn.MLTimeSelfAttn(self.embd_dims, self.embd_dims, [self.embd_dims]*(self.layers-1), self.te_features, self.max_period,
-			num_heads=NUM_HEADS*len_bands,
+			num_heads=self.heads*len_bands,
 			kernel_size=self.kernel_size,
 			time_noise_window=self.time_noise_window,
 			fourier_dims=self.fourier_dims,

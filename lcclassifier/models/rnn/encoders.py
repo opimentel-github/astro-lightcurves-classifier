@@ -80,7 +80,8 @@ class RNNEncoderP(nn.Module):
 			p_encz = self.x_projection[b](p_x)
 			p_encz, _ = self.ml_rnn[b](p_encz, p_onehot, **kwargs) # out, (ht, ct)
 			### representative element
-			encz_bdict[f'encz.{b}'] = seq_utils.seq_last_element(p_encz, p_onehot) # last element
+			# encz_bdict[f'encz.{b}'] = seq_utils.seq_last_element(p_encz, p_onehot) # last element
+			encz_bdict[f'encz.{b}'] = seq_utils.seq_avg_pooling(p_encz, p_onehot) # last element
 
 		### BUILD OUT
 		encz_last = self.mb_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
@@ -154,7 +155,8 @@ class RNNEncoderS(nn.Module):
 		encz = self.x_projection(torch.cat([x, s_onehot.float()], dim=-1)) # (b,t,f+d)
 		encz, _ = self.ml_rnn(encz, onehot, **kwargs) # out, (ht, ct)
 		### representative element
-		encz_bdict[f'encz'] = seq_utils.seq_last_element(encz, onehot) # last element
+		# encz_bdict[f'encz'] = seq_utils.seq_last_element(encz, onehot) # last element
+		encz_bdict[f'encz'] = seq_utils.seq_avg_pooling(encz, onehot) # last element
 
 		### BUILD OUT
 		encz_last = encz_bdict[f'encz']

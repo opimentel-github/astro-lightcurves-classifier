@@ -8,8 +8,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from fuzzytorch.utils import get_model_name, print_tdict
 from copy import copy, deepcopy
-
 from .rnn import decoders as rnn_decoders
+from .rnn import encoders as rnn_encoders
+from .attn import encoders as attn_encoders
+
 GLOBAL_DECODER_CLASS = rnn_decoders.LatentGRUDecoderP
 
 ###################################################################################################################################################
@@ -22,6 +24,8 @@ def get_enc_emb_str(mdl, band_names):
 	else:
 		txts = [f'{d}' for d in dims]
 		return '-'.join(txts)
+
+###################################################################################################################################################
 
 class ModelBaseline(nn.Module):
 	def __init__(self, **raw_kwargs):
@@ -41,8 +45,6 @@ class ModelBaseline(nn.Module):
 		encoder.init_fine_tuning()
 
 ###################################################################################################################################################
-
-from .rnn import encoders as rnn_encoders
 
 class ParallelRNNClassifier(ModelBaseline):
 	def __init__(self, **raw_kwargs):
@@ -76,8 +78,8 @@ class ParallelRNNClassifier(ModelBaseline):
 		return get_model_name({
 			'mdl':f'ParallelRNN',
 			'input_dims':f'{self.input_dims}',
-			'enc-emb':get_enc_emb_str(encoder, self.band_names),
-			'dec-emb':get_enc_emb_str(decoder, self.band_names),
+			'enc_emb':get_enc_emb_str(encoder, self.band_names),
+			'dec_emb':get_enc_emb_str(decoder, self.band_names),
 			'cell':f'{self.rnn_cell_name}',
 		})
 
@@ -89,6 +91,8 @@ class ParallelRNNClassifier(ModelBaseline):
 		classifier_tdict = self.classifier(encoder_tdict)
 		#print_tdict(encoder_tdict)
 		return classifier_tdict
+
+###################################################################################################################################################
 
 class SerialRNNClassifier(ModelBaseline):
 	def __init__(self, **raw_kwargs):
@@ -122,8 +126,8 @@ class SerialRNNClassifier(ModelBaseline):
 		return get_model_name({
 			'mdl':f'SerialRNN',
 			'input_dims':f'{self.input_dims}',
-			'enc-emb':get_enc_emb_str(encoder, self.band_names),
-			'dec-emb':get_enc_emb_str(decoder, self.band_names),
+			'enc_emb':get_enc_emb_str(encoder, self.band_names),
+			'dec_emb':get_enc_emb_str(decoder, self.band_names),
 			'cell':f'{self.rnn_cell_name}',
 		})
 
@@ -136,8 +140,6 @@ class SerialRNNClassifier(ModelBaseline):
 		return classifier_tdict
 
 ###################################################################################################################################################
-
-from .attn import encoders as attn_encoders
 
 class ParallelTimeSelfAttn(ModelBaseline):
 	def __init__(self, **raw_kwargs):
@@ -178,10 +180,11 @@ class ParallelTimeSelfAttn(ModelBaseline):
 			'input_dims':f'{self.input_dims}',
 			'm':self.mdl_kwargs['te_features'],
 			'kernel_size':self.mdl_kwargs['kernel_size'],
+			'heads':self.mdl_kwargs['heads'],
 			'fourier_dims':self.mdl_kwargs['fourier_dims'],
 			'time_noise_window':self.mdl_kwargs['time_noise_window'],
-			'enc-emb':get_enc_emb_str(encoder, self.band_names),
-			'dec-emb':get_enc_emb_str(decoder, self.band_names),
+			'enc_emb':get_enc_emb_str(encoder, self.band_names),
+			'dec_emb':get_enc_emb_str(decoder, self.band_names),
 		})
 
 	def forward(self, tdict:dict, **kwargs):
@@ -191,6 +194,8 @@ class ParallelTimeSelfAttn(ModelBaseline):
 		decoder_tdict = decoder(encoder_tdict)
 		classifier_tdict = self.classifier(encoder_tdict)
 		return classifier_tdict
+
+###################################################################################################################################################
 
 class SerialTimeSelfAttn(ModelBaseline):
 	def __init__(self, **raw_kwargs):
@@ -231,10 +236,11 @@ class SerialTimeSelfAttn(ModelBaseline):
 			'input_dims':f'{self.input_dims}',
 			'm':self.mdl_kwargs['te_features'],
 			'kernel_size':self.mdl_kwargs['kernel_size'],
+			'heads':self.mdl_kwargs['heads'],
 			'fourier_dims':self.mdl_kwargs['fourier_dims'],
 			'time_noise_window':self.mdl_kwargs['time_noise_window'],
-			'enc-emb':get_enc_emb_str(encoder, self.band_names),
-			'dec-emb':get_enc_emb_str(decoder, self.band_names),
+			'enc_emb':get_enc_emb_str(encoder, self.band_names),
+			'dec_emb':get_enc_emb_str(decoder, self.band_names),
 		})
 
 	def forward(self, tdict:dict, **kwargs):

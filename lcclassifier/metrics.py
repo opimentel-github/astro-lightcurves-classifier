@@ -8,12 +8,17 @@ from fuzzytorch.metrics import FTMetric, MetricResult
 import fuzzytorch.models.seq_utils as seq_utils
 from .losses import LCXEntropy
 
+MSE_K = C_.MSE_K
+REC_LOSS_EPS = C_.REC_LOSS_EPS
+REC_LOSS_K = C_.REC_LOSS_K
+XENTROPY_K = C_.XENTROPY_K
+
 ###################################################################################################################################################
 
 class LCWMSE(FTMetric):
 	def __init__(self, name, band_names,
 		balanced=True,
-		k=C_.MSE_K,
+		k=MSE_K,
 		**kwargs):
 		self.name = name
 		self.band_names = band_names
@@ -31,7 +36,7 @@ class LCWMSE(FTMetric):
 			p_rx = tdict['target'][f'recx.{b}'] # (b,t,1)
 
 			p_rx_pred = tdict['model'][f'decx.{b}'] # (b,t,1)
-			mse_loss_b = (p_rx-p_rx_pred)**2/(C_.REC_LOSS_EPS+C_.REC_LOSS_K*(p_rerror**2)) # (b,t,1)
+			mse_loss_b = (p_rx-p_rx_pred)**2/(REC_LOSS_EPS+REC_LOSS_K*(p_rerror**2)) # (b,t,1)
 			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 			mse_loss_bdict[b] = mse_loss_b
 
@@ -49,7 +54,7 @@ class LCXEntropyMetric(FTMetric):
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
 		balanced=True,
-		k=C_.XENTROPY_K,
+		k=XENTROPY_K,
 		**kwargs):
 		self.name = name
 		self.xentropy = LCXEntropy('',
@@ -115,7 +120,7 @@ class LCBinXEntropyMetric(FTMetric):
 		model_out_uses_softmax:bool=False,
 		target_is_onehot:bool=False,
 		balanced=True,
-		k=C_.XENTROPY_K,
+		k=XENTROPY_K,
 		**kwargs):
 		self.name = name
 		self.xentropy = LCXEntropy('',

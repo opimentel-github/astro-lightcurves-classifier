@@ -15,8 +15,8 @@ extras="--s_precomputed_copies 0 --batch_size $b --only_attn_exp 0 --classifier_
 # extras="--s_precomputed_copies 5 --batch_size $b --only_attn_exp 0 --classifier_mids 5"
 
 for mid in {1000..1002}; do
-	# for kf in {0..4} # [a,b]
-	for kf in 1 0 2 3 4; do
+	for kf in {0..4}; do
+	# for kf in 1 0 2 3 4; do
 		mid_kf="--mid $mid --kf $kf"
 		script="python train_deep_models.py $mc_gpu $extras $mid_kf"
 		echo "$script"; eval "$script"
