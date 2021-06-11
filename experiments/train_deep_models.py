@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(prefix_chars='--')
 parser.add_argument('--method',  type=str, default='spm-mcmc-estw')
 parser.add_argument('--gpu',  type=int, default=-1)
 parser.add_argument('--mc',  type=str, default='parallel_rnn_models')
-parser.add_argument('--batch_size',  type=int, default=100) # *** 16 32 64 128 256
+parser.add_argument('--batch_size',  type=int, default=64)
 parser.add_argument('--save_rootdir',  type=str, default='../save')
 parser.add_argument('--mid',  type=str, default='1000')
 parser.add_argument('--kf',  type=str, default='0')
@@ -23,8 +23,9 @@ parser.add_argument('--only_attn_exp',  type=int, default=0) # 0 1
 parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=10)
-parser.add_argument('--s_precomputed_copies',  type=int, default=1) # 2 5 10
+parser.add_argument('--s_precomputed_copies',  type=int, default=1)
 parser.add_argument('--num_workers',  type=int, default=4)
+parser.add_argument('--balanced_metrics',  type=int, default=0) # 0 1 # critical
 #main_args = parser.parse_args([])
 main_args = parser.parse_args()
 print_big_bar()
@@ -81,19 +82,22 @@ print(model_collections)
 from lcclassifier.losses import LCMSEReconstruction, LCXEntropy, LCCompleteLoss, LCBinXEntropy
 from lcclassifier.metrics import LCWMSE, LCXEntropyMetric, LCAccuracy
 
+metric_prefix = 'b-' if main_args.balanced_metrics else ''
 pt_loss_kwargs = {
 	'band_names':lcdataset['raw'].band_names,
 	'model_output_is_with_softmax':False,
 	'target_is_onehot':False,
 	'classifier_key':'y_last_pt',
+	# 'classifier_key':'y_last_ft',
 	}
 pt_loss = LCCompleteLoss('wmse-xentropy', **pt_loss_kwargs)
 pt_metrics = [
-	LCWMSE('b-wmse', balanced=True, **pt_loss_kwargs),
-	LCXEntropyMetric('b-xentropy', balanced=True, **pt_loss_kwargs),
-	LCAccuracy('b-accuracy', balanced=True, **pt_loss_kwargs),
+	LCWMSE(f'{metric_prefix}wmse', balanced=main_args.balanced_metrics, **pt_loss_kwargs),
+	LCXEntropyMetric(f'{metric_prefix}xentropy', balanced=main_args.balanced_metrics, **pt_loss_kwargs),
+	LCAccuracy(f'{metric_prefix}accuracy', balanced=main_args.balanced_metrics, **pt_loss_kwargs),
 	]
 
+### ft
 ft_loss_kwargs = {
 	'class_names':lcdataset['raw'].class_names,
 	'model_output_is_with_softmax':False,
@@ -104,8 +108,8 @@ ft_loss_kwargs = {
 #ft_loss = LCXEntropy('xentropy', **ft_loss_kwargs)
 ft_loss = LCBinXEntropy('bin-xentropy', **ft_loss_kwargs)
 ft_metrics = [
-	LCXEntropyMetric('b-xentropy', balanced=True, **ft_loss_kwargs),
-	LCAccuracy('b-accuracy', balanced=True, **ft_loss_kwargs),
+	LCXEntropyMetric(f'{metric_prefix}xentropy', balanced=main_args.balanced_metrics, **ft_loss_kwargs),
+	LCAccuracy(f'{metric_prefix}accuracy', balanced=main_args.balanced_metrics, **ft_loss_kwargs),
 	]
 
 ###################################################################################################################################################
@@ -130,28 +134,27 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 	### DATASETS
 	bypass_autoencoder = 0
+	# bypass_autoencoder = 1
 	dataset_kwargs = mp_grid['dataset_kwargs']
-	repeats = 3
-	synth_repeats = 12
 
 	### WITH DATA
-	# ds_mode = {'random':0.0, 'left':0.0, 'none':1.0}
-	ds_mode = {'random':1.0, 'left':0.0, 'none':0.0}
+	# ds_mode = {'random':1.0, 'left':0.0, 'none':0.0}
+	ds_mode = {'random':.9, 'left':.1, 'none':.0}
 	print('s_ds_mode', ds_mode)
-	ds_p = 10/1000
-	lcset_name = f'{main_args.kf}@train.{main_args.method}'
+	ds_p = 10/100
+	std_scale = 1/2
+	lcset_name = f'{main_args.kf}@train.{main_args.method}' if not main_args.bypass else f'{main_args.kf}@train'
 	s_precomputed_copies = 0 if bypass_autoencoder else main_args.s_precomputed_copies
 	if s_precomputed_copies==0:
 		s_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), 'cpu',
-			balanced_repeats=repeats,
 			uses_precomputed_copies=False,
 			uses_daugm=True,
 			# uses_daugm=False,
 			uses_dynamic_balance=True,
 			ds_mode=ds_mode,
 			ds_p=ds_p,
-			**dataset_kwargs,
-			)
+			std_scale=std_scale,
+			**dataset_kwargs)
 		s_train_loader_da = DataLoader(s_train_dataset_da,
 			shuffle=True,
 			drop_last=True,
@@ -163,15 +166,14 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			)
 	else:
 		s_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device,
-			balanced_repeats=repeats,
 			precomputed_copies=main_args.s_precomputed_copies,
 			uses_daugm=True,
 			# uses_daugm=False,
 			uses_dynamic_balance=True,
 			ds_mode=ds_mode,
 			ds_p=ds_p,
-			**dataset_kwargs,
-			)
+			std_scale=std_scale,
+			**dataset_kwargs)
 		s_train_loader_da = DataLoader(s_train_dataset_da,
 			shuffle=True,
 			drop_last=True,
@@ -214,7 +216,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	def pt_lr_f(epoch):
 		initial_lr = 1e-10
 		max_lr = 1e-3
-		d_epochs = 20
+		d_epochs = 5
 		p = np.clip(epoch/d_epochs, 0, 1)
 		return initial_lr+p*(max_lr-initial_lr)
 
@@ -224,7 +226,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		# 'lr':lambda epoch:.5e-4*math.sqrt(main_args.batch_size/32),
 		'lr':pt_lr_f,
 		}
-	pt_optimizer = LossOptimizer(model, optims.Adam, pt_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
+	pt_optimizer = LossOptimizer(model, optims.AdamW, pt_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
 		clip_grad=1.,
 		)
 
@@ -238,7 +240,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics,
 		val_epoch_counter_duration=0, # every k epochs check
 		earlystop_epoch_duration=1e6,
-		target_metric_crit='b-wmse',
+		target_metric_crit=f'{metric_prefix}wmse',
 		#save_mode=C_.SM_NO_SAVE,
 		#save_mode=C_.SM_ALL,
 		#save_mode=C_.SM_ONLY_ALL,
@@ -256,7 +258,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	extra_model_name_dict.update(get_dict_from_string(main_args.extra_model_name))
 	pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors,
 		id=main_args.mid,
-		epochs_max=3000, #  500 1000 1500 2000 10000 1e6 # limit this as the pre-training is very time consuming
+		epochs_max=500, #  500 1000 1500 2000 10000 1e6 # limit this as the pre-training is very time consuming
 		extra_model_name_dict=extra_model_name_dict,
 		)
 	complete_model_name = pt_model_train_handler.get_complete_model_name()
@@ -270,7 +272,9 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			pt_model_train_handler.fit_loader(s_train_loader_da, {
 				#'train':s_train_loader,
 				'val':r_val_loader,
-				}) # main fit
+				},
+				train_dataset_method_call='pre_epoch_step',
+				) # main fit
 		pass
 	pt_model_train_handler.load_model() # important, refresh to best model
 
@@ -330,17 +334,19 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	for classifier_mid in range(0, main_args.classifier_mids):
 		### fine-tuning
 		### OPTIMIZER
-
+		# ds_mode={'random':0, 'left':0, 'none':1} # avoid none as it's not random
+		# ds_mode={'random':1/3, 'left':1/3, 'none':1-2/3} # avoid none as it's not random
 		ds_mode={'random':.9, 'left':.1, 'none':.0,} # avoid none as it's not random
 		ds_p = 10/100
+		std_scale = 1/2
 		lcset_name = f'{main_args.kf}@train'
 		r_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), 'cpu',
-			balanced_repeats=repeats*synth_repeats,
 			uses_precomputed_copies=False,
 			uses_daugm=True,
 			uses_dynamic_balance=True,
 			ds_mode=ds_mode,
 			ds_p=ds_p,
+			std_scale=std_scale,
 			**dataset_kwargs,
 			)
 		r_train_loader_da = DataLoader(r_train_dataset_da,
@@ -354,12 +360,12 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			)
 		# lcset_name = f'{main_args.kf}@train'
 		# r_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device,
-		# 	balanced_repeats=repeats*synth_repeats,
 		# 	precomputed_copies=150, # 1 50 100 150
 		# 	uses_daugm=True,
 		# 	uses_dynamic_balance=True,
 		# 	ds_mode=ds_mode,
 			# ds_p=ds_p,
+			# std_scale=std_scale,
 		# 	**dataset_kwargs,
 		# 	)
 		# r_train_loader_da = DataLoader(r_train_dataset_da,
@@ -375,21 +381,21 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 		def ft_lr_f(epoch):
 			initial_lr = 1e-10
-			max_lr = .5e-3
-			d_epochs = 20
+			max_lr = 1e-3
+			d_epochs = 50
 			p = np.clip(epoch/d_epochs, 0, 1)
 			return initial_lr+p*(max_lr-initial_lr)
 
 		ft_opt_kwargs_f = {
-			'lr':lambda epoch:.1e-3,
-			# 'lr':ft_lr_f,
+			# 'lr':lambda epoch:1e-3,
+			'lr':ft_lr_f,
 			#'weight_decay':lambda epoch:1e-5,
 			}
 		ft_model = deepcopy(model_copy)
 		ft_model.init_fine_tuning()
-		ft_classifier = ft_model.get_classifier_model()
-		ft_classifier.reset_parameters()
-		ft_optimizer = LossOptimizer(ft_classifier, optims.Adam, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
+		tf_model_to_optimize = ft_model.get_classifier_model(); tf_model_to_optimize.reset_parameters()
+		# tf_model_to_optimize = ft_model
+		ft_optimizer = LossOptimizer(tf_model_to_optimize, optims.AdamW, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
 			clip_grad=1.,
 			)
 
@@ -402,8 +408,8 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 		ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics,
 			val_epoch_counter_duration=0, # every k epochs check
-			earlystop_epoch_duration=500,
-			target_metric_crit='b-xentropy',
+			earlystop_epoch_duration=200,
+			target_metric_crit=f'{metric_prefix}xentropy',
 			#save_mode=C_.SM_NO_SAVE,
 			#save_mode=C_.SM_ALL,
 			#save_mode=C_.SM_ONLY_ALL,
@@ -430,9 +436,11 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		ft_model_train_handler.build_gpu(device)
 		print(ft_model_train_handler)
 		ft_model_train_handler.fit_loader(r_train_loader_da, {
-			#'train':r_train_loader,
+			'train':r_train_loader,
 			'val':r_val_loader,
-			}) # main fit
+			},
+			train_dataset_method_call='pre_epoch_step',
+			) # main fit
 		ft_model_train_handler.load_model() # important, refresh to best model
 
 		###################################################################################################################################################

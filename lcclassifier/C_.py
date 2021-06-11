@@ -5,14 +5,11 @@ import lchandler.C_ as C_lchandler
 
 EPS = 1e-5
 
-### data agumentation
-OBSE_STD_SCALE = 1/2
-
 ### LOSS
 REC_LOSS_EPS = 1
-REC_LOSS_K = 10
-MSE_K = 1e4
-XENTROPY_K = 1e-1
+REC_LOSS_K = 0
+MSE_K = 1e4 # 0 1e3 1e4
+XENTROPY_K = 1
 
 MAX_DAY = 100.
 DEFAULT_DAYS_N = 100

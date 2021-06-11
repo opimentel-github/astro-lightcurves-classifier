@@ -9,7 +9,8 @@ clear
 mc_gpu="--mc serial_rnn_models --gpu 1 --invert_mpg 0"
 
 b=64
-extras="--s_precomputed_copies 0 --batch_size $b --only_attn_exp 0 --classifier_mids 5"
+bypass=0
+extras="--s_precomputed_copies 0 --batch_size $b --only_attn_exp 0 --classifier_mids 5 --bypass $bypass"
 # extras="--s_precomputed_copies 1 --batch_size $b --only_attn_exp 0 --classifier_mids 5"
 # extras="--s_precomputed_copies 5 --batch_size $b --only_attn_exp 0 --classifier_mids 5"
 

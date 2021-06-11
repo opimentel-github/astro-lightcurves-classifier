@@ -24,6 +24,17 @@ import time
 
 ###################################################################################################################################################
 
+def min_max(x): # (t,1)
+	if len(x)==0:
+		return x
+	if len(x)==1:
+		return x*0
+
+	_min = x.min()
+	_max = x.max()
+	new_x = (x-_min)/(_max-_min)
+	return new_x
+
 def fix_new_len(tdict, uses_len_clip, max_len):
 	new_tdict = {}
 	for key in tdict.keys():
@@ -46,8 +57,7 @@ class CustomDataset(Dataset):
 		in_attrs=None,
 		rec_attr=None,
 		max_day:float=np.infty,
-		std_scale:float=C_.OBSE_STD_SCALE,
-		balanced_repeats=1,
+		std_scale=0.0,
 		precomputed_copies=1,
 		uses_precomputed_copies=True,
 		uses_daugm=False,
@@ -63,7 +73,6 @@ class CustomDataset(Dataset):
 		self.rec_attr = rec_attr
 		self.max_day = max_day
 		self.std_scale = std_scale
-		self.balanced_repeats = balanced_repeats
 		self.precomputed_copies = precomputed_copies
 		self.uses_precomputed_copies = uses_precomputed_copies
 		self.uses_daugm = uses_daugm
@@ -94,6 +103,7 @@ class CustomDataset(Dataset):
 
 		self.calcule_poblation_weights()
 		self.calcule_balanced_w_cdict()
+		self.pre_epoch_step()
 
 	def calcule_precomputed(self,
 		backend=None,
@@ -149,15 +159,8 @@ class CustomDataset(Dataset):
 		self.populations_cdict = self.lcset.get_populations_cdict()
 
 	def resample_lcobj_names(self):
-		min_index = np.argmin([self.populations_cdict[c] for c in self.class_names])
-		min_c = self.class_names[min_index]
-		balanced_lcobj_names = self.lcset.get_lcobj_names(min_c)*self.balanced_repeats
-		boostrap_n = len(balanced_lcobj_names)
-		for c in self.class_names:
-			if c==min_c:
-				continue
-			lcobj_names_c = self.lcset.get_boostrap_samples(c, boostrap_n)
-			balanced_lcobj_names += lcobj_names_c
+		balanced_lcobj_names = self.lcset.get_boostrap_samples()
+		# print(balanced_lcobj_names)
 		return balanced_lcobj_names
 
 	def get_output_dims(self):
@@ -299,12 +302,11 @@ class CustomDataset(Dataset):
 		else:
 			return self.get_lcobj_names()
 
-	def pre_training_step(self):
+	def pre_epoch_step(self):
 		if self.uses_dynamic_balance:
 			self.balanced_lcobj_names = self.resample_lcobj_names() # important
 
 	def __len__(self):
-		self.pre_training_step()
 		lcobj_names = self.get_train_lcobj_names()
 		return len(lcobj_names)
 
@@ -334,7 +336,9 @@ class CustomDataset(Dataset):
 			for kb,b in enumerate(self.band_names):
 				lcobjb = lcobj.get_b(b)
 				lcobjb.apply_downsampling_window(self.ds_mode, self.ds_p) # curve points downsampling we need to ensure the model to see compelte curves
-				lcobjb.add_obs_noise_gaussian(0, self.std_scale) # add obs noise
+				lcobjb.add_obs_noise_gaussian(0,
+					self.std_scale,
+					)
 			lcobj.reset_day_offset_serial(bands=self.band_names) # remove day offset!
 
 		### clip by max day
@@ -373,7 +377,9 @@ class CustomDataset(Dataset):
 
 			rrecx = lcobjb.get_custom_x([self.rec_attr]) # raw_recx (t,1)
 			recx = self.rec_normalize(rrecx, b) # norm_recx (t,1)
+
 			rerror = lcobjb.obse[...,None] # raw_error (t,1)
+			# rerror = min_max(rerror) # min-max
 			assert np.all(rerror>=0)
 
 			tdict['target'][f'recx.{b}'] = torch.as_tensor(recx)

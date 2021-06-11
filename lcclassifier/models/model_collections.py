@@ -16,15 +16,14 @@ class ModelCollections():
 		self.max_day = C_.MAX_DAY
 
 		bands = 2
-		d = 32 # 16 32 64 128
+		d = 64 # 16 32 64 128
 		self.gd_embd_dims = GDIter(d*bands)
 		self.gd_layers = GDIter(1) # 1 2 3
 		self.gd_rnn_cell_names = GDIter('GRU', 'LSTM')
-		# self.gd_rnn_cell_names = GDIter('GRU')
 		self.gd_te_features = GDIter(2*2, 8*2)
 		self.gd_fourier_dims = GDIter(1/2)
 
-		self.gd_time_noise_window = GDIter('24*24**-1', '0*24**-1')
+		self.gd_time_noise_window = GDIter('0*24**-1', '24*24**-1')
 		# self.gd_time_noise_window = GDIter('0*24**-1', '1*24**-1', '24*24**-1')
 
 		self.gd_kernel_size = GDIter(1,2)
@@ -84,7 +83,8 @@ class ModelCollections():
 	def update_dt(self, gs):
 		gs.update({
 			'dataset_kwargs':{
-				'in_attrs':['d_days', 'obs', 'obse'],
+				# 'in_attrs':['d_days', 'obs', 'obse'],
+				'in_attrs':['d_days', 'obs'],
 				'rec_attr':'obs',
 				'max_day':self.max_day,
 			}})
@@ -93,7 +93,8 @@ class ModelCollections():
 	def update_te(self, gs):
 		gs.update({
 			'dataset_kwargs':{
-				'in_attrs':['obs', 'obse'],
+				# 'in_attrs':['obs', 'obse'],
+				'in_attrs':['obs'],
 				'rec_attr':'obs',
 				'max_day':self.max_day,
 			}})

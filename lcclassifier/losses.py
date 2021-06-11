@@ -17,7 +17,11 @@ class LCMSEReconstruction(FTLoss):
 		self.name = name
 		self.band_names = band_names
 
-	def __call__(self, tdict, **kwargs):
+	def __call__(self, tdict,
+		**kwargs):
+		epoch = kwargs['_epoch']
+		decay = math.exp(-epoch*1e-3) # 1 > 0
+		g = 1-decay # 0 > 1
 		mse_loss_bdict = {}
 		for kb,b in enumerate(self.band_names):
 			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
@@ -28,7 +32,7 @@ class LCMSEReconstruction(FTLoss):
 			p_rx = tdict['target'][f'recx.{b}'] # (b,t,1)
 
 			p_rx_pred = tdict['model'][f'decx.{b}'] # (b,t,1)
-			mse_loss_b = (p_rx-p_rx_pred)**2/(C_.REC_LOSS_EPS+C_.REC_LOSS_K*(p_rerror**2)) # (b,t,1)
+			mse_loss_b = (p_rx-p_rx_pred)**2/(C_.REC_LOSS_EPS+(C_.REC_LOSS_K*g)*(p_rerror**2)) # (b,t,1)
 			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 			mse_loss_bdict[b] = mse_loss_b
 
@@ -123,9 +127,9 @@ class LCBinXEntropy(FTLoss):
 		target_tdict = tdict['target']
 		model_tdict = tdict['model']
 
-		y_target = target_tdict['y'].long()
+		y_target = target_tdict['y'].long() # (b)
 		#print(self.classifier_key)
-		y_pred = model_tdict[self.classifier_key]
+		y_pred = model_tdict[self.classifier_key] # (b,c)
 		#print('y_pred',y_pred[:10])
 		#print(y_target.shape, y_target[0])
 		y_target = y_target if self.target_is_onehot else get_onehot(y_target, None if self.class_names is None else len(self.class_names))

@@ -18,17 +18,15 @@ class SimpleClassifier(nn.Module):
 
 	def reset(self):
 		### MLP
-		mlp_kwargs = {
-			'activation':'relu',
-			'last_activation':'linear',
-			'in_dropout':self.dropout['p'],
-			'dropout':self.dropout['p'],
-			}
-		# self.layers = 2
 		self.k = 1
 		#self.classifiers_mlp_ft = nn.ModuleList([MLP(self.input_dims, 1, [self.input_dims*self.k]*self.layers, **mlp_kwargs) for _ in range(0, self.output_dims)])
 		#print('classifiers_mlp_ft:', self.classifiers_mlp_ft)
-		self.classifier_mlp_ft = MLP(self.input_dims, self.output_dims, [self.input_dims*self.k]*self.layers, **mlp_kwargs)
+		self.classifier_mlp_ft = MLP(self.input_dims, self.output_dims, [self.input_dims*self.k]*self.layers,
+			activation='relu',
+			last_activation='linear',
+			in_dropout=self.dropout['p'],
+			dropout=self.dropout['p'],
+			)
 		print('classifier_mlp_ft:', self.classifier_mlp_ft)
 		self.reset_parameters()
 
@@ -41,6 +39,8 @@ class SimpleClassifier(nn.Module):
 	def forward(self, tdict:dict, **kwargs):
 		encz_last = tdict['model']['encz_last']
 		#encz_last = torch.cat([classifier_mlp_ft(encz_last) for classifier_mlp_ft in self.classifiers_mlp_ft], dim=-1)
+		# print(encz_last[0])
+		# print(encz_last[0].mean(), encz_last[0].std())
 		encz_last = self.classifier_mlp_ft(encz_last)
 		#print(encz_last.shape)
 		tdict['model']['y_last_ft'] = encz_last
