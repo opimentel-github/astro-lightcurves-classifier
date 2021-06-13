@@ -69,7 +69,6 @@ class CustomDataset(Dataset):
 		self.reset()
 
 	def reset(self):
-		self.tdict = {} # solves memory leak?
 		torch.cuda.empty_cache()
 		self.generate_serial()
 		self.lcset_info = self.lcset.get_info()
@@ -342,7 +341,8 @@ class CustomDataset(Dataset):
 		###
 		s_onehot = lcobj.get_onehot_serial(bands=self.band_names) # ignoring *
 		#print(s_onehot.shape, s_onehot)
-		self.tdict[f'input/s_onehot'] = torch.as_tensor(s_onehot) # (t,b)
+		tdict = {}
+		tdict[f'input/s_onehot'] = torch.as_tensor(s_onehot) # (t,b)
 		for kb,b in enumerate(self.band_names+['*']):
 			lcobjb = lcobj.get_b(b)
 			lcobjb.set_diff('days') # recompute dtime just in case (it's already implemented in da)
@@ -357,12 +357,12 @@ class CustomDataset(Dataset):
 
 			x = np.concatenate([x, dtime], axis=-1) if self.append_in_ddays else x # new x
 
-			self.tdict[f'input/onehot.{b}'] = torch.as_tensor(onehot)
-			self.tdict[f'input/rtime.{b}'] = torch.as_tensor(rtime)
+			tdict[f'input/onehot.{b}'] = torch.as_tensor(onehot)
+			tdict[f'input/rtime.{b}'] = torch.as_tensor(rtime)
 			#time
-			self.tdict[f'input/rdtime.{b}'] = torch.as_tensor(rdtime)
-			self.tdict[f'input/dtime.{b}'] = torch.as_tensor(dtime)
-			self.tdict[f'input/x.{b}'] = torch.as_tensor(x, dtype=torch.float32) # fixme
+			tdict[f'input/rdtime.{b}'] = torch.as_tensor(rdtime)
+			tdict[f'input/dtime.{b}'] = torch.as_tensor(dtime)
+			tdict[f'input/x.{b}'] = torch.as_tensor(x, dtype=torch.float32) # fixme
 
 			rrecx = lcobjb.get_custom_x([self.rec_attr]) # raw_recx (t,1)
 			recx = self.rec_normalize(rrecx, b) # norm_recx (t,1)
@@ -371,17 +371,17 @@ class CustomDataset(Dataset):
 			# rerror = min_max(rerror) # min-max
 			assert np.all(rerror>=0)
 
-			self.tdict[f'target/recx.{b}'] = torch.as_tensor(recx)
-			self.tdict[f'target/rerror.{b}'] = torch.as_tensor(rerror)
+			tdict[f'target/recx.{b}'] = torch.as_tensor(recx)
+			tdict[f'target/rerror.{b}'] = torch.as_tensor(rerror)
 
-		self.tdict[f'target/y'] = torch.LongTensor([lcobj.y])[0] # ()
-		self.tdict[f'target/balanced_w'] = torch.Tensor([self.balanced_w_cdict[self.class_names[lcobj.y]]])[0] # ()
+		tdict[f'target/y'] = torch.LongTensor([lcobj.y])[0] # ()
+		tdict[f'target/balanced_w'] = torch.Tensor([self.balanced_w_cdict[self.class_names[lcobj.y]]])[0] # ()
 
 		### fix length
-		for k in self.tdict.keys():
-			if uses_len_clip and len(self.tdict[k].shape)==2:
-				self.tdict[k] = seq_utils.get_seq_clipped_shape(self.tdict[k], self.max_len)
+		for k in tdict.keys():
+			if uses_len_clip and len(tdict[k].shape)==2:
+				tdict[k] = seq_utils.get_seq_clipped_shape(tdict[k], self.max_len)
 
 		if return_lcobjs:
-			return self.tdict, lcobj
-		return self.tdict
+			return tdict, lcobj
+		return tdict

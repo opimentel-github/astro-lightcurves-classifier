@@ -2,11 +2,11 @@
 SECONDS=0
 clear
 
-# mc_gpu="--mc parallel_attn_models --gpu 0 --invert_mpg 0"
+mc_gpu="--mc parallel_attn_models --gpu 0 --invert_mpg 0"
 # mc_gpu="--mc parallel_rnn_models --gpu 0 --invert_mpg 0"
 
 # mc_gpu="--mc serial_attn_models --gpu 1 --invert_mpg 0"
-mc_gpu="--mc serial_rnn_models --gpu 1 --invert_mpg 0"
+# mc_gpu="--mc serial_rnn_models --gpu 1 --invert_mpg 0"
 
 b=100
 bypass=0

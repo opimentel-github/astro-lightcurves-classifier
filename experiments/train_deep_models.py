@@ -23,7 +23,7 @@ parser.add_argument('--only_attn_exp',  type=int, default=0) # 0 1
 parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=10)
-parser.add_argument('--num_workers',  type=int, default=8) # 2 4 8
+parser.add_argument('--num_workers',  type=int, default=5) # 2 3 4 5
 parser.add_argument('--pin_memory',  type=int, default=1) # 0 1
 parser.add_argument('--balanced_metrics',  type=int, default=0) # 0 1 # critical
 #main_args = parser.parse_args([])
@@ -254,6 +254,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 				},
 				train_dataset_method_call='pre_epoch_step',
 				) # main fit
+			del s_train_loader_da
 		pass
 	pt_model_train_handler.load_model() # important, refresh to best model
 
@@ -311,6 +312,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 	### fine-tuning
 	model_copy = deepcopy(pt_model_train_handler.load_model())
+	model_copy.init_fine_tuning()
 	lcset_name = f'{main_args.kf}@train'
 	lcset_copy = copy(lcdataset[lcset_name])
 	for classifier_mid in range(0, main_args.classifier_mids):
@@ -365,7 +367,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			'lr':ft_lr_f,
 			}
 		# ft_model = deepcopy(model_copy)
-		# ft_model.init_fine_tuning()
+		# 
 		# tf_model_to_optimize = ft_model.get_classifier_model(); tf_model_to_optimize.reset_parameters()
 		# # tf_model_to_optimize = ft_model
 
@@ -384,7 +386,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 		ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics,
 			val_epoch_counter_duration=0, # every k epochs check
-			earlystop_epoch_duration=200,
+			earlystop_epoch_duration=250,
 			target_metric_crit=f'{metric_prefix}xentropy',
 			#save_mode=C_.SM_NO_SAVE,
 			#save_mode=C_.SM_ALL,
@@ -416,6 +418,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			},
 			train_dataset_method_call='pre_epoch_step',
 			) # main fit
+		del r_train_loader_da
 		ft_model_train_handler.load_model() # important, refresh to best model
 
 		###################################################################################################################################################
@@ -432,4 +435,3 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		save_performance(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 
 		save_model_info(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **ft_exp_kwargs)
-		del r_train_loader_da

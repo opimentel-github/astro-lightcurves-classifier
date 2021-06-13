@@ -28,13 +28,13 @@ class ModelCollections():
 
 		### attn
 		self.gd_fourier_dims = GDIter(1/2)
-		self.gd_te_features = GDIter(1*2, 8*2)
+		self.gd_te_features = GDIter(8*2, 1*2)
 		self.gd_time_noise_window = GDIter('0*24**-1')
 		# self.gd_time_noise_window = GDIter('0*24**-1', '24*24**-1')
 		# self.gd_time_noise_window = GDIter('0*24**-1', '1*24**-1', '24*24**-1')
 		self.gd_kernel_size = GDIter(1,2)
 		# self.gd_kernel_size = GDIter(1, 2, 3)
-		self.gd_heads = GDIter(8,4)
+		self.gd_heads = GDIter(4, 8)
 
 		p = 1/100
 		self.dropout_d = {
