@@ -90,6 +90,8 @@ class CustomDataset(Dataset):
 
 		self.calcule_poblation_weights()
 		self.calcule_balanced_w_cdict()
+
+		self.lcset.reset_boostrap(k_n=.5)
 		self.pre_epoch_step()
 
 	def calcule_precomputed(self,

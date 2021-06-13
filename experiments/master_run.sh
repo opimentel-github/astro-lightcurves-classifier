@@ -10,7 +10,7 @@ mc_gpu="--mc serial_rnn_models --gpu 1 --invert_mpg 0"
 
 b=100
 bypass=0
-num_workers=8
+num_workers=4
 extras="--batch_size $b --only_attn_exp 0 --classifier_mids 5 --bypass $bypass --num_workers $num_workers"
 # extras="--batch_size $b --only_attn_exp 0 --classifier_mids 5"
 
