@@ -14,16 +14,16 @@ parser = argparse.ArgumentParser(prefix_chars='--')
 parser.add_argument('--method',  type=str, default='spm-mcmc-estw')
 parser.add_argument('--gpu',  type=int, default=-1)
 parser.add_argument('--mc',  type=str, default='parallel_rnn_models')
-parser.add_argument('--batch_size',  type=int, default=64)
+parser.add_argument('--batch_size',  type=int, default=100)
 parser.add_argument('--save_rootdir',  type=str, default='../save')
-parser.add_argument('--mid',  type=str, default='1000')
+parser.add_argument('--mid',  type=str, default='0')
 parser.add_argument('--kf',  type=str, default='0')
 parser.add_argument('--bypass',  type=int, default=0) # 0 1
 parser.add_argument('--only_attn_exp',  type=int, default=0) # 0 1
 parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=10)
-parser.add_argument('--num_workers',  type=int, default=4) # 2 4 8
+parser.add_argument('--num_workers',  type=int, default=8) # 2 4 8
 parser.add_argument('--pin_memory',  type=int, default=1) # 0 1
 parser.add_argument('--balanced_metrics',  type=int, default=0) # 0 1 # critical
 #main_args = parser.parse_args([])
@@ -308,13 +308,13 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	###################################################################################################################################################
 	###################################################################################################################################################
 	###################################################################################################################################################
-	del s_train_loader_da
-	model_copy = deepcopy(model)
+
+	### fine-tuning
+	model_copy = deepcopy(pt_model_train_handler.load_model())
+	lcset_name = f'{main_args.kf}@train'
+	lcset_copy = copy(lcdataset[lcset_name])
 	for classifier_mid in range(0, main_args.classifier_mids):
-		### fine-tuning
-		### OPTIMIZER
-		lcset_name = f'{main_args.kf}@train'
-		r_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), 'cpu',
+		r_train_dataset_da = CustomDataset(lcset_name, lcset_copy, 'cpu',
 			precomputed_copies=0,
 			uses_daugm=True,
 			uses_dynamic_balance=True,
@@ -333,8 +333,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
 			persistent_workers=main_args.num_workers>0,
 			)
-		# lcset_name = f'{main_args.kf}@train'
-		# r_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device,
+		# r_train_dataset_da = CustomDataset(lcset_name, lcset_copy, device,
 		# 	precomputed_copies=150, # 1 50 100 150
 		# 	uses_daugm=True,
 		# 	uses_dynamic_balance=True,
@@ -365,11 +364,14 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		ft_opt_kwargs_f = {
 			'lr':ft_lr_f,
 			}
-		ft_model = deepcopy(model_copy)
-		ft_model.init_fine_tuning()
-		tf_model_to_optimize = ft_model.get_classifier_model(); tf_model_to_optimize.reset_parameters()
-		# tf_model_to_optimize = ft_model
-		ft_optimizer = LossOptimizer(tf_model_to_optimize, optims.AdamW, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
+		# ft_model = deepcopy(model_copy)
+		# ft_model.init_fine_tuning()
+		# tf_model_to_optimize = ft_model.get_classifier_model(); tf_model_to_optimize.reset_parameters()
+		# # tf_model_to_optimize = ft_model
+
+		classifier = model_copy.get_classifier_model()
+		classifier.reset_parameters()
+		ft_optimizer = LossOptimizer(classifier, optims.AdamW, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
 			clip_grad=1.,
 			)
 
@@ -403,7 +405,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 			'extra_model_name_dict':extra_model_name_dict,
 			}
-		ft_model_train_handler = ModelTrainHandler(ft_model, ft_loss_monitors, **mtrain_config)
+		ft_model_train_handler = ModelTrainHandler(model_copy, ft_loss_monitors, **mtrain_config)
 		complete_model_name = ft_model_train_handler.get_complete_model_name()
 		ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 		ft_model_train_handler.build_gpu(device)
@@ -430,3 +432,4 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		save_performance(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 
 		save_model_info(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **ft_exp_kwargs)
+		del r_train_loader_da
