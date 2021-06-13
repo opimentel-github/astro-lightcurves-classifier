@@ -23,7 +23,7 @@ parser.add_argument('--only_attn_exp',  type=int, default=0) # 0 1
 parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=10)
-parser.add_argument('--num_workers',  type=int, default=5) # 2 3 4 5
+parser.add_argument('--num_workers',  type=int, default=2)
 parser.add_argument('--pin_memory',  type=int, default=1) # 0 1
 parser.add_argument('--balanced_metrics',  type=int, default=0) # 0 1 # critical
 #main_args = parser.parse_args([])
@@ -135,7 +135,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	std_scale = 1/2
 
 	lcset_name = f'{main_args.kf}@train.{main_args.method}' if not main_args.bypass else f'{main_args.kf}@train'
-	# s_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device,
+	# s_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name], device,
 	# 	uses_daugm=False,
 	# 	uses_dynamic_balance=True,
 	# 	**dataset_kwargs)
@@ -144,7 +144,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	# 	drop_last=True,
 	# 	batch_size=main_args.batch_size,
 	# 	)
-	s_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), 'cpu',
+	s_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name], 'cpu',
 		precomputed_copies=0,
 		uses_daugm=True,
 		uses_dynamic_balance=True,
@@ -164,19 +164,19 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		)
 
 	lcset_name = f'{main_args.kf}@train.{main_args.method}'
-	s_train_dataset = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device, **dataset_kwargs)
+	s_train_dataset = CustomDataset(lcset_name, lcdataset[lcset_name], device, **dataset_kwargs)
 	s_train_loader = DataLoader(s_train_dataset, shuffle=False, batch_size=main_args.batch_size)
 
 	lcset_name = f'{main_args.kf}@train'
-	r_train_dataset = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device, **dataset_kwargs)
+	r_train_dataset = CustomDataset(lcset_name, lcdataset[lcset_name], device, **dataset_kwargs)
 	r_train_loader = DataLoader(r_train_dataset, shuffle=False, batch_size=main_args.batch_size)
 
 	lcset_name = f'{main_args.kf}@val'
-	r_val_dataset = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device, **dataset_kwargs)
+	r_val_dataset = CustomDataset(lcset_name, lcdataset[lcset_name], device, **dataset_kwargs)
 	r_val_loader = DataLoader(r_val_dataset, shuffle=False, batch_size=main_args.batch_size)
 
 	lcset_name = f'{main_args.kf}@test'
-	r_test_dataset = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device, **dataset_kwargs)
+	r_test_dataset = CustomDataset(lcset_name, lcdataset[lcset_name], device, **dataset_kwargs)
 	r_test_loader = DataLoader(r_test_dataset, shuffle=False, batch_size=main_args.batch_size)
 
 	s_train_dataset_da.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1)
@@ -314,9 +314,8 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	model_copy = deepcopy(pt_model_train_handler.load_model())
 	model_copy.init_fine_tuning()
 	lcset_name = f'{main_args.kf}@train'
-	lcset_copy = copy(lcdataset[lcset_name])
 	for classifier_mid in range(0, main_args.classifier_mids):
-		r_train_dataset_da = CustomDataset(lcset_name, lcset_copy, 'cpu',
+		r_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name], 'cpu',
 			precomputed_copies=0,
 			uses_daugm=True,
 			uses_dynamic_balance=True,
@@ -335,7 +334,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
 			persistent_workers=main_args.num_workers>0,
 			)
-		# r_train_dataset_da = CustomDataset(lcset_name, lcset_copy, device,
+		# r_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name], device,
 		# 	precomputed_copies=150, # 1 50 100 150
 		# 	uses_daugm=True,
 		# 	uses_dynamic_balance=True,
@@ -386,7 +385,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 		ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics,
 			val_epoch_counter_duration=0, # every k epochs check
-			earlystop_epoch_duration=250,
+			earlystop_epoch_duration=300,
 			target_metric_crit=f'{metric_prefix}xentropy',
 			#save_mode=C_.SM_NO_SAVE,
 			#save_mode=C_.SM_ALL,

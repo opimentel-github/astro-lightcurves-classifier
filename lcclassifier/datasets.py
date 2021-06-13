@@ -70,18 +70,18 @@ class CustomDataset(Dataset):
 
 	def reset(self):
 		torch.cuda.empty_cache()
-		self.generate_serial()
 		self.lcset_info = self.lcset.get_info()
 		self.band_names = self.lcset.band_names
 		self.class_names = self.lcset.class_names
 		self.survey = self.lcset.survey
-
 		self.append_in_ddays = 'd_days' in self.in_attrs
 		self.in_attrs = [ia for ia in self.in_attrs if not ia=='d_days']
 		self._max_day = self.max_day # save original to perform reset
-		self.max_len = self.calcule_max_len()
-		self.automatic_diff()
 
+		self.prepare_data_for_statistics()
+		self.max_len = self.calcule_max_len()
+
+		### scalers computations
 		self.scalers = nested_dict()
 		self.calcule_dtime_scaler()
 		self.calcule_in_scaler()
@@ -118,26 +118,27 @@ class CustomDataset(Dataset):
 			print("--- %s seconds ---" % (time.time() - start_time))
 		return
 
-	def generate_serial(self):
-		# extra band used to statistics as scales
+	def prepare_data_for_statistics(self):
+		### extra band used to statistics as scales
 		for lcobj_name in self.lcset.get_lcobj_names():
 			lcobj = self.lcset[lcobj_name]
 			lcobj.add_sublcobj_b('*', sum([lcobj.get_b(b) for b in self.lcset.band_names]))
 			lcobj.reset_day_offset_serial() # remove day offset!
 
-###################################################################################################################################################
-
-	def automatic_diff(self):
-		# used to statistics as scales
-		attrs = self.in_attrs+[self.rec_attr]
-		for attr in attrs: # calcule derivates!
-			if attr=='d_obs':
-				self.lcset.set_diff_parallel('obs')
-			if attr=='d_obse':
-				self.lcset.set_diff_parallel('obse')
-
-		### almost needed always for RNN
+		### used to statistics as scalers
 		self.lcset.set_diff_parallel('days')
+		self.lcset.set_diff_parallel('obs')
+		self.lcset.set_diff_parallel('obse')
+		
+	def calcule_max_len(self):
+		lens = []
+		for lcobj_name in self.get_lcobj_names():
+			lcobjb = copy(self.lcset[lcobj_name].get_b('*')) # copy
+			lcobjb.clip_attrs_given_max_day(self.max_day)
+			lens += [len(lcobjb)]
+		return max(lens)
+
+###################################################################################################################################################
 
 	def reset_max_day(self):
 		self.max_day = self._max_day
@@ -172,14 +173,6 @@ class CustomDataset(Dataset):
 			}, ', ', '=')
 		txt += ')'
 		return txt
-
-	def calcule_max_len(self):
-		lens = []
-		for lcobj_name in self.get_lcobj_names():
-			lcobjb = copy(self.lcset[lcobj_name].get_b('*')) # copy
-			lcobjb.clip_attrs_given_max_day(self.max_day)
-			lens += [len(lcobjb)]
-		return max(lens)
 
 	def get_max_len(self):
 		return self.max_len
@@ -342,7 +335,7 @@ class CustomDataset(Dataset):
 		s_onehot = lcobj.get_onehot_serial(bands=self.band_names) # ignoring *
 		#print(s_onehot.shape, s_onehot)
 		tdict = {}
-		tdict[f'input/s_onehot'] = torch.as_tensor(s_onehot) # (t,b)
+		tdict[f'input/s_onehot'] = torch.from_numpy(s_onehot) # (t,b)
 		for kb,b in enumerate(self.band_names+['*']):
 			lcobjb = lcobj.get_b(b)
 			lcobjb.set_diff('days') # recompute dtime just in case (it's already implemented in da)
@@ -357,12 +350,12 @@ class CustomDataset(Dataset):
 
 			x = np.concatenate([x, dtime], axis=-1) if self.append_in_ddays else x # new x
 
-			tdict[f'input/onehot.{b}'] = torch.as_tensor(onehot)
-			tdict[f'input/rtime.{b}'] = torch.as_tensor(rtime)
+			tdict[f'input/onehot.{b}'] = torch.from_numpy(onehot)
+			tdict[f'input/rtime.{b}'] = torch.from_numpy(rtime)
 			#time
-			tdict[f'input/rdtime.{b}'] = torch.as_tensor(rdtime)
-			tdict[f'input/dtime.{b}'] = torch.as_tensor(dtime)
-			tdict[f'input/x.{b}'] = torch.as_tensor(x, dtype=torch.float32) # fixme
+			tdict[f'input/rdtime.{b}'] = torch.from_numpy(rdtime)
+			tdict[f'input/dtime.{b}'] = torch.from_numpy(dtime)
+			tdict[f'input/x.{b}'] = torch.from_numpy(x) # fixme
 
 			rrecx = lcobjb.get_custom_x([self.rec_attr]) # raw_recx (t,1)
 			recx = self.rec_normalize(rrecx, b) # norm_recx (t,1)
@@ -371,17 +364,18 @@ class CustomDataset(Dataset):
 			# rerror = min_max(rerror) # min-max
 			assert np.all(rerror>=0)
 
-			tdict[f'target/recx.{b}'] = torch.as_tensor(recx)
-			tdict[f'target/rerror.{b}'] = torch.as_tensor(rerror)
+			tdict[f'target/recx.{b}'] = torch.from_numpy(recx)
+			tdict[f'target/rerror.{b}'] = torch.from_numpy(rerror)
 
-		tdict[f'target/y'] = torch.LongTensor([lcobj.y])[0] # ()
-		tdict[f'target/balanced_w'] = torch.Tensor([self.balanced_w_cdict[self.class_names[lcobj.y]]])[0] # ()
+		tdict[f'target/y'] = torch.from_numpy(np.array([lcobj.y]))[0].long() # ()
+		tdict[f'target/balanced_w'] = torch.from_numpy(np.array([self.balanced_w_cdict[self.class_names[lcobj.y]]], dtype=np.float32))[0] # ()
 
 		### fix length
 		for k in tdict.keys():
 			if uses_len_clip and len(tdict[k].shape)==2:
 				tdict[k] = seq_utils.get_seq_clipped_shape(tdict[k], self.max_len)
 
+		# print_tdict(tdict)
 		if return_lcobjs:
 			return tdict, lcobj
 		return tdict
