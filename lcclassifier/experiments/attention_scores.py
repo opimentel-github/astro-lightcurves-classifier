@@ -67,7 +67,7 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 				train_handler.model.autoencoder['encoder'].add_extra_return = False
 
 				#print(tdict['model'].keys())
-				uses_attn = 'attn_scores' in tdict['model'].keys()
+				uses_attn = any([f'attn_scores' in k for k in tdict.keys()])
 				if not uses_attn:
 					plt.close(fig)
 					dataset.reset_max_day() # very important!!
@@ -83,8 +83,8 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 						ax.axvline(threshold_day, linestyle='--', c='k', label=f'threshold day {threshold_day:.3f}')
 
 					### attn scores
-					p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-					attn_scores = tdict['model']['attn_scores'][f'encz.{b}'] # (b,h,qt)
+					p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)
+					attn_scores = tdict[f'model/attn_scores/encz.{b}'] # (b,h,qt)
 					attn_scores = attn_scores.mean(dim=1)[...,None] # (b,h,qt)>(b,qt,1) # mean along heads 
 					#print('attn_scores',attn_scores.shape)
 					attn_scores_min_max = tensor_to_numpy(seq_utils.seq_min_max_norm(attn_scores, p_onehot)) # (b,qt,1)

@@ -5,14 +5,13 @@ clear
 # mc_gpu="--mc parallel_attn_models --gpu 0 --invert_mpg 0"
 # mc_gpu="--mc parallel_rnn_models --gpu 0 --invert_mpg 0"
 
-# mc_gpu="--mc serial_attn_models --gpu 1 --invert_mpg 0"
-mc_gpu="--mc serial_rnn_models --gpu 1 --invert_mpg 0"
+mc_gpu="--mc serial_attn_models --gpu 1 --invert_mpg 0"
+# mc_gpu="--mc serial_rnn_models --gpu 1 --invert_mpg 0"
 
-b=64
+b=100
 bypass=0
-extras="--s_precomputed_copies 0 --batch_size $b --only_attn_exp 0 --classifier_mids 5 --bypass $bypass"
-# extras="--s_precomputed_copies 1 --batch_size $b --only_attn_exp 0 --classifier_mids 5"
-# extras="--s_precomputed_copies 5 --batch_size $b --only_attn_exp 0 --classifier_mids 5"
+extras="--batch_size $b --only_attn_exp 0 --classifier_mids 5 --bypass $bypass"
+# extras="--batch_size $b --only_attn_exp 0 --classifier_mids 5"
 
 for mid in {1000..1002}; do
 	for kf in {0..4}; do

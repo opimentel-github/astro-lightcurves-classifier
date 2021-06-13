@@ -37,11 +37,11 @@ class SimpleClassifier(nn.Module):
 		return self.output_dims
 
 	def forward(self, tdict:dict, **kwargs):
-		encz_last = tdict['model']['encz_last']
+		encz_last = tdict[f'model/encz_last']
 		#encz_last = torch.cat([classifier_mlp_ft(encz_last) for classifier_mlp_ft in self.classifiers_mlp_ft], dim=-1)
 		# print(encz_last[0])
 		# print(encz_last[0].mean(), encz_last[0].std())
 		encz_last = self.classifier_mlp_ft(encz_last)
 		#print(encz_last.shape)
-		tdict['model']['y_last_ft'] = encz_last
+		tdict[f'model/y_last_ft'] = encz_last
 		return tdict

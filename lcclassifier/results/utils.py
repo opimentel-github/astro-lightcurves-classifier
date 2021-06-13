@@ -30,15 +30,22 @@ def get_fmodel_name(model_name):
 	mn_dict = strings.get_dict_from_string(model_name)
 	mdl = mn_dict.get('mdl', '???')
 	b = mn_dict['b']
+
+	### rnn
 	cell = mn_dict.get('cell', None)
+	
+	### attn
 	m = mn_dict.get('m', None)
 	kernel_size = mn_dict.get('kernel_size', None)
 	time_noise_window = mn_dict.get('time_noise_window', None)
+	heads = mn_dict.get('heads', None)
+
 	model_name = []
 	model_name += [mdl]
 	model_name += [f'w/ {b}' if not b is None else '']
 	model_name += [f'w/ {cell}' if not cell is None else '']
 	model_name += [f'w/ M={int(m)//2}' if not m is None else ''] # fixme
+	model_name += [f'w/ heads={heads}' if not heads is None else '']
 	model_name += [f'w/ k={kernel_size}' if not kernel_size is None else '']
 	model_name += [f'w/ r={time_noise_window}' if not time_noise_window is None else '']
 	return ' '.join(model_name)

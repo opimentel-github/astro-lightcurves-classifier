@@ -7,8 +7,8 @@ EPS = 1e-5
 
 ### loss
 REC_LOSS_EPS = 1
-REC_LOSS_K = 0
-MSE_K = 1e4 # 0 1e3 1e4
+REC_LOSS_K = 0 # 10 1e-3 0
+MSE_K = 1e3 # 0 1e3 1e4
 XENTROPY_K = 1
 
 MAX_DAY = 100.

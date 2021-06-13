@@ -35,18 +35,6 @@ def min_max(x): # (t,1)
 	new_x = (x-_min)/(_max-_min)
 	return new_x
 
-def fix_new_len(tdict, uses_len_clip, max_len):
-	new_tdict = {}
-	for key in tdict.keys():
-		#print('key',key)
-		x = tdict[key]
-		is_seq_tensor = len(x.shape)==2
-		if uses_len_clip and is_seq_tensor:
-			new_tdict[key] = seq_utils.get_seq_clipped_shape(x, max_len)
-		else:
-			new_tdict[key] = x
-	return new_tdict
-
 def _get_item(args):
 	return CustomDataset.get_item(*args)
 
@@ -59,22 +47,21 @@ class CustomDataset(Dataset):
 		max_day:float=np.infty,
 		std_scale=0.0,
 		precomputed_copies=1,
-		uses_precomputed_copies=True,
 		uses_daugm=False,
 		uses_dynamic_balance=False,
 		ds_mode={},
 		ds_p=0.1,
 		):
+		assert precomputed_copies>=0
+
 		self.lcset_name = lcset_name
 		self.lcset = lcset
 		self.device = device
-
 		self.in_attrs = in_attrs
 		self.rec_attr = rec_attr
 		self.max_day = max_day
 		self.std_scale = std_scale
 		self.precomputed_copies = precomputed_copies
-		self.uses_precomputed_copies = uses_precomputed_copies
 		self.uses_daugm = uses_daugm
 		self.uses_dynamic_balance = uses_dynamic_balance
 		self.ds_mode = ds_mode
@@ -82,6 +69,7 @@ class CustomDataset(Dataset):
 		self.reset()
 
 	def reset(self):
+		self.tdict = {} # solves memory leak?
 		torch.cuda.empty_cache()
 		self.generate_serial()
 		self.lcset_info = self.lcset.get_info()
@@ -109,6 +97,8 @@ class CustomDataset(Dataset):
 		backend=None,
 		verbose=0,
 		):
+		if self.precomputed_copies==0:
+			return
 		start_time = time.time()
 		dummy_tensor = torch.Tensor([0]).to(self.device) # for phantom gpu allocation
 		lcobj_names = self.lcset.get_lcobj_names()
@@ -127,7 +117,8 @@ class CustomDataset(Dataset):
 
 		if verbose:
 			print("--- %s seconds ---" % (time.time() - start_time))
-			
+		return
+
 	def generate_serial(self):
 		# extra band used to statistics as scales
 		for lcobj_name in self.lcset.get_lcobj_names():
@@ -307,15 +298,14 @@ class CustomDataset(Dataset):
 			self.balanced_lcobj_names = self.resample_lcobj_names() # important
 
 	def __len__(self):
-		lcobj_names = self.get_train_lcobj_names()
-		return len(lcobj_names)
+		return len(self.get_train_lcobj_names())
 
 	###################################################################################################################################################
 
 	def __getitem__(self, idx:int):
 		lcobj_names = self.get_train_lcobj_names()
 		lcobj_name = lcobj_names[idx]
-		if self.uses_precomputed_copies:
+		if self.precomputed_copies>0:
 			item = get_random_item(self.precomputed_dict[lcobj_name])
 			return item
 		else:
@@ -350,10 +340,9 @@ class CustomDataset(Dataset):
 		lcobj.add_sublcobj_b('*', sum([lcobj.get_b(b) for b in self.band_names])) # redefine serial band because da
 
 		###
-		tdict = {'input':{}, 'target':{}}
 		s_onehot = lcobj.get_onehot_serial(bands=self.band_names) # ignoring *
 		#print(s_onehot.shape, s_onehot)
-		tdict['input'][f's_onehot'] = torch.as_tensor(s_onehot) # (t,b)
+		self.tdict[f'input/s_onehot'] = torch.as_tensor(s_onehot) # (t,b)
 		for kb,b in enumerate(self.band_names+['*']):
 			lcobjb = lcobj.get_b(b)
 			lcobjb.set_diff('days') # recompute dtime just in case (it's already implemented in da)
@@ -368,12 +357,12 @@ class CustomDataset(Dataset):
 
 			x = np.concatenate([x, dtime], axis=-1) if self.append_in_ddays else x # new x
 
-			tdict['input'][f'onehot.{b}'] = torch.as_tensor(onehot)
-			tdict['input'][f'rtime.{b}'] = torch.as_tensor(rtime)
+			self.tdict[f'input/onehot.{b}'] = torch.as_tensor(onehot)
+			self.tdict[f'input/rtime.{b}'] = torch.as_tensor(rtime)
 			#time
-			tdict['input'][f'rdtime.{b}'] = torch.as_tensor(rdtime)
-			tdict['input'][f'dtime.{b}'] = torch.as_tensor(dtime)
-			tdict['input'][f'x.{b}'] = torch.as_tensor(x, dtype=torch.float32) # fixme
+			self.tdict[f'input/rdtime.{b}'] = torch.as_tensor(rdtime)
+			self.tdict[f'input/dtime.{b}'] = torch.as_tensor(dtime)
+			self.tdict[f'input/x.{b}'] = torch.as_tensor(x, dtype=torch.float32) # fixme
 
 			rrecx = lcobjb.get_custom_x([self.rec_attr]) # raw_recx (t,1)
 			recx = self.rec_normalize(rrecx, b) # norm_recx (t,1)
@@ -382,13 +371,17 @@ class CustomDataset(Dataset):
 			# rerror = min_max(rerror) # min-max
 			assert np.all(rerror>=0)
 
-			tdict['target'][f'recx.{b}'] = torch.as_tensor(recx)
-			tdict['target'][f'rerror.{b}'] = torch.as_tensor(rerror)
+			self.tdict[f'target/recx.{b}'] = torch.as_tensor(recx)
+			self.tdict[f'target/rerror.{b}'] = torch.as_tensor(rerror)
 
-		tdict['target']['y'] = torch.LongTensor([lcobj.y])[0] # ()
-		tdict['target'][f'balanced_w'] = torch.Tensor([self.balanced_w_cdict[self.class_names[lcobj.y]]])[0] # ()
+		self.tdict[f'target/y'] = torch.LongTensor([lcobj.y])[0] # ()
+		self.tdict[f'target/balanced_w'] = torch.Tensor([self.balanced_w_cdict[self.class_names[lcobj.y]]])[0] # ()
 
-		tdict = {k:fix_new_len(tdict[k], uses_len_clip, self.max_len) for k in tdict.keys()}
+		### fix length
+		for k in self.tdict.keys():
+			if uses_len_clip and len(self.tdict[k].shape)==2:
+				self.tdict[k] = seq_utils.get_seq_clipped_shape(self.tdict[k], self.max_len)
+
 		if return_lcobjs:
-			return tdict, lcobj
-		return tdict
+			return self.tdict, lcobj
+		return self.tdict

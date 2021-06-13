@@ -9,6 +9,7 @@ from . import classifiers as mclass
 from .rnn import decoders as rnn_decoders
 
 MAX_DAY = C_.MAX_DAY
+USES_OBSE = False
 
 ###################################################################################################################################################
 
@@ -27,8 +28,9 @@ class ModelCollections():
 
 		### attn
 		self.gd_fourier_dims = GDIter(1/2)
-		self.gd_te_features = GDIter(2*2, 8*2)
-		self.gd_time_noise_window = GDIter('0*24**-1', '24*24**-1')
+		self.gd_te_features = GDIter(1*2, 8*2)
+		self.gd_time_noise_window = GDIter('0*24**-1')
+		# self.gd_time_noise_window = GDIter('0*24**-1', '24*24**-1')
 		# self.gd_time_noise_window = GDIter('0*24**-1', '1*24**-1', '24*24**-1')
 		self.gd_kernel_size = GDIter(1,2)
 		# self.gd_kernel_size = GDIter(1, 2, 3)
@@ -85,8 +87,7 @@ class ModelCollections():
 	def update_dt(self, gs):
 		gs.update({
 			'dataset_kwargs':{
-				# 'in_attrs':['d_days', 'obs', 'obse'],
-				'in_attrs':['d_days', 'obs'],
+				'in_attrs':['d_days', 'obs']+(['obse'] if USES_OBSE else []),
 				'rec_attr':'obs',
 				'max_day':self.max_day,
 			}})
@@ -95,8 +96,7 @@ class ModelCollections():
 	def update_te(self, gs):
 		gs.update({
 			'dataset_kwargs':{
-				# 'in_attrs':['obs', 'obse'],
-				'in_attrs':['obs'],
+				'in_attrs':['obs']+(['obse'] if USES_OBSE else []),
 				'rec_attr':'obs',
 				'max_day':self.max_day,
 			}})

@@ -22,16 +22,17 @@ class LCMSEReconstruction(FTLoss):
 		epoch = kwargs['_epoch']
 		decay = math.exp(-epoch*1e-3) # 1 > 0
 		g = 1-decay # 0 > 1
+		g = 1
 		mse_loss_bdict = {}
 		for kb,b in enumerate(self.band_names):
-			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-			#p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
-			#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
-			#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-			p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
-			p_rx = tdict['target'][f'recx.{b}'] # (b,t,1)
+			p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)
+			#p_rtime = tdict[f'input/rtime.{b}'][...,0] # (b,t)
+			#p_dtime = tdict[f'input/dtime.{b}'][...,0] # (b,t)
+			#p_x = tdict[f'input/x.{b}'] # (b,t,f)
+			p_rerror = tdict[f'target/rerror.{b}'] # (b,t,1)
+			p_rx = tdict[f'target/recx.{b}'] # (b,t,1)
 
-			p_rx_pred = tdict['model'][f'decx.{b}'] # (b,t,1)
+			p_rx_pred = tdict[f'model/decx.{b}'] # (b,t,1)
 			mse_loss_b = (p_rx-p_rx_pred)**2/(C_.REC_LOSS_EPS+(C_.REC_LOSS_K*g)*(p_rerror**2)) # (b,t,1)
 			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 			mse_loss_bdict[b] = mse_loss_b
@@ -53,14 +54,10 @@ class LCXEntropy(FTLoss):
 		self.uses_poblation_weights = uses_poblation_weights
 		self.classifier_key = classifier_key
 
-	def __call__(self, tdict, **kwargs):
-		input_tdict = tdict['input']
-		target_tdict = tdict['target']
-		model_tdict = tdict['model']
-
-		y_target = target_tdict['y'].long()
-		y_pred = model_tdict[self.classifier_key]
-		poblation_weights = target_tdict['poblation_weights'][0] if self.uses_poblation_weights else None
+	def __call__(self, tdict:dict, **kwargs):
+		y_target = tdict[f'target/y'].long()
+		y_pred = tdict[f'model/{self.classifier_key}']
+		poblation_weights = tdict[f'target/poblation_weights'][0] if self.uses_poblation_weights else None
 		xentropy_loss = batch_xentropy(y_pred, y_target, self.model_out_uses_softmax, self.target_is_onehot, poblation_weights) # (b)
 		#print(xentropy_loss.shape)
 
@@ -87,12 +84,8 @@ class LCCompleteLoss(FTLoss):
 		self.xentropy_k = xentropy_k
 		self.mse_k = mse_k
 
-	def __call__(self, tdict, **kwargs):
+	def __call__(self, tdict:dict, **kwargs):
 		epoch = kwargs['_epoch']
-		input_tdict = tdict['input']
-		target_tdict = tdict['target']
-		model_tdict = tdict['model']
-
 		xentropy_loss = self.xentropy(tdict, **kwargs)._batch_loss*self.xentropy_k
 		mse_loss = self.mse(tdict, **kwargs)._batch_loss*self.mse_k
 		loss_res = LossResult(xentropy_loss+mse_loss)
@@ -122,14 +115,10 @@ class LCBinXEntropy(FTLoss):
 		self.classifier_key = classifier_key
 		self.loss = torch.nn.BCELoss(reduction='none')
 
-	def __call__(self, tdict, **kwargs):
-		input_tdict = tdict['input']
-		target_tdict = tdict['target']
-		model_tdict = tdict['model']
-
-		y_target = target_tdict['y'].long() # (b)
+	def __call__(self, tdict:dict, **kwargs):
+		y_target = tdict[f'target/y'].long() # (b)
 		#print(self.classifier_key)
-		y_pred = model_tdict[self.classifier_key] # (b,c)
+		y_pred = tdict[f'model/{self.classifier_key}'] # (b,c)
 		#print('y_pred',y_pred[:10])
 		#print(y_target.shape, y_target[0])
 		y_target = y_target if self.target_is_onehot else get_onehot(y_target, None if self.class_names is None else len(self.class_names))

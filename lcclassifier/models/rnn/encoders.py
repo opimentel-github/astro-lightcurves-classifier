@@ -67,15 +67,14 @@ class RNNEncoderP(nn.Module):
 		return {b:self.ml_rnn[b].get_embd_dims_list() for b in self.band_names}
 
 	def forward(self, tdict:dict, **kwargs):
-		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
 		encz_bdict = {}
 		for kb,b in enumerate(self.band_names):
-			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-			#p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
-			#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
-			p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-			#p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
-			#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
+			p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)
+			#p_rtime = tdict[f'input/rtime.{b}'][...,0] # (b,t)
+			#p_dtime = tdict[f'input/dtime.{b}'][...,0] # (b,t)
+			p_x = tdict[f'input/x.{b}'] # (b,t,f)
+			#p_rerror = tdict[f'target/rerror.{b}'] # (b,t,1)
+			#p_rx = tdict[f'target/rec_x.{b}'] # (b,t,1)
 
 			p_encz = self.x_projection[b](p_x)
 			p_encz, _ = self.ml_rnn[b](p_encz, p_onehot, **kwargs) # out, (ht, ct)
@@ -83,10 +82,10 @@ class RNNEncoderP(nn.Module):
 			# encz_bdict[f'encz.{b}'] = seq_utils.seq_last_element(p_encz, p_onehot) # last element
 			encz_bdict[f'encz.{b}'] = seq_utils.seq_avg_pooling(p_encz, p_onehot) # last element
 
-		### BUILD OUT
+		### return
 		encz_last = self.mb_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
-		tdict['model']['encz_last'] = encz_last
-		tdict['model']['y_last_pt'] = self.xentropy_projection(encz_last)
+		tdict[f'model/encz_last'] = encz_last
+		tdict[f'model/y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict
 
 ###################################################################################################################################################
@@ -141,25 +140,24 @@ class RNNEncoderS(nn.Module):
 		return self.ml_rnn.get_embd_dims_list()
 
 	def forward(self, tdict:dict, **kwargs):
-		tdict['model'] = {} if not 'model' in tdict.keys() else tdict['model']
 		encz_bdict = {}
-
-		s_onehot = tdict['input']['s_onehot'] # (b,t,d)
-		onehot = tdict['input']['onehot.*'][...,0] # (b,t)
-		#rtime = tdict['input']['rtime.*'][...,0] # (b,t)
-		#dtime = tdict['input'][f'dtime.*'][...,0] # (b,t)
-		x = tdict['input'][f'x.*'] # (b,t,f)
-		#rerror = tdict['target'][f'rerror.*'] # (b,t,1)
-		#rx = tdict['target'][f'rec_x.*'] # (b,t,1)
+		s_onehot = tdict[f'input/s_onehot'] # (b,t,d)
+		onehot = tdict[f'input/onehot.*'][...,0] # (b,t)
+		#rtime = tdict[f'input/rtime.*'][...,0] # (b,t)
+		#dtime = tdict[f'input/dtime.*'][...,0] # (b,t)
+		x = tdict[f'input/x.*'] # (b,t,f)
+		#rerror = tdict[f'target/rerror.*'] # (b,t,1)
+		#rx = tdict[f'target/rec_x.*'] # (b,t,1)
 
 		encz = self.x_projection(torch.cat([x, s_onehot.float()], dim=-1)) # (b,t,f+d)
 		encz, _ = self.ml_rnn(encz, onehot, **kwargs) # out, (ht, ct)
+
 		### representative element
 		# encz_bdict[f'encz'] = seq_utils.seq_last_element(encz, onehot) # last element
 		encz_bdict[f'encz'] = seq_utils.seq_avg_pooling(encz, onehot) # last element
 
-		### BUILD OUT
+		### return
 		encz_last = encz_bdict[f'encz']
-		tdict['model']['encz_last'] = encz_last
-		tdict['model']['y_last_pt'] = self.xentropy_projection(encz_last)
+		tdict[f'model/encz_last'] = encz_last
+		tdict[f'model/y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict

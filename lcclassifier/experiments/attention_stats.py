@@ -55,20 +55,20 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 		tdict = minibatch_dict_collate(tdicts)
 
 		for kb,b in enumerate(dataset.band_names):
-			p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-			#p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
-			#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
-			#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-			#p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
-			#p_rx = tdict['target'][f'recx.{b}'] # (b,t,1)
+			p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)
+			#p_rtime = tdict[f'input/rtime.{b}'][...,0] # (b,t)
+			#p_dtime = tdict[f'input/dtime.{b}'][...,0] # (b,t)
+			#p_x = tdict[f'input/x.{b}'] # (b,t,f)
+			#p_rerror = tdict[f'target/rerror.{b}'] # (b,t,1)
+			#p_rx = tdict[f'target/recx.{b}'] # (b,t,1)
 
-			print(tdict['model'].keys())
-			uses_attn = 'attn_scores' in tdict['model'].keys()
+			print(tdict.keys())
+			uses_attn = any([f'attn_scores' in k for k in tdict.keys()])
 			if not uses_attn:
 				return
 
 			### attn scores
-			attn_scores = tdict['model']['attn_scores'][f'encz.{b}'] # (b,h,qt)
+			attn_scores = tdict[f'model/attn_scores/encz.{b}'] # (b,h,qt)
 			attn_scores = attn_scores.mean(dim=1)[...,None] # (b,h,qt)>(b,qt,1) # mean along heads 
 			#print('attn_scores',attn_scores.shape)
 			attn_scores_min_max = seq_utils.seq_min_max_norm(attn_scores, p_onehot) # (b,qt,1)

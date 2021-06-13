@@ -52,14 +52,14 @@ def save_performance(train_handler, data_loader, save_rootdir,
 					### decoder
 					mse_loss_bdict = {}
 					for kb,b in enumerate(dataset.band_names):
-						p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-						#p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
-						#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
-						#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-						p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
-						p_rx = tdict['target'][f'recx.{b}'] # (b,t,1)
+						p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)
+						#p_rtime = tdict[f'input/rtime.{b}'][...,0] # (b,t)
+						#p_dtime = tdict[f'input/dtime.{b}'][...,0] # (b,t)
+						#p_x = tdict[f'input/x.{b}'] # (b,t,f)
+						p_rerror = tdict[f'target/rerror.{b}'] # (b,t,1)
+						p_rx = tdict[f'target/recx.{b}'] # (b,t,1)
 
-						p_rx_pred = tdict['model'][f'decx.{b}'] # (b,t,1)
+						p_rx_pred = tdict[f'model/decx.{b}'] # (b,t,1)
 						mse_loss_b = (p_rx-p_rx_pred)**2/(C_.REC_LOSS_EPS+C_.REC_LOSS_K*(p_rerror**2)) # (b,t,1)
 						mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 						mse_loss_bdict[b] = mse_loss_b[...,0] # (b,1) > (b)
@@ -73,9 +73,9 @@ def save_performance(train_handler, data_loader, save_rootdir,
 						})
 
 					### class prediction
-					y_target = tdict['target']['y']
-					#y_pred_p = torch.nn.functional.softmax(tdict['model'][classifier_key], dim=-1)
-					y_pred_p = torch.sigmoid(tdict['model'][classifier_key])
+					y_target = tdict[f'target/y']
+					#y_pred_p = torch.nn.functional.softmax(tdict[f'model/{classifier_key}'], dim=-1)
+					y_pred_p = torch.sigmoid(tdict[f'model/{classifier_key}'])
 					#print('y_pred_p',y_pred_p[0])
 
 					if target_is_onehot:

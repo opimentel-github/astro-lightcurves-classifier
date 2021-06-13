@@ -23,8 +23,8 @@ parser.add_argument('--only_attn_exp',  type=int, default=0) # 0 1
 parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=10)
-parser.add_argument('--s_precomputed_copies',  type=int, default=1)
-parser.add_argument('--num_workers',  type=int, default=4)
+parser.add_argument('--num_workers',  type=int, default=4) # 2 4 8
+parser.add_argument('--pin_memory',  type=int, default=1) # 0 1
 parser.add_argument('--balanced_metrics',  type=int, default=0) # 0 1 # critical
 #main_args = parser.parse_args([])
 main_args = parser.parse_args()
@@ -47,13 +47,6 @@ filedict = get_dict_from_filedir(filedir)
 rootdir = filedict['_rootdir']
 cfilename = filedict['_cfilename']
 lcdataset = load_pickle(filedir)
-
-from copy import copy
-for k in lcdataset.lcsets.keys():
-    for lcobj_name in lcdataset[k].get_lcobj_names():
-        for b in lcdataset[k].band_names:
-            lcdataset[k][lcobj_name].get_b(b).astype(np.float32) # fixme
-
 print(lcdataset)
 
 ###################################################################################################################################################
@@ -133,54 +126,43 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	from copy import copy, deepcopy
 
 	### DATASETS
+	dataset_kwargs = mp_grid['dataset_kwargs']
 	bypass_autoencoder = 0
 	# bypass_autoencoder = 1
-	dataset_kwargs = mp_grid['dataset_kwargs']
-
-	### WITH DATA
-	# ds_mode = {'random':1.0, 'left':0.0, 'none':0.0}
+	# ds_mode = {'random':1.0, 'left':0.0, 'none':0.0} # avoid none
 	ds_mode = {'random':.9, 'left':.1, 'none':.0}
-	print('s_ds_mode', ds_mode)
 	ds_p = 10/100
 	std_scale = 1/2
-	lcset_name = f'{main_args.kf}@train.{main_args.method}' if not main_args.bypass else f'{main_args.kf}@train'
-	s_precomputed_copies = 0 if bypass_autoencoder else main_args.s_precomputed_copies
-	if s_precomputed_copies==0:
-		s_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), 'cpu',
-			uses_precomputed_copies=False,
-			uses_daugm=True,
-			# uses_daugm=False,
-			uses_dynamic_balance=True,
-			ds_mode=ds_mode,
-			ds_p=ds_p,
-			std_scale=std_scale,
-			**dataset_kwargs)
-		s_train_loader_da = DataLoader(s_train_dataset_da,
-			shuffle=True,
-			drop_last=True,
-			batch_size=main_args.batch_size,
-			num_workers=main_args.num_workers,
-			pin_memory=True, # False True
-			persistent_workers=True,
-			worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
-			)
-	else:
-		s_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device,
-			precomputed_copies=main_args.s_precomputed_copies,
-			uses_daugm=True,
-			# uses_daugm=False,
-			uses_dynamic_balance=True,
-			ds_mode=ds_mode,
-			ds_p=ds_p,
-			std_scale=std_scale,
-			**dataset_kwargs)
-		s_train_loader_da = DataLoader(s_train_dataset_da,
-			shuffle=True,
-			drop_last=True,
-			batch_size=main_args.batch_size,
-			)
 
-	####
+	lcset_name = f'{main_args.kf}@train.{main_args.method}' if not main_args.bypass else f'{main_args.kf}@train'
+	# s_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device,
+	# 	uses_daugm=False,
+	# 	uses_dynamic_balance=True,
+	# 	**dataset_kwargs)
+	# s_train_loader_da = DataLoader(s_train_dataset_da,
+	# 	shuffle=True,
+	# 	drop_last=True,
+	# 	batch_size=main_args.batch_size,
+	# 	)
+	s_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), 'cpu',
+		precomputed_copies=0,
+		uses_daugm=True,
+		uses_dynamic_balance=True,
+		ds_mode=ds_mode,
+		ds_p=ds_p,
+		std_scale=std_scale,
+		**dataset_kwargs)
+	s_train_loader_da = DataLoader(s_train_dataset_da,
+		shuffle=True,
+		drop_last=True,
+		batch_size=main_args.batch_size,
+		num_workers=main_args.num_workers,
+		pin_memory=main_args.pin_memory,
+		# prefetch_factor=5,
+		worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
+		persistent_workers=main_args.num_workers>0,
+		)
+
 	lcset_name = f'{main_args.kf}@train.{main_args.method}'
 	s_train_dataset = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device, **dataset_kwargs)
 	s_train_loader = DataLoader(s_train_dataset, shuffle=False, batch_size=main_args.batch_size)
@@ -216,14 +198,12 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	def pt_lr_f(epoch):
 		initial_lr = 1e-10
 		max_lr = 1e-3
+		# return max_lr
 		d_epochs = 5
 		p = np.clip(epoch/d_epochs, 0, 1)
 		return initial_lr+p*(max_lr-initial_lr)
 
 	pt_opt_kwargs_f = {
-		# 'lr':lambda epoch:1e-3,
-		# 'lr':lambda epoch:1e-3*math.sqrt(main_args.batch_size/32),
-		# 'lr':lambda epoch:.5e-4*math.sqrt(main_args.batch_size/32),
 		'lr':pt_lr_f,
 		}
 	pt_optimizer = LossOptimizer(model, optims.AdamW, pt_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
@@ -253,12 +233,11 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	train_mode = 'pre-training'
 	extra_model_name_dict = {
 			'b':f'{main_args.batch_size}',
-			's_precomputed_copies':main_args.s_precomputed_copies,
 			}
 	extra_model_name_dict.update(get_dict_from_string(main_args.extra_model_name))
 	pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors,
 		id=main_args.mid,
-		epochs_max=150, # 500 1000 1500 2000 10000 1e6 # limit this as the pre-training is very time consuming
+		epochs_max=150, # 50 100 150 # limit this as the pre-training is very time consuming
 		extra_model_name_dict=extra_model_name_dict,
 		)
 	complete_model_name = pt_model_train_handler.get_complete_model_name()
@@ -329,19 +308,14 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	###################################################################################################################################################
 	###################################################################################################################################################
 	###################################################################################################################################################
-
+	del s_train_loader_da
 	model_copy = deepcopy(model)
 	for classifier_mid in range(0, main_args.classifier_mids):
 		### fine-tuning
 		### OPTIMIZER
-		# ds_mode={'random':0, 'left':0, 'none':1} # avoid none as it's not random
-		# ds_mode={'random':1/3, 'left':1/3, 'none':1-2/3} # avoid none as it's not random
-		ds_mode={'random':.9, 'left':.1, 'none':.0,} # avoid none as it's not random
-		ds_p = 10/100
-		std_scale = 1/2
 		lcset_name = f'{main_args.kf}@train'
 		r_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), 'cpu',
-			uses_precomputed_copies=False,
+			precomputed_copies=0,
 			uses_daugm=True,
 			uses_dynamic_balance=True,
 			ds_mode=ds_mode,
@@ -354,9 +328,10 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			drop_last=True,
 			batch_size=32,
 			num_workers=main_args.num_workers,
-			pin_memory=True, # False True
-			persistent_workers=True,
+			pin_memory=main_args.pin_memory,
+			# prefetch_factor=5,
 			worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
+			persistent_workers=main_args.num_workers>0,
 			)
 		# lcset_name = f'{main_args.kf}@train'
 		# r_train_dataset_da = CustomDataset(lcset_name, copy(lcdataset[lcset_name]), device,
@@ -382,14 +357,13 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		def ft_lr_f(epoch):
 			initial_lr = 1e-10
 			max_lr = 1e-3
+			# return max_lr
 			d_epochs = 50
 			p = np.clip(epoch/d_epochs, 0, 1)
 			return initial_lr+p*(max_lr-initial_lr)
 
 		ft_opt_kwargs_f = {
-			# 'lr':lambda epoch:1e-3,
 			'lr':ft_lr_f,
-			#'weight_decay':lambda epoch:1e-5,
 			}
 		ft_model = deepcopy(model_copy)
 		ft_model.init_fine_tuning()
@@ -408,7 +382,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 		ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics,
 			val_epoch_counter_duration=0, # every k epochs check
-			earlystop_epoch_duration=100,
+			earlystop_epoch_duration=200,
 			target_metric_crit=f'{metric_prefix}xentropy',
 			#save_mode=C_.SM_NO_SAVE,
 			#save_mode=C_.SM_ALL,
@@ -421,7 +395,6 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		train_mode = 'fine-tuning'
 		extra_model_name_dict = {
 				'b':f'{main_args.batch_size}',
-				's_precomputed_copies':main_args.s_precomputed_copies,
 				}
 		extra_model_name_dict.update(get_dict_from_string(main_args.extra_model_name))
 		mtrain_config = {

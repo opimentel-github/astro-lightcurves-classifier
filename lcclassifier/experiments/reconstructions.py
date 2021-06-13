@@ -47,12 +47,12 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 			tdict = train_handler.model(TDictHolder(in_tdict).to(train_handler.device, add_dummy_dim=True))
 
 			for kb,b in enumerate(dataset.band_names):
-				p_onehot = tdict['input'][f'onehot.{b}'][...,0] # (b,t)
-				p_rtime = tdict['input'][f'rtime.{b}'][...,0] # (b,t)
-				#p_dtime = tdict['input'][f'dtime.{b}'][...,0] # (b,t)
-				#p_x = tdict['input'][f'x.{b}'] # (b,t,f)
-				#p_rerror = tdict['target'][f'rerror.{b}'] # (b,t,1)
-				#p_rx = tdict['target'][f'rec_x.{b}'] # (b,t,1)
+				p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)
+				p_rtime = tdict[f'input/rtime.{b}'][...,0] # (b,t)
+				#p_dtime = tdict[f'input/dtime.{b}'][...,0] # (b,t)
+				#p_x = tdict[f'input/x.{b}'] # (b,t,f)
+				#p_rerror = tdict[f'target/rerror.{b}'] # (b,t,1)
+				#p_rx = tdict[f'target/rec_x.{b}'] # (b,t,1)
 
 				b_len = p_onehot.sum().item()
 				lcobjb = lcobj.get_b(b)
@@ -60,7 +60,7 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 
 				### rec plot
 				p_rtime = tensor_to_numpy(p_rtime[0,:]) # (b,t) > (t)
-				p_rx_pred = tdict['model'][f'decx.{b}'][0,:,0] # (b,t,1) > (t)
+				p_rx_pred = tdict[f'model/decx.{b}'][0,:,0] # (b,t,1) > (t)
 				p_rx_pred = dataset.get_rec_inverse_transform(tensor_to_numpy(p_rx_pred), b)
 				ax.plot(p_rtime[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 
