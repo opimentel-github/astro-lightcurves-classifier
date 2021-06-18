@@ -12,17 +12,23 @@ from .scalers import CustomStandardScaler, LogStandardScaler
 import fuzzytools.strings as strings
 from joblib import Parallel, delayed
 from fuzzytools.lists import get_random_item
-from fuzzytools.multiprocessing import get_joblib_config_batches
+import fuzzytools.files as ftfiles
 from fuzzytools.progress_bars import ProgressBar
-from fuzzytorch.utils import print_tdict
+from fuzzytorch.utils import TDictHolder, print_tdict
 import fuzzytorch.models.seq_utils as seq_utils
-from fuzzytorch.utils import TDictHolder
 from lchandler.lc_classes import diff_vector
 from nested_dict import nested_dict
 from copy import copy, deepcopy
-import time
 
 ###################################################################################################################################################
+
+def save(obj, filedir):
+	# torch.save(items, items_filedir)
+	ftfiles.save_pickle(filedir, obj)
+
+def load(filedir):
+	# torch.load(self.precomputed_filedirs_dict[lcobj_name])
+	return ftfiles.load_pickle(filedir)
 
 def min_max(x): # (t,1)
 	if len(x)==0:
@@ -36,12 +42,15 @@ def min_max(x): # (t,1)
 	return new_x
 
 def _get_item(args):
-	return CustomDataset.get_item(*args)
+	tdict, lcobj = CustomDataset.get_item(*args)
+	return tdict
 
 ###################################################################################################################################################
 
 class CustomDataset(Dataset):
-	def __init__(self, lcset_name, lcset, device,
+	def __init__(self, lcset_name, lcset,
+		precomputed_mode='device',
+		device='cpu',
 		in_attrs=None,
 		rec_attr=None,
 		max_day:float=np.infty,
@@ -51,11 +60,15 @@ class CustomDataset(Dataset):
 		uses_dynamic_balance=False,
 		ds_mode={},
 		ds_p=0.1,
+		k_n=1,
 		):
-		assert precomputed_copies>=0
+		assert precomputed_copies>=1
+		assert precomputed_mode in ['online', 'disk', 'device']
+		assert device in ['cpu', 'cuda:0']
 
 		self.lcset_name = lcset_name
 		self.lcset = lcset
+		self.precomputed_mode = precomputed_mode
 		self.device = device
 		self.in_attrs = in_attrs
 		self.rec_attr = rec_attr
@@ -66,6 +79,7 @@ class CustomDataset(Dataset):
 		self.uses_dynamic_balance = uses_dynamic_balance
 		self.ds_mode = ds_mode
 		self.ds_p = ds_p
+		self.k_n = k_n
 		self.reset()
 
 	def reset(self):
@@ -74,8 +88,6 @@ class CustomDataset(Dataset):
 		self.band_names = self.lcset.band_names
 		self.class_names = self.lcset.class_names
 		self.survey = self.lcset.survey
-		self.append_in_ddays = 'd_days' in self.in_attrs
-		self.in_attrs = [ia for ia in self.in_attrs if not ia=='d_days']
 		self._max_day = self.max_day # save original to perform reset
 
 		self.prepare_data_for_statistics()
@@ -91,34 +103,44 @@ class CustomDataset(Dataset):
 		self.calcule_poblation_weights()
 		self.calcule_balanced_w_cdict()
 
-		self.lcset.reset_boostrap(k_n=.5)
+		self.lcset.reset_boostrap(k_n=self.k_n)
 		self.pre_epoch_step()
 
 	def calcule_precomputed(self,
-		backend=None,
 		verbose=0,
+		pass_if_exists=True,
 		):
-		if self.precomputed_copies==0:
-			return
-		start_time = time.time()
-		dummy_tensor = torch.Tensor([0]).to(self.device) # for phantom gpu allocation
 		lcobj_names = self.lcset.get_lcobj_names()
-		self.precomputed_dict = {lcobj_name:[] for lcobj_name in lcobj_names}
-		precomputed_lcobj_names = lcobj_names*self.precomputed_copies
-		if verbose:
-			print(f'[{self.lcset_name}] computing {self.precomputed_copies} copies for {len(lcobj_names)} elements to {self.device}')
+		if self.precomputed_mode=='online':
+			return
 
-		batches, n_jobs = get_joblib_config_batches(precomputed_lcobj_names, backend=backend)
-		for batch in batches:
-			#print(batch)
-			jobs = [delayed(_get_item)((self, lcobj_name)) for lcobj_name in batch]
-			results = Parallel(n_jobs=n_jobs, backend=backend)(jobs)
-			for in_tdict,lcobj_name in zip(results, batch):
-				self.precomputed_dict[lcobj_name] += [TDictHolder(in_tdict).to(self.device)]
+		elif self.precomputed_mode=='disk':
+			self.precomputed_filedirs_dict = {}
+			disk_rootdir = f'../temp/datasets/{self.lcset_name}'
+			ftfiles.create_dir(disk_rootdir)
+			bar = ProgressBar(len(lcobj_names), dummy=verbose==0)
+			for lcobj_name in lcobj_names:
+				bar(f'lcset_name={self.lcset_name} - precomputed_copies={self.precomputed_copies} - pass_if_exists={pass_if_exists} - disk_rootdir={disk_rootdir} - lcobj_name={lcobj_name}')
+				items_filedirs = [f'{disk_rootdir}/{lcobj_name}.da{k}' for k in range(0, self.precomputed_copies)]
+				self.precomputed_filedirs_dict[lcobj_name] = items_filedirs
+				for items_filedir in items_filedirs:
+					if pass_if_exists and ftfiles.filedir_exists(items_filedir):
+						continue
+					item = _get_item((self, lcobj_name))
+					save(item, items_filedir)
+			bar.done()
+			return
 
-		if verbose:
-			print("--- %s seconds ---" % (time.time() - start_time))
-		return
+		elif self.precomputed_mode=='device':
+			self.precomputed_dict = {lcobj_name:[] for lcobj_name in lcobj_names}
+			bar = ProgressBar(len(lcobj_names), dummy=verbose==0)
+			for lcobj_name in lcobj_names:
+				bar(f'lcset_name={self.lcset_name} - device={self.device} - lcobj_name={lcobj_name}')
+				for k in range(0, self.precomputed_copies):
+					in_tdict = _get_item((self, lcobj_name))
+					self.precomputed_dict[lcobj_name] += [TDictHolder(in_tdict).to(self.device)]
+			bar.done()
+			return
 
 	def prepare_data_for_statistics(self):
 		### extra band used to statistics as scales
@@ -157,7 +179,7 @@ class CustomDataset(Dataset):
 		return balanced_lcobj_names
 
 	def get_output_dims(self):
-		return len(self.in_attrs)+int(self.append_in_ddays)
+		return len(self.in_attrs)
 
 	def __repr__(self):
 		txt = f'CustomDataset('
@@ -169,7 +191,6 @@ class CustomDataset(Dataset):
 			'max_len': f'{self.max_len:,}',
 			'in_attrs':self.in_attrs,
 			'rec_attr':self.rec_attr,
-			'append_in_ddays':self.append_in_ddays,
 			'balanced_w_cdict':self.balanced_w_cdict,
 			'populations_cdict':self.populations_cdict,
 			}, ', ', '=')
@@ -279,7 +300,8 @@ class CustomDataset(Dataset):
 	###################################################################################################################################################
 
 	def get_lcobj_names(self):
-		return self.lcset.get_lcobj_names()
+		self.lcset_lcobj_names = self.lcset.get_lcobj_names()
+		return self.lcset_lcobj_names
 
 	def get_train_lcobj_names(self):
 		if self.uses_dynamic_balance:
@@ -296,20 +318,30 @@ class CustomDataset(Dataset):
 
 	###################################################################################################################################################
 
-	def __getitem__(self, idx:int):
-		lcobj_names = self.get_train_lcobj_names()
-		lcobj_name = lcobj_names[idx]
-		if self.precomputed_copies>0:
-			item = get_random_item(self.precomputed_dict[lcobj_name])
-			return item
-		else:
-			item = self.get_item(lcobj_name) # cpu
-			return item
+	def fix_length(self, tdict):
+		for key in tdict.keys():
+			if len(tdict[key].shape)==2: # (t,f)
+				tdict[key] = seq_utils.get_seq_clipped_shape(tdict[key], self.max_len)
+		return tdict
 
-	def get_item(self, lcobj_name,
-		uses_len_clip=True,
-		return_lcobjs=False,
-		):
+	def __getitem__(self, idx:int):
+		lcobj_name = self.get_train_lcobj_names()[idx]
+		if self.precomputed_mode=='online':
+			tdict, _ = self.get_item(lcobj_name) # cpu
+
+		elif self.precomputed_mode=='disk':
+			items_filedirs = self.precomputed_filedirs_dict[lcobj_name]
+			items_filedir = get_random_item(items_filedirs)
+			tdict = load(items_filedir)
+
+		elif self.precomputed_mode=='device':
+			items = self.precomputed_dict[lcobj_name]
+			tdict = get_random_item(items)
+
+		tdict = self.fix_length(tdict)
+		return tdict
+
+	def get_item(self, lcobj_name):
 		'''
 		apply data augmentation, this overrides obj information
 		be sure to copy the input lcobj!!!!
@@ -350,8 +382,6 @@ class CustomDataset(Dataset):
 			rdtime = lcobjb.d_days[...,None] # raw_dtime (t,1) - gru-d
 			dtime = self.dtime_normalize(rdtime, b) # norm_dtime (t,1) - rnn/tcnn
 
-			x = np.concatenate([x, dtime], axis=-1) if self.append_in_ddays else x # new x
-
 			tdict[f'input/onehot.{b}'] = torch.from_numpy(onehot)
 			tdict[f'input/rtime.{b}'] = torch.from_numpy(rtime)
 			#time
@@ -369,15 +399,6 @@ class CustomDataset(Dataset):
 			tdict[f'target/recx.{b}'] = torch.from_numpy(recx)
 			tdict[f'target/rerror.{b}'] = torch.from_numpy(rerror)
 
-		tdict[f'target/y'] = torch.from_numpy(np.array([lcobj.y]))[0].long() # ()
+		tdict[f'target/y'] = torch.from_numpy(np.array([lcobj.y], dtype=np.float32))[0].long() # ()
 		tdict[f'target/balanced_w'] = torch.from_numpy(np.array([self.balanced_w_cdict[self.class_names[lcobj.y]]], dtype=np.float32))[0] # ()
-
-		### fix length
-		for k in tdict.keys():
-			if uses_len_clip and len(tdict[k].shape)==2:
-				tdict[k] = seq_utils.get_seq_clipped_shape(tdict[k], self.max_len)
-
-		# print_tdict(tdict)
-		if return_lcobjs:
-			return tdict, lcobj
-		return tdict
+		return tdict, lcobj

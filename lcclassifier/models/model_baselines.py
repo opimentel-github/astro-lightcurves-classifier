@@ -8,11 +8,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from fuzzytorch.utils import get_model_name, print_tdict
 from copy import copy, deepcopy
+import torch.autograd.profiler as profiler
 from .rnn import decoders as rnn_decoders
 from .rnn import encoders as rnn_encoders
 from .attn import encoders as attn_encoders
 
 GLOBAL_DECODER_CLASS = rnn_decoders.LatentGRUDecoderP
+# GLOBAL_DECODER_CLASS = rnn_decoders.LatentGRUDecoderS
 
 ###################################################################################################################################################
 
@@ -188,7 +190,9 @@ class ParallelTimeSelfAttn(ModelBaseline):
 		})
 
 	def forward(self, tdict:dict, **kwargs):
+		# with profiler.record_function('encoder'):
 		encoder = self.autoencoder['encoder']
+		# with profiler.record_function('decoder'):
 		decoder = self.autoencoder['decoder']
 		encoder_tdict = encoder(tdict, **kwargs)
 		decoder_tdict = decoder(encoder_tdict)
@@ -200,7 +204,6 @@ class ParallelTimeSelfAttn(ModelBaseline):
 class SerialTimeSelfAttn(ModelBaseline):
 	def __init__(self, **raw_kwargs):
 		super().__init__()
-
 		### ATTRIBUTES
 		for name, val in raw_kwargs.items():
 			setattr(self, name, val)

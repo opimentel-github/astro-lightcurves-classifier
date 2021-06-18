@@ -9,7 +9,7 @@ from . import classifiers as mclass
 from .rnn import decoders as rnn_decoders
 
 MAX_DAY = C_.MAX_DAY
-USES_OBSE = False
+USES_OBSE_INPUT = 0
 
 ###################################################################################################################################################
 
@@ -34,9 +34,9 @@ class ModelCollections():
 		# self.gd_time_noise_window = GDIter('0*24**-1', '1*24**-1', '24*24**-1')
 		self.gd_kernel_size = GDIter(1,2)
 		# self.gd_kernel_size = GDIter(1, 2, 3)
-		self.gd_heads = GDIter(4, 8)
+		self.gd_heads = GDIter(8)
 
-		p = 1/100
+		p = 0/100
 		self.dropout_d = {
 			'p':p,
 			'r':p,
@@ -71,6 +71,12 @@ class ModelCollections():
 
 	def add_gs(self, gs):
 		new_mps = []
+		gs.update({
+			'dataset_kwargs':{
+				'in_attrs':['obs']+(['obse'] if USES_OBSE_INPUT else []),
+				'rec_attr':'obs',
+				'max_day':self.max_day,
+			}})
 		mps = gs.get_dicts()
 		for mp in mps:
 			bd = self.base_dict.copy()
@@ -84,24 +90,6 @@ class ModelCollections():
 						mp[k2][k] = self.common_dict[k]
 		self.mps += new_mps
 
-	def update_dt(self, gs):
-		gs.update({
-			'dataset_kwargs':{
-				'in_attrs':['d_days', 'obs']+(['obse'] if USES_OBSE else []),
-				'rec_attr':'obs',
-				'max_day':self.max_day,
-			}})
-		return gs
-
-	def update_te(self, gs):
-		gs.update({
-			'dataset_kwargs':{
-				'in_attrs':['obs']+(['obse'] if USES_OBSE else []),
-				'rec_attr':'obs',
-				'max_day':self.max_day,
-			}})
-		return gs
-
 ###################################################################################################################################################
 
 	def parallel_rnn_models(self):
@@ -114,7 +102,7 @@ class ModelCollections():
 				'dropout':self.dropout_d,
 			},
 		})
-		self.add_gs(self.update_dt(gs))
+		self.add_gs(gs)
 
 	def serial_rnn_models(self):
 		gs = GridSeacher({
@@ -126,7 +114,7 @@ class ModelCollections():
 				'dropout':self.dropout_d,
 			},
 		})
-		self.add_gs(self.update_dt(gs))
+		self.add_gs(gs)
 
 	def all_rnn_models(self):
 		self.parallel_rnn_models()
@@ -148,7 +136,7 @@ class ModelCollections():
 				'time_noise_window':self.gd_time_noise_window,
 			},
 		})
-		self.add_gs(self.update_te(gs))
+		self.add_gs(gs)
 
 	def serial_attn_models(self):
 		gs = GridSeacher({
@@ -164,7 +152,7 @@ class ModelCollections():
 				'time_noise_window':self.gd_time_noise_window,
 			},
 		})
-		self.add_gs(self.update_te(gs))
+		self.add_gs(gs)
 
 	def all_attn_models(self):
 		self.parallel_attn_models()

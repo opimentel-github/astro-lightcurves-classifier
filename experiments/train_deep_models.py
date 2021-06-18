@@ -14,18 +14,21 @@ parser = argparse.ArgumentParser(prefix_chars='--')
 parser.add_argument('--method',  type=str, default='spm-mcmc-estw')
 parser.add_argument('--gpu',  type=int, default=-1)
 parser.add_argument('--mc',  type=str, default='parallel_rnn_models')
-parser.add_argument('--batch_size',  type=int, default=100)
+parser.add_argument('--batch_size',  type=int, default=32)
 parser.add_argument('--save_rootdir',  type=str, default='../save')
 parser.add_argument('--mid',  type=str, default='0')
 parser.add_argument('--kf',  type=str, default='0')
-parser.add_argument('--bypass',  type=int, default=0) # 0 1
+parser.add_argument('--bypass_synth',  type=int, default=0) # 0 1
+parser.add_argument('--bypass_autoencoder',  type=int, default=0) # 0 1
 parser.add_argument('--only_attn_exp',  type=int, default=0) # 0 1
 parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=10)
-parser.add_argument('--num_workers',  type=int, default=2)
+parser.add_argument('--num_workers',  type=int, default=8)
 parser.add_argument('--pin_memory',  type=int, default=1) # 0 1
-parser.add_argument('--balanced_metrics',  type=int, default=0) # 0 1 # critical
+parser.add_argument('--pt_balanced_metrics',  type=int, default=1)
+parser.add_argument('--ft_balanced_metrics',  type=int, default=1)
+parser.add_argument('--precompute_only',  type=int, default=0)
 #main_args = parser.parse_args([])
 main_args = parser.parse_args()
 print_big_bar()
@@ -75,7 +78,7 @@ print(model_collections)
 from lcclassifier.losses import LCMSEReconstruction, LCXEntropy, LCCompleteLoss, LCBinXEntropy
 from lcclassifier.metrics import LCWMSE, LCXEntropyMetric, LCAccuracy
 
-metric_prefix = 'b-' if main_args.balanced_metrics else ''
+### pt
 pt_loss_kwargs = {
 	'band_names':lcdataset['raw'].band_names,
 	'model_output_is_with_softmax':False,
@@ -85,9 +88,9 @@ pt_loss_kwargs = {
 	}
 pt_loss = LCCompleteLoss('wmse-xentropy', **pt_loss_kwargs)
 pt_metrics = [
-	LCWMSE(f'{metric_prefix}wmse', balanced=main_args.balanced_metrics, **pt_loss_kwargs),
-	LCXEntropyMetric(f'{metric_prefix}xentropy', balanced=main_args.balanced_metrics, **pt_loss_kwargs),
-	LCAccuracy(f'{metric_prefix}accuracy', balanced=main_args.balanced_metrics, **pt_loss_kwargs),
+	LCWMSE(f'b-wmse', balanced=main_args.pt_balanced_metrics, **pt_loss_kwargs),
+	LCXEntropyMetric(('b-' if main_args.pt_balanced_metrics else '')+'xentropy', balanced=main_args.pt_balanced_metrics, **pt_loss_kwargs),
+	LCAccuracy(('b-' if main_args.pt_balanced_metrics else '')+'accuracy', balanced=main_args.pt_balanced_metrics, **pt_loss_kwargs),
 	]
 
 ### ft
@@ -101,8 +104,8 @@ ft_loss_kwargs = {
 #ft_loss = LCXEntropy('xentropy', **ft_loss_kwargs)
 ft_loss = LCBinXEntropy('bin-xentropy', **ft_loss_kwargs)
 ft_metrics = [
-	LCXEntropyMetric(f'{metric_prefix}xentropy', balanced=main_args.balanced_metrics, **ft_loss_kwargs),
-	LCAccuracy(f'{metric_prefix}accuracy', balanced=main_args.balanced_metrics, **ft_loss_kwargs),
+	LCXEntropyMetric(('b-' if main_args.ft_balanced_metrics else '')+'xentropy', balanced=main_args.ft_balanced_metrics, **ft_loss_kwargs),
+	LCAccuracy(('b-' if main_args.ft_balanced_metrics else '')+'accuracy', balanced=main_args.ft_balanced_metrics, **ft_loss_kwargs),
 	]
 
 ###################################################################################################################################################
@@ -127,30 +130,23 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 	### DATASETS
 	dataset_kwargs = mp_grid['dataset_kwargs']
-	bypass_autoencoder = 0
-	# bypass_autoencoder = 1
 	# ds_mode = {'random':1.0, 'left':0.0, 'none':0.0} # avoid none
-	ds_mode = {'random':.9, 'left':.1, 'none':.0}
+	ds_mode = {'random':.8, 'left':.2, 'none':.0}
 	ds_p = 10/100
 	std_scale = 1/2
+	k_n = 0.5
 
-	lcset_name = f'{main_args.kf}@train.{main_args.method}' if not main_args.bypass else f'{main_args.kf}@train'
-	# s_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name], device,
-	# 	uses_daugm=False,
-	# 	uses_dynamic_balance=True,
-	# 	**dataset_kwargs)
-	# s_train_loader_da = DataLoader(s_train_dataset_da,
-	# 	shuffle=True,
-	# 	drop_last=True,
-	# 	batch_size=main_args.batch_size,
-	# 	)
-	s_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name], 'cpu',
-		precomputed_copies=0,
+	lcset_name = f'{main_args.kf}@train.{main_args.method}' if not main_args.bypass_synth else f'{main_args.kf}@train'
+	s_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name],
+		precomputed_mode='disk', # disk online device
+		device='cpu',
+		precomputed_copies=5,
 		uses_daugm=True,
 		uses_dynamic_balance=True,
 		ds_mode=ds_mode,
 		ds_p=ds_p,
 		std_scale=std_scale,
+		k_n=k_n,
 		**dataset_kwargs)
 	s_train_loader_da = DataLoader(s_train_dataset_da,
 		shuffle=True,
@@ -164,26 +160,41 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		)
 
 	lcset_name = f'{main_args.kf}@train.{main_args.method}'
-	s_train_dataset = CustomDataset(lcset_name, lcdataset[lcset_name], device, **dataset_kwargs)
+	s_train_dataset = CustomDataset(lcset_name, lcdataset[lcset_name],
+		precomputed_mode='online',
+		device='cpu',
+		k_n=k_n,
+		**dataset_kwargs)
 	s_train_loader = DataLoader(s_train_dataset, shuffle=False, batch_size=main_args.batch_size)
 
 	lcset_name = f'{main_args.kf}@train'
-	r_train_dataset = CustomDataset(lcset_name, lcdataset[lcset_name], device, **dataset_kwargs)
+	r_train_dataset = CustomDataset(lcset_name, lcdataset[lcset_name],
+		precomputed_mode='device',
+		device=device,
+		**dataset_kwargs)
 	r_train_loader = DataLoader(r_train_dataset, shuffle=False, batch_size=main_args.batch_size)
 
 	lcset_name = f'{main_args.kf}@val'
-	r_val_dataset = CustomDataset(lcset_name, lcdataset[lcset_name], device, **dataset_kwargs)
+	r_val_dataset = CustomDataset(lcset_name, lcdataset[lcset_name],
+		precomputed_mode='device',
+		device=device,
+		**dataset_kwargs)
 	r_val_loader = DataLoader(r_val_dataset, shuffle=False, batch_size=main_args.batch_size)
 
 	lcset_name = f'{main_args.kf}@test'
-	r_test_dataset = CustomDataset(lcset_name, lcdataset[lcset_name], device, **dataset_kwargs)
+	r_test_dataset = CustomDataset(lcset_name, lcdataset[lcset_name],
+		precomputed_mode='device',
+		device=device,
+		**dataset_kwargs)
 	r_test_loader = DataLoader(r_test_dataset, shuffle=False, batch_size=main_args.batch_size)
 
-	s_train_dataset_da.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1)
-	s_train_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1)
-	r_train_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1)
-	r_val_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1)
-	r_test_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1)
+	s_train_dataset_da.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(s_train_dataset_da)
+	if main_args.precompute_only:
+		assert 0
+	s_train_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(s_train_dataset)
+	r_train_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(r_train_dataset)
+	r_val_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(r_val_dataset)
+	r_test_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(r_test_dataset)
 
 	### GET MODEL
 	mp_grid['mdl_kwargs']['input_dims'] = s_train_loader.dataset.get_output_dims()
@@ -196,17 +207,18 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	import math
 
 	def pt_lr_f(epoch):
-		initial_lr = 1e-10
-		max_lr = 1e-3
-		# return max_lr
-		d_epochs = 5
-		p = np.clip(epoch/d_epochs, 0, 1)
-		return initial_lr+p*(max_lr-initial_lr)
+		min_lr, max_lr = 1e-5, 1e-3
+		d_epochs = 10
+		exp_decay_k = 0
+		p = np.clip(epoch/d_epochs, 0, 1) # 0 > 1
+		lr = (1-p)*min_lr+p*max_lr
+		lr = math.exp(-np.clip(epoch-d_epochs, 0, None)*exp_decay_k)*lr
+		return lr
 
 	pt_opt_kwargs_f = {
 		'lr':pt_lr_f,
 		}
-	pt_optimizer = LossOptimizer(model, optims.AdamW, pt_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
+	pt_optimizer = LossOptimizer(model, optims.Adam, pt_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
 		clip_grad=1.,
 		)
 
@@ -220,7 +232,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics,
 		val_epoch_counter_duration=0, # every k epochs check
 		earlystop_epoch_duration=1e6,
-		target_metric_crit=f'{metric_prefix}wmse',
+		target_metric_crit=('b-' if main_args.pt_balanced_metrics else '')+'wmse',
 		#save_mode=C_.SM_NO_SAVE,
 		#save_mode=C_.SM_ALL,
 		#save_mode=C_.SM_ONLY_ALL,
@@ -247,7 +259,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	if main_args.only_attn_exp:
 		pass
 	else:
-		if not bypass_autoencoder:
+		if not main_args.bypass_autoencoder:
 			pt_model_train_handler.fit_loader(s_train_loader_da, {
 				#'train':s_train_loader,
 				'val':r_val_loader,
@@ -292,7 +304,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
 		continue # breaks the normal training
 
-	if not bypass_autoencoder:
+	if not main_args.bypass_autoencoder:
 		pt_exp_kwargs = {
 			'm':20,
 			'target_is_onehot':False,
@@ -300,7 +312,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			}
 		save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
 		#save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
-		#save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
+		save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
 		save_reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
 
 		save_model_info(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs) # crash when bypassing autoencoder
@@ -315,8 +327,9 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	model_copy.init_fine_tuning()
 	lcset_name = f'{main_args.kf}@train'
 	for classifier_mid in range(0, main_args.classifier_mids):
-		r_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name], 'cpu',
-			precomputed_copies=0,
+		r_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name],
+			precomputed_mode='online',
+			device='cpu',
 			uses_daugm=True,
 			uses_dynamic_balance=True,
 			ds_mode=ds_mode,
@@ -327,27 +340,13 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		r_train_loader_da = DataLoader(r_train_dataset_da,
 			shuffle=True,
 			drop_last=True,
-			batch_size=32,
+			batch_size=main_args.batch_size,
 			num_workers=main_args.num_workers,
 			pin_memory=main_args.pin_memory,
 			# prefetch_factor=5,
 			worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
 			persistent_workers=main_args.num_workers>0,
 			)
-		# r_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name], device,
-		# 	precomputed_copies=150, # 1 50 100 150
-		# 	uses_daugm=True,
-		# 	uses_dynamic_balance=True,
-		# 	ds_mode=ds_mode,
-			# ds_p=ds_p,
-			# std_scale=std_scale,
-		# 	**dataset_kwargs,
-		# 	)
-		# r_train_loader_da = DataLoader(r_train_dataset_da,
-		# 	shuffle=True,
-		# drop_last=True,
-		# 	batch_size=32,
-		# 	)
 
 		r_train_dataset_da.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1)
 
@@ -355,15 +354,27 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		from fuzzytorch.optimizers import LossOptimizer
 
 		def ft_lr_f(epoch):
-			initial_lr = 1e-10
-			max_lr = 1e-3
-			# return max_lr
-			d_epochs = 50
-			p = np.clip(epoch/d_epochs, 0, 1)
-			return initial_lr+p*(max_lr-initial_lr)
+			mode = 'cos' # warm cos
+			if mode=='warm':
+				min_lr, max_lr = 1e-10, 1e-3
+				d_epochs = 50
+				exp_decay_k = 1e-3
+				p = np.clip(epoch/d_epochs, 0, 1) # 0 > 1
+				lr = (1-p)*min_lr+p*max_lr
+				lr = math.exp(-np.clip(epoch-d_epochs, 0, None)*exp_decay_k)*lr
+				return lr
+
+			elif mode=='cos':
+				min_lr, max_lr = 1e-5, .75e-1
+				half_period = 20
+				_epoch = epoch%half_period
+				p = (math.cos(2*math.pi*_epoch/(half_period*2))+1)/2 # 1 > 0
+				lr = (p)*max_lr+(1-p)*min_lr
+				return lr
 
 		ft_opt_kwargs_f = {
 			'lr':ft_lr_f,
+			'momentum':lambda epoch:0.9,
 			}
 		# ft_model = deepcopy(model_copy)
 		# 
@@ -372,7 +383,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 		classifier = model_copy.get_classifier_model()
 		classifier.reset_parameters()
-		ft_optimizer = LossOptimizer(classifier, optims.AdamW, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
+		ft_optimizer = LossOptimizer(classifier, optims.SGD, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
 			clip_grad=1.,
 			)
 
@@ -386,7 +397,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics,
 			val_epoch_counter_duration=0, # every k epochs check
 			earlystop_epoch_duration=300,
-			target_metric_crit=f'{metric_prefix}xentropy',
+			target_metric_crit=('b-' if main_args.ft_balanced_metrics else '')+'xentropy',
 			#save_mode=C_.SM_NO_SAVE,
 			#save_mode=C_.SM_ALL,
 			#save_mode=C_.SM_ONLY_ALL,

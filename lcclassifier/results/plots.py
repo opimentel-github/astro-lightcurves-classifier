@@ -18,6 +18,7 @@ SHADOW_ALPHA = 0.25
 ###################################################################################################################################################
 
 def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
+	target_class=None,
 	baselines_dict={},
 	figsize=RECT_PLOT_2X1,
 	train_mode='fine-tuning',
@@ -44,7 +45,10 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 				class_names = files[0]()['class_names']
 				days = files[0]()['days']
 
-				metric_curves = [f()['days_class_metrics_df'][metric_name].values for f in files]
+				if target_class is None:
+					metric_curves = [f()['days_class_metrics_df'][metric_name].values for f in files]
+				else:
+					metric_curves = [f()['days_class_metrics_cdf'][target_class][metric_name.replace('b-', '')].values for f in files] 
 				xe_metric_curve_avg = XError(np.mean(np.concatenate([metric_curve[None] for metric_curve in metric_curves], axis=0), axis=-1))
 
 				label = f'{utils.get_fmodel_name(model_name)} | AUC={xe_metric_curve_avg}'
@@ -59,6 +63,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 				ylims[1] += [ax.get_ylim()[1]]
 
 			mn = metric_name if dmetrics[metric_name]['mn'] is None else dmetrics[metric_name]['mn']
+			mn = mn if target_class is None else mn.replace('b-', f'{target_class}-')
 			title = ''
 			title += f'{mn} v/s days'+'\n'
 			title += f'train-mode={train_mode} - survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
@@ -66,7 +71,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 
 		for kax,ax in enumerate(axs):
 			if f'{kf}@{lcset_name}' in baselines_dict.keys():
-				ax.plot(days, np.full_like(days, baselines_dict[f'{kf}@{lcset_name}'][metric_name]), ':', c='k', label=f'FATS & b-RF Baseline (day={days[-1]:.3f})')
+				# ax.plot(days, np.full_like(days, baselines_dict[f'{kf}@{lcset_name}'][metric_name]), ':', c='k', label=f'FATS & b-RF Baseline (day={days[-1]:.3f})')
+				pass
 
 			ax.set_xlabel('time [days]')
 			if kax==1:
@@ -124,7 +130,7 @@ def plot_rocc(rootdir, cfilename, kf, lcset_name, model_names, target_class, tar
 			ax.plot([None], [None], color=color, label=label)
 
 		title = ''
-		title += f'ROC curve for {target_class} class ({target_day:.3f} [days])'+'\n'
+		title += f'{target_class}-ROC curve ({target_day:.3f} [days])'+'\n'
 		title += f'train-mode={train_mode} - survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
 		fig.suptitle(title[:-1], va='bottom')
 

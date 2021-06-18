@@ -24,34 +24,39 @@ class TimeSelfAttnEncoderP(nn.Module):
 
 	def reset(self):
 		### PRE-INPUT
-		linear_kwargs = {
-			'activation':'linear',
-		}
 		len_bands = len(self.band_names)
 		extra_dims = 0
 		band_embedding_dims = self.embd_dims//len_bands
-		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, band_embedding_dims, **linear_kwargs) for b in self.band_names})
+		self.x_projection = nn.ModuleDict({b:Linear(self.input_dims+extra_dims, band_embedding_dims,
+			activation='linear',
+			bias=False,
+			) for b in self.band_names})
 		print('x_projection:', self.x_projection)
 
 		### ATTN
-		attn_kwargs = {
-			'num_heads':self.heads,
-			'kernel_size':self.kernel_size,
-			'time_noise_window':self.time_noise_window,
-			'fourier_dims':self.fourier_dims,
-			'in_dropout':self.dropout['p'],
-			'residual_dropout':self.dropout['r'],
-			'dropout':self.dropout['p'],
-			'activation':'relu',
-			'last_activation':'relu',
-			}
-		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.layers-1), self.te_features, self.max_period, **attn_kwargs) for b in self.band_names})
+		self.ml_attn = nn.ModuleDict({b:ft_attn.MLTimeSelfAttn(band_embedding_dims, band_embedding_dims, [band_embedding_dims]*(self.layers-1), self.te_features, self.max_period,
+			num_heads=self.heads,
+			kernel_size=self.kernel_size,
+			time_noise_window=self.time_noise_window,
+			fourier_dims=self.fourier_dims,
+			in_dropout=self.dropout['p'],
+			residual_dropout=self.dropout['r'],
+			dropout=self.dropout['p'],
+			activation='relu',
+			last_activation='relu',
+			) for b in self.band_names})
 		print('ml_attn:', self.ml_attn)
+
+		self.seft = nn.ModuleDict({b:seq_utils.LinearSEFT(band_embedding_dims,
+			in_dropout=self.dropout['p'],
+			) for b in self.band_names})
+		print('seft:', self.seft)
 
 		### POST-PROJECTION
 		self.mb_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands,
 			in_dropout=self.dropout['p'],
 			activation='linear',
+			bias=False,
 			)
 		print('mb_projection:', self.mb_projection)
 
@@ -92,9 +97,8 @@ class TimeSelfAttnEncoderP(nn.Module):
 
 			p_encz = self.x_projection[b](p_x)
 			p_encz, p_scores = self.ml_attn[b](p_encz, p_onehot, p_rtime, return_only_actual_scores=True)
-			### representative element
-			# encz_bdict[f'encz.{b}'] = seq_utils.seq_last_element(p_encz, p_onehot) # last element
-			encz_bdict[f'encz.{b}'] = seq_utils.seq_avg_pooling(p_encz, p_onehot) # last element
+			encz_bdict[f'encz.{b}'] = self.seft[b](p_encz, p_onehot) # (b,t,f) > (b,f)
+			
 			if self.add_extra_return:
 				tdict[f'model/attn_scores/encz.{b}'] = p_scores
 		
@@ -123,6 +127,7 @@ class TimeSelfAttnEncoderS(nn.Module):
 		extra_dims = len_bands
 		self.x_projection = Linear(self.input_dims+extra_dims, self.embd_dims,
 			activation='linear',
+			bias=False,
 			)
 		print('x_projection:', self.x_projection)
 		
@@ -139,6 +144,11 @@ class TimeSelfAttnEncoderS(nn.Module):
 			last_activation='relu',
 			)
 		print('ml_attn:', self.ml_attn)
+
+		self.seft = seq_utils.LinearSEFT(self.embd_dims,
+			in_dropout=self.dropout['p'],
+			)
+		print('seft:', self.seft)
 
 		### XENTROPY REG
 		self.xentropy_projection = Linear(self.embd_dims, self.output_dims,
@@ -176,9 +186,8 @@ class TimeSelfAttnEncoderS(nn.Module):
 
 		encz = self.x_projection(torch.cat([x, s_onehot.float()], dim=-1)) # (b,t,f+d)
 		encz, scores = self.ml_attn(encz, onehot, rtime, return_only_actual_scores=True)
-		### representative element
-		# encz_bdict[f'encz'] = seq_utils.seq_last_element(encz, onehot) # last element
-		encz_bdict[f'encz'] = seq_utils.seq_avg_pooling(encz, onehot) # last element
+		encz_bdict[f'encz'] = self.seft(encz, onehot) # (b,t,f) > (b,f)
+
 		if self.add_extra_return:
 			tdict[f'model/attn_scores/encz'] = scores
 

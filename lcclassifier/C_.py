@@ -7,7 +7,7 @@ EPS = 1e-5
 
 ### loss
 REC_LOSS_EPS = 1
-REC_LOSS_K = 0 # 10 1e-3 0
+REC_LOSS_K = 1e-3 # 10 1e-3 0
 MSE_K = 5000 # 0 1000 5000
 XENTROPY_K = 1
 

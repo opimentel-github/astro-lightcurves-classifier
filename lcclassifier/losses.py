@@ -19,10 +19,6 @@ class LCMSEReconstruction(FTLoss):
 
 	def __call__(self, tdict,
 		**kwargs):
-		epoch = kwargs['_epoch']
-		decay = math.exp(-epoch*1e-3) # 1 > 0
-		g = 1-decay # 0 > 1
-		g = 1
 		mse_loss_bdict = {}
 		for kb,b in enumerate(self.band_names):
 			p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)
@@ -33,7 +29,7 @@ class LCMSEReconstruction(FTLoss):
 			p_rx = tdict[f'target/recx.{b}'] # (b,t,1)
 
 			p_rx_pred = tdict[f'model/decx.{b}'] # (b,t,1)
-			mse_loss_b = (p_rx-p_rx_pred)**2/(C_.REC_LOSS_EPS+(C_.REC_LOSS_K*g)*(p_rerror**2)) # (b,t,1)
+			mse_loss_b = (p_rx-p_rx_pred)**2/(C_.REC_LOSS_EPS+C_.REC_LOSS_K*(p_rerror**2)) # (b,t,1)
 			mse_loss_b = seq_utils.seq_avg_pooling(mse_loss_b, p_onehot)[...,0] # (b,t,1) > (b,t) > (b)
 			mse_loss_bdict[b] = mse_loss_b
 
