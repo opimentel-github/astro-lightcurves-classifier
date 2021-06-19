@@ -153,7 +153,7 @@ class TimeSelfAttnEncoderS(nn.Module):
 	def get_finetuning_parameters(self):
 		return [self.seft]
 
-	def init_fine_tuning(self):
+	def init_finetuning(self):
 		assert hasattr(self.ml_attn.te_film, 'time_noise_window')
 		print('self.ml_attn.te_film.temporal_encoder.time_noise_window = 0')
 		self.ml_attn.te_film.temporal_encoder.time_noise_window = 0

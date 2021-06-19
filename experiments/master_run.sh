@@ -3,13 +3,13 @@ SECONDS=0
 clear
 
 # mc_gpu="--mc parallel_attn_models --gpu 0 --precompute_only 1"
-mc_gpu="--mc parallel_attn_models --gpu 0"
+# mc_gpu="--mc parallel_attn_models --gpu 0"
 # mc_gpu="--mc parallel_rnn_models --gpu 0"
 
-# mc_gpu="--mc serial_attn_models --gpu 3"
+mc_gpu="--mc serial_attn_models --gpu 3"
 # mc_gpu="--mc serial_rnn_models --gpu 3"
 
-b=100
+b=128
 only_attn_exp=0
 classifier_mids=5
 
