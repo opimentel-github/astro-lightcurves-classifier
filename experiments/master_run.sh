@@ -11,10 +11,12 @@ mc_gpu="--mc parallel_attn_models --gpu 0"
 
 b=100
 only_attn_exp=0
-classifier_mids=6
+classifier_mids=5
+
 bypass_autoencoder=0
 pt_balanced_metrics=1
 ft_balanced_metrics=1
+
 bypass_synth=0
 extras="--batch_size $b --only_attn_exp $only_attn_exp --classifier_mids $classifier_mids --bypass_synth $bypass_synth --bypass_autoencoder $bypass_autoencoder --pt_balanced_metrics $pt_balanced_metrics --ft_balanced_metrics $ft_balanced_metrics"
 

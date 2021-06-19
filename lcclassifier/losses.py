@@ -14,6 +14,32 @@ MSE_K = C_.MSE_K
 
 ###################################################################################################################################################
 
+# class LCXEntropy(FTLoss):
+# 	def __init__(self, name,
+# 		class_names=None,
+# 		target_is_onehot:bool=False,
+# 		uses_poblation_weights:bool=False,
+# 		classifier_key='y_last_pt',
+# 		):
+# 		self.name = name
+# 		self.class_names = class_names
+# 		self.target_is_onehot = target_is_onehot
+# 		self.uses_poblation_weights = uses_poblation_weights
+# 		self.classifier_key = classifier_key
+
+# 	def __call__(self, tdict:dict,
+# 		**kwargs):
+# 		y_target = tdict[f'target/y'].long()
+# 		y_pred = tdict[f'model/{self.classifier_key}']
+# 		poblation_weights = tdict[f'target/poblation_weights'][0] if self.uses_poblation_weights else None
+# 		xentropy_loss = batch_xentropy(y_pred, y_target, False, self.target_is_onehot, poblation_weights) # (b)
+# 		#print(xentropy_loss.shape)
+
+# 		loss_res = LossResult(xentropy_loss)
+# 		return loss_res
+
+###################################################################################################################################################
+
 class LCMSEReconstruction(FTLoss):
 	def __init__(self, name, weight_key,
 		band_names=None,
@@ -39,32 +65,6 @@ class LCMSEReconstruction(FTLoss):
 
 		mse_loss = torch.cat([mse_loss_bdict[b][...,None] for b in self.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
 		return mse_loss
-
-###################################################################################################################################################
-
-# class LCXEntropy(FTLoss):
-# 	def __init__(self, name,
-# 		class_names=None,
-# 		target_is_onehot:bool=False,
-# 		uses_poblation_weights:bool=False,
-# 		classifier_key='y_last_pt',
-# 		):
-# 		self.name = name
-# 		self.class_names = class_names
-# 		self.target_is_onehot = target_is_onehot
-# 		self.uses_poblation_weights = uses_poblation_weights
-# 		self.classifier_key = classifier_key
-
-# 	def __call__(self, tdict:dict,
-# 		**kwargs):
-# 		y_target = tdict[f'target/y'].long()
-# 		y_pred = tdict[f'model/{self.classifier_key}']
-# 		poblation_weights = tdict[f'target/poblation_weights'][0] if self.uses_poblation_weights else None
-# 		xentropy_loss = batch_xentropy(y_pred, y_target, False, self.target_is_onehot, poblation_weights) # (b)
-# 		#print(xentropy_loss.shape)
-
-# 		loss_res = LossResult(xentropy_loss)
-# 		return loss_res
 
 ###################################################################################################################################################
 

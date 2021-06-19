@@ -50,7 +50,7 @@ filedict = get_dict_from_filedir(filedir)
 rootdir = filedict['_rootdir']
 cfilename = filedict['_cfilename']
 lcdataset = load_pickle(filedir)
-# print(lcdataset)
+print(lcdataset)
 
 ###################################################################################################################################################
 from lcclassifier.models.model_collections import ModelCollections
@@ -198,7 +198,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	import math
 
 	def pt_lr_f(epoch):
-		min_lr, max_lr = 1e-5, 1e-3
+		min_lr, max_lr = 1e-10, 1e-3
 		d_epochs = 10
 		exp_decay_k = 0
 		p = np.clip(epoch/d_epochs, 0, 1) # 0 > 1
@@ -314,8 +314,8 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 	### fine-tuning
 	for classifier_mid in range(0, main_args.classifier_mids):
-		ft_model = deepcopy(pt_model_train_handler.load_model()) # copy
-		ft_model.init_fine_tuning()
+		pt_model_cache = deepcopy(pt_model_train_handler.load_model()) # copy
+		pt_model_cache.init_finetuning()
 
 		lcset_name = f'{main_args.kf}@train'
 		r_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name],
@@ -345,31 +345,31 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		from fuzzytorch.optimizers import LossOptimizer
 
 		def ft_lr_f(epoch):
-			# min_lr, max_lr = 1e-10, 1e-3
-			# d_epochs = 50
-			# exp_decay_k = 1e-5
+			# min_lr, max_lr = 1e-10, .1e-1
+			# d_epochs = 10
+			# exp_decay_k = 0.01
 			# p = np.clip(epoch/d_epochs, 0, 1) # 0 > 1
 			# lr = (1-p)*min_lr+p*max_lr
 			# lr = math.exp(-np.clip(epoch-d_epochs, 0, None)*exp_decay_k)*lr
 			# return lr
 
-			min_lr, max_lr = 1e-10, .5e-1
-			half_period = 50
-			# offset = half_period
-			offset = 0
-			# _epoch = epoch%half_period+offset
-			_epoch = epoch+offset
-			p = (math.cos(2*math.pi*_epoch/(half_period*2))+1)/2 # 1 > 0
-			lr = (p)*max_lr+(1-p)*min_lr
-			return lr
+			# min_lr, max_lr = 1e-10, .5e-1
+			# half_period = 10
+			# # offset = half_period
+			# offset = 0
+			# # _epoch = epoch%half_period+offset
+			# _epoch = epoch+offset
+			# p = (math.cos(2*math.pi*_epoch/(half_period*2))+1)/2 # 1 > 0
+			# lr = (p)*max_lr+(1-p)*min_lr
+			# return lr
+
+			return 1e-3
 
 		ft_opt_kwargs_f = {
 			'lr':ft_lr_f,
 			'momentum':lambda epoch:0.9,
 			}
-		classifier = ft_model.get_classifier_model()
-		# ft_model classifier
-		ft_optimizer = LossOptimizer(classifier, optims.SGD, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
+		ft_optimizer = LossOptimizer(pt_model_cache.get_finetuning_parameters(), optims.SGD, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
 			clip_grad=1.,
 			)
 
@@ -403,7 +403,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 			'extra_model_name_dict':extra_model_name_dict,
 			}
-		ft_model_train_handler = ModelTrainHandler(ft_model, ft_loss_monitors, **mtrain_config)
+		ft_model_train_handler = ModelTrainHandler(pt_model_cache, ft_loss_monitors, **mtrain_config)
 		complete_model_name = ft_model_train_handler.get_complete_model_name()
 		ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 		ft_model_train_handler.build_gpu(device)

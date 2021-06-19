@@ -30,6 +30,9 @@ class SimpleClassifier(nn.Module):
 		print('classifier_mlp_ft:', self.classifier_mlp_ft)
 		self.reset_parameters()
 
+	def get_finetuning_parameters(self):
+		return [self]
+
 	def reset_parameters(self):
 		self.classifier_mlp_ft.reset_parameters()
 

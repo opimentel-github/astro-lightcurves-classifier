@@ -52,7 +52,6 @@ class TimeSelfAttnEncoderP(nn.Module):
 			) for b in self.band_names})
 		print('seft:', self.seft)
 
-		### POST-PROJECTION
 		self.mb_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands,
 			in_dropout=self.dropout['p'],
 			activation='linear',
@@ -60,20 +59,16 @@ class TimeSelfAttnEncoderP(nn.Module):
 			)
 		print('mb_projection:', self.mb_projection)
 
-		### XENTROPY REG
-		self.xentropy_projection = Linear(band_embedding_dims*len_bands, self.output_dims,
-			in_dropout=self.dropout['p'],
-			activation='linear',
-			)
-		print('xentropy_projection:', self.xentropy_projection)
-
 	def get_info(self):
 		d = {}
 		for kb,b in enumerate(self.band_names):
 			d[f'ml_attn.{b}'] = self.ml_attn[b].get_info()
 		return d
 
-	def init_fine_tuning(self):
+	def get_finetuning_parameters(self):
+		return [self.seft, self.mb_projection]
+
+	def init_finetuning(self):
 		for kb,b in enumerate(self.band_names):
 			assert hasattr(self.ml_attn[b].te_film, 'time_noise_window')
 			print('self.ml_attn[b].te_film.temporal_encoder.time_noise_window = 0')
@@ -105,7 +100,6 @@ class TimeSelfAttnEncoderP(nn.Module):
 		### return
 		encz_last = self.mb_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
 		tdict[f'model/encz_last'] = encz_last
-		# tdict[f'model/y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict
 
 ###################################################################################################################################################
@@ -150,18 +144,14 @@ class TimeSelfAttnEncoderS(nn.Module):
 			)
 		print('seft:', self.seft)
 
-		### XENTROPY REG
-		self.xentropy_projection = Linear(self.embd_dims, self.output_dims,
-			in_dropout=self.dropout['p'],
-			activation='linear',
-			)
-		print('xentropy_projection:', self.xentropy_projection)
-
 	def get_info(self):
 		d = {
 			'ml_attn':self.ml_attn.get_info(),
 			}
 		return d
+
+	def get_finetuning_parameters(self):
+		return [self.seft]
 
 	def init_fine_tuning(self):
 		assert hasattr(self.ml_attn.te_film, 'time_noise_window')
@@ -194,5 +184,4 @@ class TimeSelfAttnEncoderS(nn.Module):
 		### return
 		encz_last = encz_bdict[f'encz']
 		tdict[f'model/encz_last'] = encz_last
-		tdict[f'model/y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict

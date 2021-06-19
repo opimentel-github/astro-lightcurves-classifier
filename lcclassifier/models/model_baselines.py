@@ -36,15 +36,16 @@ class ModelBaseline(nn.Module):
 	def get_output_dims(self):
 		return self.encoder.get_output_dims()
 
-	def get_autoencoder_model(self):
-		return self.autoencoder
-
-	def get_classifier_model(self):
-		return self.classifier
-
-	def init_fine_tuning(self):
+	def get_finetuning_parameters(self):
 		encoder = self.autoencoder['encoder']
-		encoder.init_fine_tuning()
+		# finetuning_parameters = [self]
+		# finetuning_parameters = self.classifier.get_finetuning_parameters()
+		finetuning_parameters = encoder.get_finetuning_parameters()+self.classifier.get_finetuning_parameters()
+		return finetuning_parameters
+
+	def init_finetuning(self):
+		encoder = self.autoencoder['encoder']
+		encoder.init_finetuning()
 
 ###################################################################################################################################################
 

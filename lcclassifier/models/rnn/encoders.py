@@ -46,7 +46,6 @@ class RNNEncoderP(nn.Module):
 			) for b in self.band_names})
 		print('seft:', self.seft)
 
-		### POST-PROJECTION
 		self.mb_projection = Linear(band_embedding_dims*len_bands, band_embedding_dims*len_bands,
 			in_dropout=self.dropout['p'],
 			activation='linear',
@@ -54,15 +53,11 @@ class RNNEncoderP(nn.Module):
 			)
 		print('mb_projection:', self.mb_projection)
 
-		### XENTROPY REG
-		self.xentropy_projection = Linear(band_embedding_dims*len_bands, self.output_dims,
-			in_dropout=self.dropout['p'],
-			activation='linear',
-			)
-		print('xentropy_projection:', self.xentropy_projection)
-
 	def get_info(self):
 		pass
+
+	def get_finetuning_parameters(self):
+		return [self.seft, self.mb_projection]
 
 	def init_fine_tuning(self):
 		pass
@@ -90,7 +85,6 @@ class RNNEncoderP(nn.Module):
 		### return
 		encz_last = self.mb_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
 		tdict[f'model/encz_last'] = encz_last
-		tdict[f'model/y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict
 
 ###################################################################################################################################################
@@ -131,17 +125,13 @@ class RNNEncoderS(nn.Module):
 			)
 		print('seft:', self.seft)
 
-		### XENTROPY REG
-		self.xentropy_projection = Linear(self.embd_dims, self.output_dims,
-			in_dropout=self.dropout['p'],
-			activation='linear',
-			)
-		print('xentropy_projection:', self.xentropy_projection)
-
 	def get_info(self):
 		pass
 
-	def init_fine_tuning(self):
+	def get_finetuning_parameters(self):
+		return [self.seft]
+
+	def init_finetuning(self):
 		pass
 
 	def get_output_dims(self):
@@ -167,5 +157,4 @@ class RNNEncoderS(nn.Module):
 		### return
 		encz_last = encz_bdict[f'encz']
 		tdict[f'model/encz_last'] = encz_last
-		tdict[f'model/y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict
