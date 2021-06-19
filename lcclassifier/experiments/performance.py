@@ -20,7 +20,8 @@ import pandas as pd
 
 def save_performance(train_handler, data_loader, save_rootdir,
 	target_is_onehot:bool=False,
-	classifier_key='y_last_pt',
+	target_y_key='target/y',
+	pred_y_key='model/y',
 	days_n:int=C_.DEFAULT_DAYS_N,
 	**kwargs):
 	train_handler.load_model() # important, refresh to best model
@@ -73,9 +74,9 @@ def save_performance(train_handler, data_loader, save_rootdir,
 						})
 
 					### class prediction
-					y_target = tdict[f'target/y']
-					#y_pred_p = torch.nn.functional.softmax(tdict[f'model/{classifier_key}'], dim=-1)
-					y_pred_p = torch.sigmoid(tdict[f'model/{classifier_key}'])
+					y_target = tdict[target_y_key]
+					#y_pred_p = torch.nn.functional.softmax(tdict[pred_y_key], dim=-1)
+					y_pred_p = torch.sigmoid(tdict[pred_y_key])
 					#print('y_pred_p',y_pred_p[0])
 
 					if target_is_onehot:

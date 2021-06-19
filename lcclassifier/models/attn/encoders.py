@@ -105,7 +105,7 @@ class TimeSelfAttnEncoderP(nn.Module):
 		### return
 		encz_last = self.mb_projection(torch.cat([encz_bdict[f'encz.{b}'] for b in self.band_names], dim=-1))
 		tdict[f'model/encz_last'] = encz_last
-		tdict[f'model/y_last_pt'] = self.xentropy_projection(encz_last)
+		# tdict[f'model/y_last_pt'] = self.xentropy_projection(encz_last)
 		return tdict
 
 ###################################################################################################################################################

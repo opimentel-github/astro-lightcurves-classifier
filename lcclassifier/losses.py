@@ -5,19 +5,23 @@ from . import C_
 import math
 import torch
 import torch.nn.functional as F
-from fuzzytorch.losses import FTLoss, LossResult, batch_xentropy
+from fuzzytorch.losses import FTLoss
 import fuzzytorch.models.seq_utils as seq_utils
 import math
+
+XENTROPY_K = C_.XENTROPY_K
+MSE_K = C_.MSE_K
 
 ###################################################################################################################################################
 
 class LCMSEReconstruction(FTLoss):
-	def __init__(self, name, band_names,
+	def __init__(self, name, weight_key,
+		band_names=None,
 		**kwargs):
-		self.name = name
+		super().__init__(name, weight_key)
 		self.band_names = band_names
 
-	def __call__(self, tdict,
+	def compute_loss(self, tdict,
 		**kwargs):
 		mse_loss_bdict = {}
 		for kb,b in enumerate(self.band_names):
@@ -34,99 +38,107 @@ class LCMSEReconstruction(FTLoss):
 			mse_loss_bdict[b] = mse_loss_b
 
 		mse_loss = torch.cat([mse_loss_bdict[b][...,None] for b in self.band_names], axis=-1).mean(dim=-1) # (b,d) > (b)
-		loss_res = LossResult(mse_loss)
-		return loss_res
-
-class LCXEntropy(FTLoss):
-	def __init__(self, name,
-		model_out_uses_softmax:bool=False,
-		target_is_onehot:bool=False,
-		uses_poblation_weights:bool=False,
-		classifier_key='y_last_pt',
-		**kwargs):
-		self.name = name
-		self.model_out_uses_softmax = model_out_uses_softmax
-		self.target_is_onehot = target_is_onehot
-		self.uses_poblation_weights = uses_poblation_weights
-		self.classifier_key = classifier_key
-
-	def __call__(self, tdict:dict, **kwargs):
-		y_target = tdict[f'target/y'].long()
-		y_pred = tdict[f'model/{self.classifier_key}']
-		poblation_weights = tdict[f'target/poblation_weights'][0] if self.uses_poblation_weights else None
-		xentropy_loss = batch_xentropy(y_pred, y_target, self.model_out_uses_softmax, self.target_is_onehot, poblation_weights) # (b)
-		#print(xentropy_loss.shape)
-
-		loss_res = LossResult(xentropy_loss)
-		return loss_res
-
-class LCCompleteLoss(FTLoss):
-	def __init__(self, name, band_names,
-		model_out_uses_softmax:bool=False,
-		target_is_onehot:bool=False,
-		uses_poblation_weights:bool=False,
-		classifier_key='y_last_pt',
-		xentropy_k=C_.XENTROPY_K,
-		mse_k=C_.MSE_K,
-		**kwargs):
-		self.name = name
-		self.xentropy = LCXEntropy('',
-			model_out_uses_softmax,
-			target_is_onehot,
-			uses_poblation_weights,
-			classifier_key,
-			)
-		self.mse = LCMSEReconstruction('', band_names)
-		self.xentropy_k = xentropy_k
-		self.mse_k = mse_k
-
-	def __call__(self, tdict:dict, **kwargs):
-		epoch = kwargs['_epoch']
-		xentropy_loss = self.xentropy(tdict, **kwargs)._batch_loss*self.xentropy_k
-		mse_loss = self.mse(tdict, **kwargs)._batch_loss*self.mse_k
-		loss_res = LossResult(xentropy_loss+mse_loss)
-		loss_res.add_subloss('xentropy', xentropy_loss)
-		loss_res.add_subloss('mse', mse_loss)
-		return loss_res
+		return mse_loss
 
 ###################################################################################################################################################
 
-def get_onehot(y,
-	class_count=None,
-	):
-	class_count = torch.max(y)[0] if class_count is None else class_count
-	return torch.eye(class_count, device=y.device)[y,:]
+# class LCXEntropy(FTLoss):
+# 	def __init__(self, name,
+# 		class_names=None,
+# 		target_is_onehot:bool=False,
+# 		uses_poblation_weights:bool=False,
+# 		classifier_key='y_last_pt',
+# 		):
+# 		self.name = name
+# 		self.class_names = class_names
+# 		self.target_is_onehot = target_is_onehot
+# 		self.uses_poblation_weights = uses_poblation_weights
+# 		self.classifier_key = classifier_key
+
+# 	def __call__(self, tdict:dict,
+# 		**kwargs):
+# 		y_target = tdict[f'target/y'].long()
+# 		y_pred = tdict[f'model/{self.classifier_key}']
+# 		poblation_weights = tdict[f'target/poblation_weights'][0] if self.uses_poblation_weights else None
+# 		xentropy_loss = batch_xentropy(y_pred, y_target, False, self.target_is_onehot, poblation_weights) # (b)
+# 		#print(xentropy_loss.shape)
+
+# 		loss_res = LossResult(xentropy_loss)
+# 		return loss_res
+
+###################################################################################################################################################
 
 class LCBinXEntropy(FTLoss):
-	def __init__(self, name,
+	def __init__(self, name, weight_key,
 		class_names=None,
-		model_out_uses_sigmoid:bool=False,
 		target_is_onehot:bool=False,
-		classifier_key='y_last_ft',
+		target_y_key='target/y',
+		pred_y_key='model/y',
 		**kwargs):
-		self.name = name
+		super().__init__(name, weight_key)
 		self.class_names = class_names
-		self.model_out_uses_sigmoid = model_out_uses_sigmoid
 		self.target_is_onehot = target_is_onehot
-		self.classifier_key = classifier_key
-		self.loss = torch.nn.BCELoss(reduction='none')
+		self.target_y_key = target_y_key
+		self.pred_y_key = pred_y_key
+		self.reset()
 
-	def __call__(self, tdict:dict, **kwargs):
-		y_target = tdict[f'target/y'].long() # (b)
-		#print(self.classifier_key)
-		y_pred = tdict[f'model/{self.classifier_key}'] # (b,c)
-		#print('y_pred',y_pred[:10])
-		#print(y_target.shape, y_target[0])
-		y_target = y_target if self.target_is_onehot else get_onehot(y_target, None if self.class_names is None else len(self.class_names))
-		#print(y_target.shape, y_target[0])
-		y_pred = y_pred if self.model_out_uses_sigmoid else torch.sigmoid(y_pred)
-		#print(y_pred.shape, y_pred[0])
-		#assert 0
-		xentropy_loss = self.loss(y_pred, y_target)
-		#xentropy_loss = batch_binxentropy(y_pred, y_target, self.model_out_uses_softmax, self.target_is_onehot) # (b)
-		
-		xentropy_loss = xentropy_loss.mean(dim=-1)
-		#print(xentropy_loss.shape,xentropy_loss[:10])
+	def reset(self):
+		self.bin_loss = torch.nn.BCELoss(reduction='none')
 
-		loss_res = LossResult(xentropy_loss)
-		return loss_res
+	def get_onehot(self, y):
+		class_count = torch.max(y)[0] if self.class_names is None else len(self.class_names)
+		return torch.eye(class_count, device=y.device)[y,:]
+
+	def compute_loss(self, tdict,
+		**kwargs):
+		y_target = tdict[self.target_y_key].long() # (b)
+		y_pred = tdict[self.pred_y_key] # (b,c)
+
+		y_target = y_target if self.target_is_onehot else self.get_onehot(y_target) # (b,c)
+		binxentropy_loss = self.bin_loss(torch.sigmoid(y_pred), y_target) # (b,c)
+		binxentropy_loss = binxentropy_loss.mean(dim=-1) # (b,c) > (b)
+		return binxentropy_loss
+
+###################################################################################################################################################
+
+class LCCompleteLoss(FTLoss):
+	def __init__(self, name, weight_key,
+		band_names=None,
+		class_names=None,
+		target_is_onehot:bool=False,
+		target_y_key='target/y',
+		pred_y_key='model/y',
+		binxentropy_k=XENTROPY_K,
+		mse_k=MSE_K,
+		**kwargs):
+		super().__init__(name, weight_key)
+		self.band_names = band_names
+		self.class_names = class_names
+		self.target_is_onehot = target_is_onehot
+		self.target_y_key = target_y_key
+		self.pred_y_key = pred_y_key
+		self.binxentropy_k = binxentropy_k
+		self.mse_k = mse_k
+		self.reset()
+
+	def reset(self):
+		self.binxentropy = LCBinXEntropy('', None,
+			self.class_names,
+			self.target_is_onehot,
+			self.target_y_key,
+			self.pred_y_key,
+			)
+		self.mse = LCMSEReconstruction('', None,
+			self.band_names,
+			)
+
+	def compute_loss(self, tdict,
+		**kwargs):
+		binxentropy_loss = self.binxentropy.compute_loss(tdict, **kwargs)*self.binxentropy_k # (b)
+		mse_loss = self.mse.compute_loss(tdict, **kwargs)*self.mse_k # (b)
+		d = {
+			'_loss':binxentropy_loss+mse_loss,
+			'binxentropy':binxentropy_loss,
+			'mse':mse_loss,
+			}
+		return d

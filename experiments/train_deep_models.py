@@ -50,7 +50,7 @@ filedict = get_dict_from_filedir(filedir)
 rootdir = filedict['_rootdir']
 cfilename = filedict['_cfilename']
 lcdataset = load_pickle(filedir)
-print(lcdataset)
+# print(lcdataset)
 
 ###################################################################################################################################################
 from lcclassifier.models.model_collections import ModelCollections
@@ -75,37 +75,31 @@ print(model_collections)
 
 ###################################################################################################################################################
 ### LOSS & METRICS
-from lcclassifier.losses import LCMSEReconstruction, LCXEntropy, LCCompleteLoss, LCBinXEntropy
-from lcclassifier.metrics import LCWMSE, LCXEntropyMetric, LCAccuracy
+import lcclassifier.losses as losses
+import lcclassifier.metrics as metrics
+from fuzzytorch.metrics import LossWrapper
 
-### pt
-pt_loss_kwargs = {
+loss_kwargs = {
+	'class_names':lcdataset['raw'].class_names,
 	'band_names':lcdataset['raw'].band_names,
-	'model_output_is_with_softmax':False,
 	'target_is_onehot':False,
-	'classifier_key':'y_last_pt',
-	# 'classifier_key':'y_last_ft',
 	}
-pt_loss = LCCompleteLoss('wmse-xentropy', **pt_loss_kwargs)
+	
+### pt
+weight_key = f'target/balanced_w' if main_args.pt_balanced_metrics else None
+pt_loss = losses.LCCompleteLoss('wmse+binxentropy', None, **loss_kwargs)
 pt_metrics = [
-	LCWMSE(f'b-wmse', balanced=main_args.pt_balanced_metrics, **pt_loss_kwargs),
-	LCXEntropyMetric(('b-' if main_args.pt_balanced_metrics else '')+'xentropy', balanced=main_args.pt_balanced_metrics, **pt_loss_kwargs),
-	LCAccuracy(('b-' if main_args.pt_balanced_metrics else '')+'accuracy', balanced=main_args.pt_balanced_metrics, **pt_loss_kwargs),
+	LossWrapper(losses.LCCompleteLoss(('b-' if main_args.pt_balanced_metrics else '')+'wmse+binxentropy', weight_key, **loss_kwargs)),
+	LossWrapper(losses.LCBinXEntropy(('b-' if main_args.pt_balanced_metrics else '')+'binxentropy', weight_key, **loss_kwargs)),
+	metrics.LCAccuracy(('b-' if main_args.pt_balanced_metrics else '')+'accuracy', weight_key, **loss_kwargs),
 	]
 
 ### ft
-ft_loss_kwargs = {
-	'class_names':lcdataset['raw'].class_names,
-	'model_output_is_with_softmax':False,
-	'model_output_is_with_sigmoid':False,
-	'target_is_onehot':False,
-	'classifier_key':'y_last_ft',
-	}
-#ft_loss = LCXEntropy('xentropy', **ft_loss_kwargs)
-ft_loss = LCBinXEntropy('bin-xentropy', **ft_loss_kwargs)
+weight_key = f'target/balanced_w' if main_args.ft_balanced_metrics else None
+ft_loss = losses.LCBinXEntropy('binxentropy', None, **loss_kwargs)
 ft_metrics = [
-	LCXEntropyMetric(('b-' if main_args.ft_balanced_metrics else '')+'xentropy', balanced=main_args.ft_balanced_metrics, **ft_loss_kwargs),
-	LCAccuracy(('b-' if main_args.ft_balanced_metrics else '')+'accuracy', balanced=main_args.ft_balanced_metrics, **ft_loss_kwargs),
+	LossWrapper(losses.LCBinXEntropy(('b-' if main_args.ft_balanced_metrics else '')+'binxentropy', weight_key, **loss_kwargs)),
+	metrics.LCAccuracy(('b-' if main_args.ft_balanced_metrics else '')+'accuracy', weight_key, **loss_kwargs),
 	]
 
 ###################################################################################################################################################
@@ -130,10 +124,6 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 	### DATASETS
 	dataset_kwargs = mp_grid['dataset_kwargs']
-	# ds_mode = {'random':1.0, 'left':0.0, 'none':0.0} # avoid none
-	ds_mode = {'random':.8, 'left':.2, 'none':.0}
-	ds_p = 10/100
-	std_scale = 1/2
 	k_n = 0.5
 
 	lcset_name = f'{main_args.kf}@train.{main_args.method}' if not main_args.bypass_synth else f'{main_args.kf}@train'
@@ -143,9 +133,10 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		precomputed_copies=5,
 		uses_daugm=True,
 		uses_dynamic_balance=True,
-		ds_mode=ds_mode,
-		ds_p=ds_p,
-		std_scale=std_scale,
+		# ds_mode={'random':1.0, 'left':0.0, 'none':0.0}, # avoid none
+		ds_mode={'random':.8, 'left':.2, 'none':.0},
+		ds_p=10/100,
+		std_scale=1/2,
 		k_n=k_n,
 		**dataset_kwargs)
 	s_train_loader_da = DataLoader(s_train_dataset_da,
@@ -198,7 +189,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 	### GET MODEL
 	mp_grid['mdl_kwargs']['input_dims'] = s_train_loader.dataset.get_output_dims()
-	model = mp_grid['mdl_kwargs']['C'](**mp_grid)
+	model = mp_grid['mdl_kwargs']['C'](**mp_grid) # model creation
 
 	### pre-training
 	### OPTIMIZER
@@ -232,7 +223,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	pt_loss_monitors = LossMonitor(pt_loss, pt_optimizer, pt_metrics,
 		val_epoch_counter_duration=0, # every k epochs check
 		earlystop_epoch_duration=1e6,
-		target_metric_crit=('b-' if main_args.pt_balanced_metrics else '')+'wmse',
+		target_metric_crit=('b-' if main_args.pt_balanced_metrics else '')+'wmse+binxentropy',
 		#save_mode=C_.SM_NO_SAVE,
 		#save_mode=C_.SM_ALL,
 		#save_mode=C_.SM_ONLY_ALL,
@@ -308,7 +299,6 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		pt_exp_kwargs = {
 			'm':20,
 			'target_is_onehot':False,
-			'classifier_key':'y_last_pt',
 			}
 		save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
 		#save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
@@ -323,24 +313,25 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	###################################################################################################################################################
 
 	### fine-tuning
-	model_copy = deepcopy(pt_model_train_handler.load_model())
-	model_copy.init_fine_tuning()
-	lcset_name = f'{main_args.kf}@train'
 	for classifier_mid in range(0, main_args.classifier_mids):
+		ft_model = deepcopy(pt_model_train_handler.load_model()) # copy
+		ft_model.init_fine_tuning()
+
+		lcset_name = f'{main_args.kf}@train'
 		r_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name],
 			precomputed_mode='online',
 			device='cpu',
 			uses_daugm=True,
 			uses_dynamic_balance=True,
-			ds_mode=ds_mode,
-			ds_p=ds_p,
-			std_scale=std_scale,
+			ds_mode={'random':.8, 'left':.2, 'none':.0},
+			ds_p=10/100,
+			std_scale=1/2,
 			**dataset_kwargs,
 			)
 		r_train_loader_da = DataLoader(r_train_dataset_da,
 			shuffle=True,
 			drop_last=True,
-			batch_size=main_args.batch_size,
+			batch_size=16,
 			num_workers=main_args.num_workers,
 			pin_memory=main_args.pin_memory,
 			# prefetch_factor=5,
@@ -354,35 +345,30 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		from fuzzytorch.optimizers import LossOptimizer
 
 		def ft_lr_f(epoch):
-			mode = 'cos' # warm cos
-			if mode=='warm':
-				min_lr, max_lr = 1e-10, 1e-3
-				d_epochs = 50
-				exp_decay_k = 1e-3
-				p = np.clip(epoch/d_epochs, 0, 1) # 0 > 1
-				lr = (1-p)*min_lr+p*max_lr
-				lr = math.exp(-np.clip(epoch-d_epochs, 0, None)*exp_decay_k)*lr
-				return lr
+			# min_lr, max_lr = 1e-10, 1e-3
+			# d_epochs = 50
+			# exp_decay_k = 1e-5
+			# p = np.clip(epoch/d_epochs, 0, 1) # 0 > 1
+			# lr = (1-p)*min_lr+p*max_lr
+			# lr = math.exp(-np.clip(epoch-d_epochs, 0, None)*exp_decay_k)*lr
+			# return lr
 
-			elif mode=='cos':
-				min_lr, max_lr = 1e-5, .75e-1
-				half_period = 20
-				_epoch = epoch%half_period
-				p = (math.cos(2*math.pi*_epoch/(half_period*2))+1)/2 # 1 > 0
-				lr = (p)*max_lr+(1-p)*min_lr
-				return lr
+			min_lr, max_lr = 1e-10, .5e-1
+			half_period = 50
+			# offset = half_period
+			offset = 0
+			# _epoch = epoch%half_period+offset
+			_epoch = epoch+offset
+			p = (math.cos(2*math.pi*_epoch/(half_period*2))+1)/2 # 1 > 0
+			lr = (p)*max_lr+(1-p)*min_lr
+			return lr
 
 		ft_opt_kwargs_f = {
 			'lr':ft_lr_f,
 			'momentum':lambda epoch:0.9,
 			}
-		# ft_model = deepcopy(model_copy)
-		# 
-		# tf_model_to_optimize = ft_model.get_classifier_model(); tf_model_to_optimize.reset_parameters()
-		# # tf_model_to_optimize = ft_model
-
-		classifier = model_copy.get_classifier_model()
-		classifier.reset_parameters()
+		classifier = ft_model.get_classifier_model()
+		# ft_model classifier
 		ft_optimizer = LossOptimizer(classifier, optims.SGD, ft_opt_kwargs_f, # SGD Adagrad Adadelta RMSprop Adam AdamW
 			clip_grad=1.,
 			)
@@ -397,7 +383,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics,
 			val_epoch_counter_duration=0, # every k epochs check
 			earlystop_epoch_duration=300,
-			target_metric_crit=('b-' if main_args.ft_balanced_metrics else '')+'xentropy',
+			target_metric_crit=('b-' if main_args.ft_balanced_metrics else '')+'binxentropy',
 			#save_mode=C_.SM_NO_SAVE,
 			#save_mode=C_.SM_ALL,
 			#save_mode=C_.SM_ONLY_ALL,
@@ -417,7 +403,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 			'extra_model_name_dict':extra_model_name_dict,
 			}
-		ft_model_train_handler = ModelTrainHandler(model_copy, ft_loss_monitors, **mtrain_config)
+		ft_model_train_handler = ModelTrainHandler(ft_model, ft_loss_monitors, **mtrain_config)
 		complete_model_name = ft_model_train_handler.get_complete_model_name()
 		ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 		ft_model_train_handler.build_gpu(device)
@@ -437,7 +423,6 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		ft_exp_kwargs = {
 			'm':15,
 			'target_is_onehot':False,
-			'classifier_key':'y_last_ft',
 			}	
 		#save_performance(ft_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
 		#save_performance(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check

@@ -43,5 +43,5 @@ class SimpleClassifier(nn.Module):
 		# print(encz_last[0].mean(), encz_last[0].std())
 		encz_last = self.classifier_mlp_ft(encz_last)
 		#print(encz_last.shape)
-		tdict[f'model/y_last_ft'] = encz_last
+		tdict[f'model/y'] = encz_last
 		return tdict
