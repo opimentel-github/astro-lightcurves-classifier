@@ -50,6 +50,11 @@ filedict = get_dict_from_filedir(filedir)
 rootdir = filedict['_rootdir']
 cfilename = filedict['_cfilename']
 lcdataset = load_pickle(filedir)
+for lcset_name in lcdataset.get_lcset_names():
+	if '@' in lcset_name and lcset_name.split('@')[0]==main_args.kf:
+		pass
+	else:
+		lcdataset.del_lcset(lcset_name)
 print(lcdataset)
 
 ###################################################################################################################################################
@@ -80,8 +85,8 @@ import lcclassifier.metrics as metrics
 from fuzzytorch.metrics import LossWrapper
 
 loss_kwargs = {
-	'class_names':lcdataset['raw'].class_names,
-	'band_names':lcdataset['raw'].band_names,
+	'class_names':lcdataset[lcdataset.get_lcset_names()[0]].class_names,
+	'band_names':lcdataset[lcdataset.get_lcset_names()[0]].band_names,
 	'target_is_onehot':False,
 	}
 	
@@ -162,6 +167,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			drop_last=True,
 			batch_size=main_args.batch_size,
 			)
+
 	lcset_name = f'{main_args.kf}@train.{main_args.method}'
 	s_train_dataset = CustomDataset(lcset_name, lcdataset[lcset_name],
 		precomputed_mode='online', # disk online device

@@ -2,16 +2,23 @@
 SECONDS=0
 clear
 
-# mc_gpu="--mc parallel_attn_models --gpu 0 --precompute_only 1"
+# mc_gpu="--mc p_rnn_models --gpu 0 --precompute_only 1"
 
+### parallel
 # mc_gpu="--mc p_attn_models_te --gpu 0"
-mc_gpu="--mc p_attn_models_kernel --gpu 0"
+# mc_gpu="--mc p_attn_models_noise --gpu 0"
+# mc_gpu="--mc p_attn_models_heads --gpu 0"
+
 # mc_gpu="--mc p_rnn_models --gpu 0"
 
-# mc_gpu="--mc s_attn_models --gpu 3"
+### serial
+# mc_gpu="--mc s_attn_models_te --gpu 3"
+mc_gpu="--mc s_attn_models_noise --gpu 3"
+# mc_gpu="--mc s_attn_models_heads --gpu 3"
+
 # mc_gpu="--mc s_rnn_models --gpu 3"
 
-b=129
+b=101
 only_attn_exp=0
 classifier_mids=3
 

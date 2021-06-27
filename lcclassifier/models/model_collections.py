@@ -30,8 +30,8 @@ class ModelCollections():
 			}
 		self.common_dict = {
 			'max_period':self.max_day*1.25, # ***
-			'band_names':lcdataset['raw'].band_names,
-			'output_dims':len(lcdataset['raw'].class_names),
+			'band_names':lcdataset[lcdataset.get_lcset_names()[0]].band_names,
+			'output_dims':len(lcdataset[lcdataset.get_lcset_names()[0]].class_names),
 			}
 		self.base_dict = {
 			'class_mdl_kwargs':{
@@ -79,7 +79,7 @@ class ModelCollections():
 
 ###################################################################################################################################################
 
-	def parallel_rnn_models(self):
+	def p_rnn_models(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.ParallelRNNClassifier,
@@ -91,7 +91,7 @@ class ModelCollections():
 		})
 		self.add_gs(gs)
 
-	def serial_rnn_models(self):
+	def s_rnn_models(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.SerialRNNClassifier,
@@ -122,7 +122,7 @@ class ModelCollections():
 		})
 		self.add_gs(gs)
 
-	def p_attn_models_kernel(self):
+	def p_attn_models_noise(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.ParallelTimeSelfAttn,
@@ -132,9 +132,9 @@ class ModelCollections():
 
 				'fourier_dims':GDIter(1),
 				'te_features':GDIter(2),
-				'kernel_size':GDIter(1, 2),
+				'kernel_size':GDIter(1),
 				'heads':GDIter(4),
-				'time_noise_window':GDIter('0*24**-1'),
+				'time_noise_window':GDIter('6*24**-1', '12*24**-1', '24*24**-1'), # ***
 			},
 		})
 		self.add_gs(gs)
@@ -150,25 +150,61 @@ class ModelCollections():
 				'fourier_dims':GDIter(1),
 				'te_features':GDIter(2),
 				'kernel_size':GDIter(1),
-				'heads':GDIter(4, 8, 16),
+				'heads':GDIter(8, 16), # ***
 				'time_noise_window':GDIter('0*24**-1'),
-				#'time_noise_window':GDIter('0*24**-1', '6*24**-1', '24*24**-1'),
 			},
 		})
 		self.add_gs(gs)
 
-	def s_attn_models(self):
+###################################################################################################################################################
+
+	def s_attn_models_te(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.SerialTimeSelfAttn,
 				'embd_dims':self.gd_embd_dims,
 				'layers':self.gd_layers,
 				'dropout':self.dropout_d,
-				'te_features':self.gd_te_features,
-				'fourier_dims':self.gd_fourier_dims,
-				'kernel_size':self.gd_kernel_size,
-				'heads':self.gd_heads,
-				'time_noise_window':self.gd_time_noise_window,
+
+				'fourier_dims':GDIter(1),
+				'te_features':GDIter(2, 4, 8, 16),
+				'kernel_size':GDIter(1),
+				'heads':GDIter(4),
+				'time_noise_window':GDIter('0*24**-1'),
+			},
+		})
+		self.add_gs(gs)
+
+	def s_attn_models_noise(self):
+		gs = GridSeacher({
+			'mdl_kwargs':{
+				'C':mbls.SerialTimeSelfAttn,
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
+
+				'fourier_dims':GDIter(1),
+				'te_features':GDIter(2),
+				'kernel_size':GDIter(1),
+				'heads':GDIter(4),
+				'time_noise_window':GDIter('6*24**-1', '12*24**-1', '24*24**-1'), # ***
+			},
+		})
+		self.add_gs(gs)
+
+	def s_attn_models_heads(self):
+		gs = GridSeacher({
+			'mdl_kwargs':{
+				'C':mbls.SerialTimeSelfAttn,
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
+
+				'fourier_dims':GDIter(1),
+				'te_features':GDIter(2),
+				'kernel_size':GDIter(1),
+				'heads':GDIter(8, 16), # ***
+				'time_noise_window':GDIter('0*24**-1'),
 			},
 		})
 		self.add_gs(gs)

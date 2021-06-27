@@ -23,12 +23,16 @@ from copy import copy, deepcopy
 ###################################################################################################################################################
 
 def save(obj, filedir):
+	assert isinstance(obj, dict)
+	ftfiles.create_dir('/'.join(filedir.split('/')[:-1]))
 	# torch.save(items, items_filedir)
-	ftfiles.save_pickle(filedir, obj)
+	# ftfiles.save_pickle(filedir, obj)
+	np.save(filedir, obj)
 
 def load(filedir):
 	# torch.load(self.precomputed_filedirs_dict[lcobj_name])
-	return ftfiles.load_pickle(filedir)
+	# return ftfiles.load_pickle(filedir)
+	return np.load(f'{filedir}.npy', allow_pickle=True).item()
 
 def numpy_to_tensor(tdict):
 	for key in tdict.keys():
@@ -121,7 +125,6 @@ class CustomDataset(Dataset):
 		read_from_disk=False,
 		):
 		disk_rootdir = f'{disk_location}/{self.lcset_name}'
-		# ftfiles.create_dir(disk_rootdir)
 		lcobj_names = self.lcset.get_lcobj_names()
 		if self.precomputed_mode=='online':
 			return
@@ -131,10 +134,10 @@ class CustomDataset(Dataset):
 			bar = ProgressBar(len(lcobj_names), dummy=verbose==0)
 			for lcobj_name in lcobj_names:
 				bar(f'lcset_name={self.lcset_name} - precomputed_copies={self.precomputed_copies} - disk_rootdir={disk_rootdir} - lcobj_name={lcobj_name}')
-				items_filedirs = [f'{disk_rootdir}/{lcobj_name}.da{k}' for k in range(0, self.precomputed_copies)]
+				items_filedirs = [f'{disk_rootdir}/{lcobj_name}.{k}' for k in range(0, self.precomputed_copies)]
 				self.precomputed_filedirs_dict[lcobj_name] = items_filedirs
 				for items_filedir in items_filedirs:
-					if read_from_disk:
+					if read_from_disk or ftfiles.filedir_exists(items_filedir):
 						pass
 					else:
 						in_tdict = _get_numpy_item((self, lcobj_name))
@@ -148,7 +151,7 @@ class CustomDataset(Dataset):
 			for lcobj_name in lcobj_names:
 				bar(f'lcset_name={self.lcset_name} - device={self.device} - lcobj_name={lcobj_name}')
 				for k in range(0, self.precomputed_copies):
-					items_filedir = f'{disk_rootdir}/{lcobj_name}.da{k}'
+					items_filedir = f'{disk_rootdir}/{lcobj_name}.{k}'
 					in_tdict = numpy_to_tensor(load(items_filedir)) if read_from_disk else _get_item((self, lcobj_name))
 					self.precomputed_dict[lcobj_name] += [TDictHolder(in_tdict).to(self.device)]
 			bar.done()
