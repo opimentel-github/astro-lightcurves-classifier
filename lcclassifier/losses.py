@@ -91,7 +91,7 @@ class LCBinXEntropy(FTLoss):
 
 	def compute_loss(self, tdict,
 		**kwargs):
-		y_target = tdict[self.target_y_key].long() # (b)
+		y_target = tdict[self.target_y_key] # (b)
 		y_pred = tdict[self.pred_y_key] # (b,c)
 
 		y_target = y_target if self.target_is_onehot else self.get_onehot(y_target) # (b,c)

@@ -39,8 +39,8 @@ class ModelBaseline(nn.Module):
 	def get_finetuning_parameters(self):
 		encoder = self.autoencoder['encoder']
 		# finetuning_parameters = [self]
-		# finetuning_parameters = self.classifier.get_finetuning_parameters()
-		finetuning_parameters = encoder.get_finetuning_parameters()+self.classifier.get_finetuning_parameters()
+		finetuning_parameters = self.classifier.get_finetuning_parameters()
+		# finetuning_parameters = encoder.get_finetuning_parameters()+self.classifier.get_finetuning_parameters()
 		return finetuning_parameters
 
 	def init_finetuning(self):

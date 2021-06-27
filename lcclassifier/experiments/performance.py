@@ -74,9 +74,9 @@ def save_performance(train_handler, data_loader, save_rootdir,
 						})
 
 					### class prediction
-					y_target = tdict[target_y_key]
-					#y_pred_p = torch.nn.functional.softmax(tdict[pred_y_key], dim=-1)
-					y_pred_p = torch.sigmoid(tdict[pred_y_key])
+					y_target = tdict[target_y_key] # (b)
+					#y_pred_p = torch.nn.functional.softmax(tdict[pred_y_key], dim=-1) # (b,c)
+					y_pred_p = torch.sigmoid(tdict[pred_y_key]) # (b,c)
 					#print('y_pred_p',y_pred_p[0])
 
 					if target_is_onehot:

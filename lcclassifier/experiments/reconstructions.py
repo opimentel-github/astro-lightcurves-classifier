@@ -44,7 +44,7 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 		for k,lcobj_name in enumerate(lcobj_names):
 			ax = axs[k]
 			in_tdict, lcobj = dataset.get_item(lcobj_name)
-			in_tdict = dataset.fix_length(in_tdict)
+			in_tdict = dataset.fix_tdict(in_tdict)
 			tdict = train_handler.model(TDictHolder(in_tdict).to(train_handler.device, add_dummy_dim=True))
 			for kb,b in enumerate(dataset.band_names):
 				p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)

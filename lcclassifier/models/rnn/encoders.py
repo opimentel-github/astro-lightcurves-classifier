@@ -59,7 +59,7 @@ class RNNEncoderP(nn.Module):
 	def get_finetuning_parameters(self):
 		return [self.seft, self.mb_projection]
 
-	def init_fine_tuning(self):
+	def init_finetuning(self):
 		pass
 
 	def get_output_dims(self):

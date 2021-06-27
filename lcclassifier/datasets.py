@@ -30,6 +30,11 @@ def load(filedir):
 	# torch.load(self.precomputed_filedirs_dict[lcobj_name])
 	return ftfiles.load_pickle(filedir)
 
+def numpy_to_tensor(tdict):
+	for key in tdict.keys():
+		tdict[key] = torch.from_numpy(tdict[key])
+	return tdict
+
 def min_max(x): # (t,1)
 	if len(x)==0:
 		return x
@@ -40,6 +45,10 @@ def min_max(x): # (t,1)
 	_max = x.max()
 	new_x = (x-_min)/(_max-_min)
 	return new_x
+
+def _get_numpy_item(args):
+	tdict, lcobj = CustomDataset.get_numpy_item(*args)
+	return tdict
 
 def _get_item(args):
 	tdict, lcobj = CustomDataset.get_item(*args)
@@ -108,26 +117,28 @@ class CustomDataset(Dataset):
 
 	def calcule_precomputed(self,
 		verbose=0,
-		pass_if_exists=True,
+		disk_location='../temp/datasets',
+		read_from_disk=False,
 		):
+		disk_rootdir = f'{disk_location}/{self.lcset_name}'
+		# ftfiles.create_dir(disk_rootdir)
 		lcobj_names = self.lcset.get_lcobj_names()
 		if self.precomputed_mode=='online':
 			return
 
 		elif self.precomputed_mode=='disk':
 			self.precomputed_filedirs_dict = {}
-			disk_rootdir = f'../temp/datasets/{self.lcset_name}'
-			ftfiles.create_dir(disk_rootdir)
 			bar = ProgressBar(len(lcobj_names), dummy=verbose==0)
 			for lcobj_name in lcobj_names:
-				bar(f'lcset_name={self.lcset_name} - precomputed_copies={self.precomputed_copies} - pass_if_exists={pass_if_exists} - disk_rootdir={disk_rootdir} - lcobj_name={lcobj_name}')
+				bar(f'lcset_name={self.lcset_name} - precomputed_copies={self.precomputed_copies} - disk_rootdir={disk_rootdir} - lcobj_name={lcobj_name}')
 				items_filedirs = [f'{disk_rootdir}/{lcobj_name}.da{k}' for k in range(0, self.precomputed_copies)]
 				self.precomputed_filedirs_dict[lcobj_name] = items_filedirs
 				for items_filedir in items_filedirs:
-					if pass_if_exists and ftfiles.filedir_exists(items_filedir):
-						continue
-					item = _get_item((self, lcobj_name))
-					save(item, items_filedir)
+					if read_from_disk:
+						pass
+					else:
+						in_tdict = _get_numpy_item((self, lcobj_name))
+						save(in_tdict, items_filedir)
 			bar.done()
 			return
 
@@ -137,7 +148,8 @@ class CustomDataset(Dataset):
 			for lcobj_name in lcobj_names:
 				bar(f'lcset_name={self.lcset_name} - device={self.device} - lcobj_name={lcobj_name}')
 				for k in range(0, self.precomputed_copies):
-					in_tdict = _get_item((self, lcobj_name))
+					items_filedir = f'{disk_rootdir}/{lcobj_name}.da{k}'
+					in_tdict = numpy_to_tensor(load(items_filedir)) if read_from_disk else _get_item((self, lcobj_name))
 					self.precomputed_dict[lcobj_name] += [TDictHolder(in_tdict).to(self.device)]
 			bar.done()
 			return
@@ -318,10 +330,13 @@ class CustomDataset(Dataset):
 
 	###################################################################################################################################################
 
-	def fix_length(self, tdict):
+	def fix_tdict(self, tdict):
 		for key in tdict.keys():
+			if list(tdict[key].shape)==[1]: # (1)
+				tdict[key] = tdict[key][0]
 			if len(tdict[key].shape)==2: # (t,f)
 				tdict[key] = seq_utils.get_seq_clipped_shape(tdict[key], self.max_len)
+			# print(key,tdict[key].shape)
 		return tdict
 
 	def __getitem__(self, idx:int):
@@ -332,16 +347,20 @@ class CustomDataset(Dataset):
 		elif self.precomputed_mode=='disk':
 			items_filedirs = self.precomputed_filedirs_dict[lcobj_name]
 			items_filedir = get_random_item(items_filedirs)
-			tdict = load(items_filedir)
+			tdict = numpy_to_tensor(load(items_filedir))
 
 		elif self.precomputed_mode=='device':
 			items = self.precomputed_dict[lcobj_name]
 			tdict = get_random_item(items)
 
-		tdict = self.fix_length(tdict)
+		tdict = self.fix_tdict(tdict)
 		return tdict
 
 	def get_item(self, lcobj_name):
+		tdict, lcobj = self.get_numpy_item(lcobj_name)
+		return numpy_to_tensor(tdict), lcobj
+
+	def get_numpy_item(self, lcobj_name):
 		'''
 		apply data augmentation, this overrides obj information
 		be sure to copy the input lcobj!!!!
@@ -369,7 +388,7 @@ class CustomDataset(Dataset):
 		s_onehot = lcobj.get_onehot_serial(bands=self.band_names) # ignoring *
 		#print(s_onehot.shape, s_onehot)
 		tdict = {}
-		tdict[f'input/s_onehot'] = torch.from_numpy(s_onehot) # (t,b)
+		tdict[f'input/s_onehot'] = s_onehot # (t,b)
 		for kb,b in enumerate(self.band_names+['*']):
 			lcobjb = lcobj.get_b(b)
 			lcobjb.set_diff('days') # recompute dtime just in case (it's already implemented in da)
@@ -382,12 +401,12 @@ class CustomDataset(Dataset):
 			rdtime = lcobjb.d_days[...,None] # raw_dtime (t,1) - gru-d
 			dtime = self.dtime_normalize(rdtime, b) # norm_dtime (t,1) - rnn/tcnn
 
-			tdict[f'input/onehot.{b}'] = torch.from_numpy(onehot)
-			tdict[f'input/rtime.{b}'] = torch.from_numpy(rtime)
+			tdict[f'input/onehot.{b}'] = onehot
+			tdict[f'input/rtime.{b}'] = rtime
 			#time
-			tdict[f'input/rdtime.{b}'] = torch.from_numpy(rdtime)
-			tdict[f'input/dtime.{b}'] = torch.from_numpy(dtime)
-			tdict[f'input/x.{b}'] = torch.from_numpy(x) # fixme
+			tdict[f'input/rdtime.{b}'] = rdtime
+			tdict[f'input/dtime.{b}'] = dtime
+			tdict[f'input/x.{b}'] = x # fixme
 
 			rrecx = lcobjb.get_custom_x([self.rec_attr]) # raw_recx (t,1)
 			recx = self.rec_normalize(rrecx, b) # norm_recx (t,1)
@@ -396,9 +415,9 @@ class CustomDataset(Dataset):
 			# rerror = min_max(rerror) # min-max
 			assert np.all(rerror>=0)
 
-			tdict[f'target/recx.{b}'] = torch.from_numpy(recx)
-			tdict[f'target/rerror.{b}'] = torch.from_numpy(rerror)
+			tdict[f'target/recx.{b}'] = recx
+			tdict[f'target/rerror.{b}'] = rerror
 
-		tdict[f'target/y'] = torch.from_numpy(np.array([lcobj.y], dtype=np.float32))[0].long() # ()
-		tdict[f'target/balanced_w'] = torch.from_numpy(np.array([self.balanced_w_cdict[self.class_names[lcobj.y]]], dtype=np.float32))[0] # ()
+		tdict[f'target/y'] = np.array([lcobj.y], dtype=np.int64) # (1)
+		tdict[f'target/balanced_w'] = np.array([self.balanced_w_cdict[self.class_names[lcobj.y]]], dtype=np.float32) # (1)
 		return tdict, lcobj

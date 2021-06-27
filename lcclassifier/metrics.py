@@ -22,7 +22,7 @@ class LCAccuracy(FTMetric):
 
 	def compute_metric(self, tdict,
 		**kwargs):
-		y_target = tdict[self.target_y_key].long() # (b)
+		y_target = tdict[self.target_y_key] # (b)
 		y_pred = tdict[self.pred_y_key] # (b,c)
 
 		if self.target_is_onehot:

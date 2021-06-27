@@ -23,19 +23,6 @@ class ModelCollections():
 		self.gd_embd_dims = GDIter(d*bands)
 		self.gd_layers = GDIter(1) # 1 2 3
 
-		### rnn
-		self.gd_rnn_cell_names = GDIter('GRU', 'LSTM')
-
-		### attn
-		self.gd_fourier_dims = GDIter(1/2)
-		self.gd_te_features = GDIter(1*2, 8*2)
-		self.gd_time_noise_window = GDIter('0*24**-1')
-		# self.gd_time_noise_window = GDIter('0*24**-1', '24*24**-1')
-		# self.gd_time_noise_window = GDIter('0*24**-1', '1*24**-1', '24*24**-1')
-		self.gd_kernel_size = GDIter(1)
-		# self.gd_kernel_size = GDIter(1, 2, 3)
-		self.gd_heads = GDIter(8,4)
-
 		p = 0/100
 		self.dropout_d = {
 			'p':p,
@@ -96,7 +83,7 @@ class ModelCollections():
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.ParallelRNNClassifier,
-				'rnn_cell_name':self.gd_rnn_cell_names,
+				'rnn_cell_name':GDIter('GRU', 'LSTM'),
 				'embd_dims':self.gd_embd_dims,
 				'layers':self.gd_layers,
 				'dropout':self.dropout_d,
@@ -108,7 +95,7 @@ class ModelCollections():
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.SerialRNNClassifier,
-				'rnn_cell_name':self.gd_rnn_cell_names,
+				'rnn_cell_name':GDIter('GRU', 'LSTM'),
 				'embd_dims':self.gd_embd_dims,
 				'layers':self.gd_layers,
 				'dropout':self.dropout_d,
@@ -116,29 +103,61 @@ class ModelCollections():
 		})
 		self.add_gs(gs)
 
-	def all_rnn_models(self):
-		self.parallel_rnn_models()
-		self.serial_rnn_models()
-
 ###################################################################################################################################################
 
-	def parallel_attn_models(self):
+	def p_attn_models_te(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.ParallelTimeSelfAttn,
 				'embd_dims':self.gd_embd_dims,
 				'layers':self.gd_layers,
 				'dropout':self.dropout_d,
-				'te_features':self.gd_te_features,
-				'fourier_dims':self.gd_fourier_dims,
-				'kernel_size':self.gd_kernel_size,
-				'heads':self.gd_heads,
-				'time_noise_window':self.gd_time_noise_window,
+
+				'fourier_dims':GDIter(1),
+				'te_features':GDIter(2, 4, 8, 16),
+				'kernel_size':GDIter(1),
+				'heads':GDIter(4),
+				'time_noise_window':GDIter('0*24**-1'),
 			},
 		})
 		self.add_gs(gs)
 
-	def serial_attn_models(self):
+	def p_attn_models_kernel(self):
+		gs = GridSeacher({
+			'mdl_kwargs':{
+				'C':mbls.ParallelTimeSelfAttn,
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
+
+				'fourier_dims':GDIter(1),
+				'te_features':GDIter(2),
+				'kernel_size':GDIter(1, 2),
+				'heads':GDIter(4),
+				'time_noise_window':GDIter('0*24**-1'),
+			},
+		})
+		self.add_gs(gs)
+
+	def p_attn_models_heads(self):
+		gs = GridSeacher({
+			'mdl_kwargs':{
+				'C':mbls.ParallelTimeSelfAttn,
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
+
+				'fourier_dims':GDIter(1),
+				'te_features':GDIter(2),
+				'kernel_size':GDIter(1),
+				'heads':GDIter(4, 8, 16),
+				'time_noise_window':GDIter('0*24**-1'),
+				#'time_noise_window':GDIter('0*24**-1', '6*24**-1', '24*24**-1'),
+			},
+		})
+		self.add_gs(gs)
+
+	def s_attn_models(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{
 				'C':mbls.SerialTimeSelfAttn,
@@ -153,7 +172,3 @@ class ModelCollections():
 			},
 		})
 		self.add_gs(gs)
-
-	def all_attn_models(self):
-		self.parallel_attn_models()
-		self.serial_attn_models()

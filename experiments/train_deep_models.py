@@ -23,8 +23,8 @@ parser.add_argument('--bypass_autoencoder',  type=int, default=0) # 0 1
 parser.add_argument('--only_attn_exp',  type=int, default=0) # 0 1
 parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
-parser.add_argument('--classifier_mids',  type=int, default=10)
-parser.add_argument('--num_workers',  type=int, default=8)
+parser.add_argument('--classifier_mids',  type=int, default=1)
+parser.add_argument('--num_workers',  type=int, default=12)
 parser.add_argument('--pin_memory',  type=int, default=1) # 0 1
 parser.add_argument('--pt_balanced_metrics',  type=int, default=1)
 parser.add_argument('--ft_balanced_metrics',  type=int, default=1)
@@ -124,37 +124,49 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 	### DATASETS
 	dataset_kwargs = mp_grid['dataset_kwargs']
-	k_n = 0.5
+	s_train_dataset_da_kwargs = {
+		'precomputed_copies':10,
+		'uses_daugm':True,
+		'uses_dynamic_balance':True,
+		# 'ds_mode':{'random':1.0, 'left':0.0, 'none':0.0}, # avoid none
+		'ds_mode':{'random':.8, 'left':.2, 'none':.0},
+		'ds_p':10/100,
+		'std_scale':1/2,
+		'k_n':0.5,
+		}
+	s_train_dataset_da_kwargs.update(dataset_kwargs)
 
 	lcset_name = f'{main_args.kf}@train.{main_args.method}' if not main_args.bypass_synth else f'{main_args.kf}@train'
-	s_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name],
-		precomputed_mode='disk', # disk online device
-		device='cpu',
-		precomputed_copies=5,
-		uses_daugm=True,
-		uses_dynamic_balance=True,
-		# ds_mode={'random':1.0, 'left':0.0, 'none':0.0}, # avoid none
-		ds_mode={'random':.8, 'left':.2, 'none':.0},
-		ds_p=10/100,
-		std_scale=1/2,
-		k_n=k_n,
-		**dataset_kwargs)
-	s_train_loader_da = DataLoader(s_train_dataset_da,
-		shuffle=True,
-		drop_last=True,
-		batch_size=main_args.batch_size,
-		num_workers=main_args.num_workers,
-		pin_memory=main_args.pin_memory,
-		# prefetch_factor=5,
-		worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
-		persistent_workers=main_args.num_workers>0,
-		)
-
+	if 1:
+	# if main_args.precompute_only:
+		s_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name],
+			precomputed_mode='disk', # disk online device
+			device='cpu',
+			**s_train_dataset_da_kwargs)
+		s_train_loader_da = DataLoader(s_train_dataset_da,
+			shuffle=True,
+			drop_last=True,
+			batch_size=main_args.batch_size,
+			num_workers=main_args.num_workers,
+			pin_memory=main_args.pin_memory,
+			worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
+			persistent_workers=main_args.num_workers>0,
+			)
+	else:
+		s_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name],
+			precomputed_mode='device', # disk online device
+			device=device,
+			**s_train_dataset_da_kwargs)
+		s_train_loader_da = DataLoader(s_train_dataset_da,
+			shuffle=True,
+			drop_last=True,
+			batch_size=main_args.batch_size,
+			)
 	lcset_name = f'{main_args.kf}@train.{main_args.method}'
 	s_train_dataset = CustomDataset(lcset_name, lcdataset[lcset_name],
-		precomputed_mode='online',
+		precomputed_mode='online', # disk online device
 		device='cpu',
-		k_n=k_n,
+		k_n=s_train_dataset_da_kwargs['k_n'],
 		**dataset_kwargs)
 	s_train_loader = DataLoader(s_train_dataset, shuffle=False, batch_size=main_args.batch_size)
 
@@ -179,13 +191,14 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		**dataset_kwargs)
 	r_test_loader = DataLoader(r_test_dataset, shuffle=False, batch_size=main_args.batch_size)
 
-	s_train_dataset_da.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(s_train_dataset_da)
+	### compute datasets
+	s_train_dataset_da.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, read_from_disk=not main_args.precompute_only); print(s_train_dataset_da)
 	if main_args.precompute_only:
-		assert 0
-	s_train_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(s_train_dataset)
-	r_train_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(r_train_dataset)
-	r_val_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(r_val_dataset)
-	r_test_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1, pass_if_exists=not main_args.precompute_only); print(r_test_dataset)
+		assert 0 # exit
+	s_train_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1); print(s_train_dataset)
+	r_train_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1); print(r_train_dataset)
+	r_val_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1); print(r_val_dataset)
+	r_test_dataset.set_scalers_from(s_train_dataset_da).calcule_precomputed(verbose=1); print(r_test_dataset)
 
 	### GET MODEL
 	mp_grid['mdl_kwargs']['input_dims'] = s_train_loader.dataset.get_output_dims()
@@ -240,7 +253,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	extra_model_name_dict.update(get_dict_from_string(main_args.extra_model_name))
 	pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors,
 		id=main_args.mid,
-		epochs_max=150, # 50 100 150 # limit this as the pre-training is very time consuming
+		epochs_max=200, # 50 100 150 200 # limit this as the pre-training is very time consuming
 		extra_model_name_dict=extra_model_name_dict,
 		)
 	complete_model_name = pt_model_train_handler.get_complete_model_name()
@@ -334,7 +347,6 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			batch_size=16,
 			num_workers=main_args.num_workers,
 			pin_memory=main_args.pin_memory,
-			# prefetch_factor=5,
 			worker_init_fn=lambda id:np.random.seed(torch.initial_seed() // 2**32+id), # num_workers-numpy bug
 			persistent_workers=main_args.num_workers>0,
 			)
