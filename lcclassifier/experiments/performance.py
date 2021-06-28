@@ -4,17 +4,16 @@ from . import C_
 
 import torch
 from fuzzytorch.utils import TDictHolder, tensor_to_numpy, minibatch_dict_collate
-from fuzzytorch.models.utils import count_parameters
 import numpy as np
 from fuzzytools.progress_bars import ProgressBar, ProgressBarMulti
 import fuzzytools.files as files
 import fuzzytools.datascience.metrics as fcm
-from fuzzytools.cuteplots.utils import save_fig
 from fuzzytools.dataframes import DFBuilder
 from fuzzytools.dicts import update_dicts
-import matplotlib.pyplot as plt
 import fuzzytorch.models.seq_utils as seq_utils
 import pandas as pd
+
+DEFAULT_DAYS_N = C_.DEFAULT_DAYS_N
 
 ###################################################################################################################################################
 
@@ -22,7 +21,7 @@ def save_performance(train_handler, data_loader, save_rootdir,
 	target_is_onehot:bool=False,
 	target_y_key='target/y',
 	pred_y_key='model/y',
-	days_n:int=C_.DEFAULT_DAYS_N,
+	days_n:int=DEFAULT_DAYS_N,
 	**kwargs):
 	train_handler.load_model() # important, refresh to best model
 	train_handler.model.eval() # important, model eval mode
@@ -39,9 +38,9 @@ def save_performance(train_handler, data_loader, save_rootdir,
 	bar = ProgressBarMulti(len(days), bar_rows)
 	with torch.no_grad():
 		can_be_in_loop = True
-		for day in days: # along days
-			dataset.set_max_day(day)
-			dataset.calcule_precomputed()
+		for day in days:
+			dataset.set_max_day(day) # very important!!
+			dataset.calcule_precomputed() # very important!!
 			try:
 				if can_be_in_loop:
 					tdicts = []
@@ -50,7 +49,7 @@ def save_performance(train_handler, data_loader, save_rootdir,
 						tdicts += [_tdict]
 					tdict = minibatch_dict_collate(tdicts)
 
-					### decoder
+					### mse
 					mse_loss_bdict = {}
 					for kb,b in enumerate(dataset.band_names):
 						p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)
@@ -74,19 +73,19 @@ def save_performance(train_handler, data_loader, save_rootdir,
 						})
 
 					### class prediction
-					y_target = tdict[target_y_key] # (b)
+					y_true = tdict[target_y_key] # (b)
 					#y_pred_p = torch.nn.functional.softmax(tdict[pred_y_key], dim=-1) # (b,c)
 					y_pred_p = torch.sigmoid(tdict[pred_y_key]) # (b,c)
 					#print('y_pred_p',y_pred_p[0])
 
 					if target_is_onehot:
-						assert y_pred_.shape==y_target.shape
-						y_target = torch.argmax(y_target, dim=-1)
+						assert y_pred_.shape==y_true.shape
+						y_true = torch.argmax(y_true, dim=-1)
 
-					y_target = tensor_to_numpy(y_target)
+					y_true = tensor_to_numpy(y_true)
 					y_pred_p = tensor_to_numpy(y_pred_p)
 
-					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred_p, y_target, dataset.class_names)
+					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred_p, y_true, dataset.class_names)
 					for c in dataset.class_names:
 						days_class_metrics_cdf[c].append(day, update_dicts([{'_day':day}, metrics_cdict[c]]))
 					days_class_metrics_df.append(day, update_dicts([{'_day':day}, metrics_dict]))
@@ -97,12 +96,12 @@ def save_performance(train_handler, data_loader, save_rootdir,
 					### wrong samples
 					y_pred = np.argmax(y_pred_p, axis=-1)
 					lcobj_names = dataset.get_lcobj_names()
-					wrong_classification = ~(y_target==y_pred)
+					wrong_classification = ~(y_true==y_pred)
 					assert len(lcobj_names)==len(wrong_classification)
 					wrongs_df = DFBuilder()
 					for kwc,wc in enumerate(wrong_classification):
 						if wc:
-							wrongs_df.append(lcobj_names[kwc], {'y_target':dataset.class_names[y_target[kwc]], 'y_pred':dataset.class_names[y_pred[kwc]]})
+							wrongs_df.append(lcobj_names[kwc], {'y_true':dataset.class_names[y_true[kwc]], 'y_pred':dataset.class_names[y_pred[kwc]]})
 					days_wrongs_df[day] = wrongs_df.get_df()
 
 					### progress bar
@@ -121,7 +120,6 @@ def save_performance(train_handler, data_loader, save_rootdir,
 		'band_names':dataset.band_names,
 		'class_names':dataset.class_names,
 
-
 		'days':days,
 		'days_rec_metrics_df':days_rec_metrics_df.get_df(),
 		'days_class_metrics_df':days_class_metrics_df.get_df(),
@@ -134,5 +132,5 @@ def save_performance(train_handler, data_loader, save_rootdir,
 	save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}.d'
 	files.save_pickle(save_filedir, results) # save file
 	dataset.reset_max_day() # very important!!
-	dataset.calcule_precomputed()
+	dataset.calcule_precomputed() # very important!!
 	return

@@ -50,11 +50,7 @@ filedict = get_dict_from_filedir(filedir)
 rootdir = filedict['_rootdir']
 cfilename = filedict['_cfilename']
 lcdataset = load_pickle(filedir)
-for lcset_name in lcdataset.get_lcset_names():
-	if '@' in lcset_name and lcset_name.split('@')[0]==main_args.kf:
-		pass
-	else:
-		lcdataset.del_lcset(lcset_name)
+lcdataset.only_keep_kf(main_args.kf) # saves ram
 print(lcdataset)
 
 ###################################################################################################################################################
@@ -295,12 +291,14 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 	###################################################################################################################################################
 	from lcclassifier.experiments.reconstructions import save_reconstructions
+	from lcclassifier.experiments.dim_reductions import save_dim_reductions
 	from lcclassifier.experiments.model_info import save_model_info
 	from lcclassifier.experiments.temporal_encoding import save_temporal_encoding
 	from lcclassifier.experiments.performance import save_performance
 	from lcclassifier.experiments.attention_scores import save_attn_scores_animation
 	from lcclassifier.experiments.attention_stats import save_attention_statistics
 
+	### attn
 	if main_args.only_attn_exp:
 		pt_exp_kwargs = {
 			'm':3,
@@ -314,18 +312,18 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
 		continue # breaks the normal training
 
-	if not main_args.bypass_autoencoder:
-		pt_exp_kwargs = {
-			'm':20,
-			'target_is_onehot':False,
-			}
-		save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-		#save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
-		save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
-		save_reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
-
-		save_model_info(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs) # crash when bypassing autoencoder
-		save_temporal_encoding(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/temporal_encoding/{cfilename}', **pt_exp_kwargs)
+	# if not main_args.bypass_autoencoder:
+	pt_exp_kwargs = {
+		'm':20,
+		'target_is_onehot':False,
+		}
+	save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+	#save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
+	# save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
+	save_reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
+	save_dim_reductions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/dim_reductions/{cfilename}', **pt_exp_kwargs)
+	save_model_info(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs) # crash when bypassing autoencoder
+	save_temporal_encoding(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/temporal_encoding/{cfilename}', **pt_exp_kwargs)
 	
 	###################################################################################################################################################
 	###################################################################################################################################################

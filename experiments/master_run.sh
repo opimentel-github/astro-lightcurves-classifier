@@ -18,7 +18,7 @@ mc_gpu="--mc s_attn_models_noise --gpu 3"
 
 # mc_gpu="--mc s_rnn_models --gpu 3"
 
-b=101
+b=129
 only_attn_exp=0
 classifier_mids=3
 
