@@ -255,7 +255,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	extra_model_name_dict.update(get_dict_from_string(main_args.extra_model_name))
 	pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors,
 		id=main_args.mid,
-		epochs_max=200, # 50 100 150 200 # limit this as the pre-training is very time consuming
+		epochs_max=100, # 50 100 150 200 # limit this as the pre-training is very time consuming
 		extra_model_name_dict=extra_model_name_dict,
 		)
 	complete_model_name = pt_model_train_handler.get_complete_model_name()
@@ -398,7 +398,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 
 		ft_loss_monitors = LossMonitor(ft_loss, ft_optimizer, ft_metrics,
 			val_epoch_counter_duration=0, # every k epochs check
-			earlystop_epoch_duration=300,
+			earlystop_epoch_duration=150,
 			target_metric_crit=('b-' if main_args.ft_balanced_metrics else '')+'binxentropy',
 			#save_mode=C_.SM_NO_SAVE,
 			#save_mode=C_.SM_ALL,

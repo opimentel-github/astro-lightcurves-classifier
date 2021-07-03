@@ -12,8 +12,8 @@ clear
 # mc_gpu="--mc p_rnn_models --gpu 0"
 
 ### serial
-# mc_gpu="--mc s_attn_models_te --gpu 3"
-mc_gpu="--mc s_attn_models_noise --gpu 3"
+mc_gpu="--mc s_attn_models_te --gpu 3"
+# mc_gpu="--mc s_attn_models_noise --gpu 3"
 # mc_gpu="--mc s_attn_models_heads --gpu 3"
 
 # mc_gpu="--mc s_rnn_models --gpu 3"

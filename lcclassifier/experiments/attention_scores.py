@@ -7,7 +7,7 @@ from fuzzytorch.utils import TDictHolder, tensor_to_numpy, minibatch_dict_collat
 import numpy as np
 import fuzzytools.files as files
 from fuzzytools.cuteplots.utils import save_fig
-from fuzzytools.cuteplots.animations import PlotAnimation
+from fuzzytools.cuteplots.animators import PlotAnimator
 import matplotlib.pyplot as plt
 import fuzzytorch.models.seq_utils as seq_utils
 from lchandler import C_ as C_lchandler
@@ -48,7 +48,7 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 	if not is_parallel:
 		return
 
-	animation = PlotAnimation(animation_duration, save_end_frame=True)
+	plot_animator = PlotAnimator(animation_duration, save_end_frame=True)
 	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_n)#[::-1]
 	with torch.no_grad():
 		lcobj_names = dataset.get_random_stratified_lcobj_names(nc)
@@ -114,11 +114,11 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 
 			ax.set_xlabel('time [days]')
 			fig.tight_layout()
-			animation.append(fig)
+			plot_animator.append(fig)
 
 	### save file
 	image_save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}~exp_id={experiment_id}.mp4' # gif mp4
-	animation.save(image_save_filedir, reverse=True)
+	plot_animator.save(image_save_filedir, reverse=True)
 	dataset.reset_max_day() # very important!!
 	dataset.calcule_precomputed()
 	return
