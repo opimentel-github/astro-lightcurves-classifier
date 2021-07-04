@@ -12,6 +12,8 @@ from fuzzytools.cuteplots.utils import save_fig
 import matplotlib.pyplot as plt
 import random
 
+ALPHABET = 'abcdefg'
+
 ###################################################################################################################################################
 
 def save_reconstructions(train_handler, data_loader, save_rootdir,
@@ -65,8 +67,10 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 				ax.plot(p_rtime[:b_len], p_rx_pred[:b_len], '--', c=C_lchandler.COLOR_DICT[b], label=f'{b} obs reconstruction')
 
 			title = ''
-			title += f'model light curve reconstructions'+'\n' if k==0 else ''
-			title += f'survey={dataset.survey}-{"".join(dataset.band_names)} [{dataset.lcset_name}] - lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
+			if k==0:
+				title += f'model light curve reconstructions'+'\n'
+				title += f'set={dataset.survey} [{dataset.lcset_name.replace(".@", "")}]'+'\n'
+			title += f'({ALPHABET[k]}) lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 			ax.set_title(title[:-1])
 			ax.set_ylabel('observations [flux]')
 			ax.legend(loc='upper right')

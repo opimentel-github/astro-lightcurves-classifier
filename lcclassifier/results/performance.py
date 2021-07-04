@@ -6,6 +6,7 @@ import numpy as np
 import fuzzytools.files as fcfiles
 import fuzzytools.strings as strings
 from fuzzytools.matplotlib.lines import fill_beetween
+from fuzzytools.matplotlib.lims import AxisLims
 import matplotlib.pyplot as plt
 from fuzzytools.datascience.xerror import XError
 from . import utils as utils
@@ -28,12 +29,12 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 	):
 	for metric_name in dmetrics.keys():
 		fig, axs = plt.subplots(1, 2, figsize=figsize)
+		axis_lims = AxisLims({'x':(None, None), 'y':(0, 1)}, {'x':.0, 'y':.1})
 		ps_model_names = utils.get_sorted_model_names(model_names, merged=False)
 		for kax,ax in enumerate(axs):
 			if len(ps_model_names[kax])==0:
 				continue
 			color_dict = utils.get_color_dict(ps_model_names[kax])
-			ylims = [[],[]]
 			for kmn,model_name in enumerate(ps_model_names[kax]):
 				load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
 				files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name,
@@ -64,8 +65,8 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 					percentile=percentile,
 					)
 				ax.plot([None], [None], color=color, label=label)
-				ylims[0] += [ax.get_ylim()[0]]
-				ylims[1] += [ax.get_ylim()[1]]
+				axis_lims.append('x', days)
+				axis_lims.append('y', np.concatenate([metric_curve for metric_curve in metric_curves], axis=0))
 
 			mn = metric_name if dmetrics[metric_name]['mn'] is None else dmetrics[metric_name]['mn']
 			mn = mn if target_class is None else mn.replace('b-', f'{target_class}-')
@@ -80,15 +81,14 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 				pass
 
 			ax.set_xlabel('time [days]')
-			if kax==1:
-				ax.set_yticklabels([])
-				ax.set_title('serial models')
-			else:
+			if kax==0:
 				ax.set_ylabel(mn)
-				ax.set_title('parallel models')
+				ax.set_title('(a) parallel models')
+			else:
+				ax.set_yticklabels([])
+				ax.set_title('(b) serial models')
 
-			ax.set_xlim([days.min(), days.max()])
-			ax.set_ylim(min(ylims[0]), max(ylims[1])*1.05)
+			axis_lims.set_ax_axis_lims(ax)
 			ax.grid(alpha=0.5)
 			ax.legend(loc='lower right')
 
