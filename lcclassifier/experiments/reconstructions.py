@@ -12,13 +12,14 @@ from fuzzytools.cuteplots.utils import save_fig
 import matplotlib.pyplot as plt
 import random
 
-ALPHABET = 'abcdefg'
+ALPHABET = C_.ALPHABET
+FIGSIZE = (10,10)
 
 ###################################################################################################################################################
 
 def save_reconstructions(train_handler, data_loader, save_rootdir,
 	m:int=2,
-	figsize:tuple=C_.DEFAULT_FIGSIZE_BOX,
+	figsize:tuple=FIGSIZE,
 	nc:int=1,
 	**kwargs):
 	results = []
@@ -33,7 +34,7 @@ def save_reconstructions(train_handler, data_loader, save_rootdir,
 	return results
 
 def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_id,
-	figsize:tuple=C_.DEFAULT_FIGSIZE_BOX,
+	figsize:tuple=FIGSIZE,
 	nc:int=1,
 	**kwargs):
 	train_handler.load_model() # important, refresh to best model
@@ -70,7 +71,7 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 			if k==0:
 				title += f'model light curve reconstructions'+'\n'
 				title += f'set={dataset.survey} [{dataset.lcset_name.replace(".@", "")}]'+'\n'
-			title += f'({ALPHABET[k]}) lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
+			title += '$\\bf{'+ALPHABET[k]+'}$'+f' lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 			ax.set_title(title[:-1])
 			ax.set_ylabel('observations [flux]')
 			ax.legend(loc='upper right')

@@ -20,8 +20,8 @@ parser.add_argument('--mid',  type=str, default='0')
 parser.add_argument('--kf',  type=str, default='0')
 parser.add_argument('--bypass_synth',  type=int, default=0) # 0 1
 parser.add_argument('--bypass_autoencoder',  type=int, default=0) # 0 1
-parser.add_argument('--only_attn_exp',  type=int, default=0) # 0 1
 parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
+parser.add_argument('--only_perform_exps',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=1)
 parser.add_argument('--num_workers',  type=int, default=12)
@@ -262,18 +262,16 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	pt_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 	pt_model_train_handler.build_gpu(device)
 	print(pt_model_train_handler)
-	if main_args.only_attn_exp:
+	if main_args.bypass_autoencoder or main_args.only_perform_exps:
 		pass
 	else:
-		if not main_args.bypass_autoencoder:
-			pt_model_train_handler.fit_loader(s_train_loader_da, {
-				#'train':s_train_loader,
-				'val':r_val_loader,
-				},
-				train_dataset_method_call='pre_epoch_step',
-				) # main fit
-			del s_train_loader_da
-		pass
+		pt_model_train_handler.fit_loader(s_train_loader_da, {
+			#'train':s_train_loader,
+			'val':r_val_loader,
+			},
+			train_dataset_method_call='pre_epoch_step',
+			) # main fit
+	del s_train_loader_da
 	pt_model_train_handler.load_model() # important, refresh to best model
 
 	###################################################################################################################################################
@@ -298,21 +296,19 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	from lcclassifier.experiments.attention_scores import save_attn_scores_animation
 	from lcclassifier.experiments.attention_stats import save_attention_statistics
 
-	### attn
-	if main_args.only_attn_exp:
-		pt_exp_kwargs = {
-			'm':3,
-			}
-		save_attention_statistics(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
-		save_attention_statistics(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
-
-		save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-		#save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
-		#save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-		save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-		continue # breaks the normal training
-
-	# if not main_args.bypass_autoencoder:
+	### modulation and attn
+	pt_exp_kwargs = {
+		'm':3,
+		}
+	save_temporal_encoding(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/temporal_encoding/{cfilename}', **pt_exp_kwargs)
+	# save_attn_scores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+	#save_attn_scores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
+	#save_attn_scores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+	# save_attn_scores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
+	save_attention_statistics(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
+	save_attention_statistics(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
+	
+	### experiments
 	pt_exp_kwargs = {
 		'm':20,
 		'target_is_onehot':False,
@@ -321,9 +317,8 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	#save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
 	# save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
 	save_reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
-	save_dim_reductions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/dim_reductions/{cfilename}', **pt_exp_kwargs)
+	# save_dim_reductions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/dim_reductions/{cfilename}', **pt_exp_kwargs)
 	save_model_info(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs) # crash when bypassing autoencoder
-	save_temporal_encoding(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/temporal_encoding/{cfilename}', **pt_exp_kwargs)
 	
 	###################################################################################################################################################
 	###################################################################################################################################################
@@ -332,7 +327,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	### fine-tuning
 	for classifier_mid in range(0, main_args.classifier_mids):
 		pt_model_cache = deepcopy(pt_model_train_handler.load_model()) # copy
-		pt_model_cache.init_finetuning()
+		# pt_model_cache.init_finetuning() # optional
 
 		lcset_name = f'{main_args.kf}@train'
 		r_train_dataset_da = CustomDataset(lcset_name, lcdataset[lcset_name],
@@ -415,7 +410,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		extra_model_name_dict.update(get_dict_from_string(main_args.extra_model_name))
 		mtrain_config = {
 			'id':f'{main_args.mid}c{classifier_mid}',
-			'epochs_max':1e6, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
+			'epochs_max':300, # limit this as the pre-training is very time consuming 5 10 15 20 25 30
 			'save_rootdir':f'../save/{train_mode}/_training/{cfilename}',
 			'extra_model_name_dict':extra_model_name_dict,
 			}
@@ -424,12 +419,15 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		ft_model_train_handler.set_complete_save_roodir(f'../save/{complete_model_name}/{train_mode}/_training/{cfilename}/{main_args.kf}@train')
 		ft_model_train_handler.build_gpu(device)
 		print(ft_model_train_handler)
-		ft_model_train_handler.fit_loader(r_train_loader_da, {
-			'train':r_train_loader,
-			'val':r_val_loader,
-			},
-			train_dataset_method_call='pre_epoch_step',
-			) # main fit
+		if main_args.only_perform_exps:
+			pass
+		else:
+			ft_model_train_handler.fit_loader(r_train_loader_da, {
+				'train':r_train_loader,
+				'val':r_val_loader,
+				},
+				train_dataset_method_call='pre_epoch_step',
+				) # main fit
 		del r_train_loader_da
 		ft_model_train_handler.load_model() # important, refresh to best model
 
@@ -442,7 +440,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 			}	
 		#save_performance(ft_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check / slow
 		#save_performance(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check
-		#save_performance(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
+		save_performance(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 		save_performance(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 
 		save_model_info(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **ft_exp_kwargs)

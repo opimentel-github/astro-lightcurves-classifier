@@ -14,11 +14,13 @@ from lchandler import C_ as C_lchandler
 from lchandler.plots.lc import plot_lightcurve
 import random
 
+FIGSIZE = (10,10)
+
 ###################################################################################################################################################
 
 def save_attn_scores_animation(train_handler, data_loader, save_rootdir,
 	m:int=2,
-	figsize:tuple=C_.DEFAULT_FIGSIZE_BOX,
+	figsize:tuple=FIGSIZE,
 	nc:int=1,
 	**kwargs):
 	results = []
@@ -30,11 +32,10 @@ def save_attn_scores_animation(train_handler, data_loader, save_rootdir,
 			nc,
 			**kwargs)
 		results.append(r)
-
 	return results
 
 def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experiment_id,
-	figsize:tuple=C_.DEFAULT_FIGSIZE_BOX,
+	figsize:tuple=FIGSIZE,
 	nc:int=1,
 	alpha=0.333,
 	days_n:int=C_.DEFAULT_DAYS_N_AN,
@@ -61,7 +62,8 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 			fig, axs = plt.subplots(len(lcobj_names), 1, figsize=figsize)
 			for k,lcobj_name in enumerate(lcobj_names):
 				ax = axs[k]
-				in_tdict, lcobj = dataset.get_item(lcobj_name, return_lcobjs=True)
+				in_tdict, lcobj = dataset.get_item(lcobj_name)
+				in_tdict = dataset.fix_tdict(in_tdict)
 				train_handler.model.autoencoder['encoder'].add_extra_return = True
 				tdict = train_handler.model(TDictHolder(in_tdict).to(train_handler.device, add_dummy_dim=True))
 				train_handler.model.autoencoder['encoder'].add_extra_return = False
@@ -101,8 +103,10 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 					ax.plot([None], [None], 'o', markeredgewidth=0, c=c, label=f'{b} attention scores', alpha=alpha)
 
 				title = ''
-				title += f'model attention scores mapping'+'\n' if k==0 else ''
-				title += f'survey={dataset.survey}-{"".join(dataset.band_names)} [{dataset.lcset_name}] - lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
+				if k==0:
+					title += f'model attention scores mapping'+'\n'
+					title += f'set={dataset.survey} [{dataset.lcset_name.replace(".@", "")}]'+'\n'
+				title += '$\\bf{'+ALPHABET[k]+'}$'+f' lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 				ax.set_title(title[:-1])
 				ax.set_ylabel('observations [flux]')
 				ax.legend(loc='upper right')

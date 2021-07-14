@@ -32,10 +32,9 @@ def save_performance(train_handler, data_loader, save_rootdir,
 	days_rec_metrics_df = DFBuilder()
 	days_class_metrics_df = DFBuilder()
 	days_class_metrics_cdf = {c:DFBuilder() for c in dataset.class_names}
+	days_predictions = {}
 	days_cm = {}
-	days_wrongs_df = {}
-	bar_rows = 4
-	bar = ProgressBarMulti(len(days), bar_rows)
+	bar = ProgressBarMulti(len(days), 4)
 	with torch.no_grad():
 		can_be_in_loop = True
 		for day in days:
@@ -85,6 +84,7 @@ def save_performance(train_handler, data_loader, save_rootdir,
 					y_true = tensor_to_numpy(y_true)
 					y_pred_p = tensor_to_numpy(y_pred_p)
 
+					days_predictions[day] = {'y_true':y_true, 'y_pred_p':y_pred_p}
 					metrics_cdict, metrics_dict, cm = fcm.get_multiclass_metrics(y_pred_p, y_true, dataset.class_names)
 					for c in dataset.class_names:
 						days_class_metrics_cdf[c].append(day, update_dicts([{'_day':day}, metrics_cdict[c]]))
@@ -92,17 +92,6 @@ def save_performance(train_handler, data_loader, save_rootdir,
 
 					### cm
 					days_cm[day] = cm
-
-					### wrong samples
-					y_pred = np.argmax(y_pred_p, axis=-1)
-					lcobj_names = dataset.get_lcobj_names()
-					wrong_classification = ~(y_true==y_pred)
-					assert len(lcobj_names)==len(wrong_classification)
-					wrongs_df = DFBuilder()
-					for kwc,wc in enumerate(wrong_classification):
-						if wc:
-							wrongs_df.append(lcobj_names[kwc], {'y_true':dataset.class_names[y_true[kwc]], 'y_pred':dataset.class_names[y_pred[kwc]]})
-					days_wrongs_df[day] = wrongs_df.get_df()
 
 					### progress bar
 					recall = {c:metrics_cdict[c]['recall'] for c in dataset.class_names}
@@ -119,13 +108,14 @@ def save_performance(train_handler, data_loader, save_rootdir,
 		'survey':dataset.survey,
 		'band_names':dataset.band_names,
 		'class_names':dataset.class_names,
+		'lcobj_names':dataset.get_lcobj_names(),
 
 		'days':days,
 		'days_rec_metrics_df':days_rec_metrics_df.get_df(),
 		'days_class_metrics_df':days_class_metrics_df.get_df(),
 		'days_class_metrics_cdf':{c:days_class_metrics_cdf[c].get_df() for c in dataset.class_names},
+		'days_predictions':days_predictions,
 		'days_cm':days_cm,
-		'days_wrongs_df':days_wrongs_df,
 	}
 
 	### save file

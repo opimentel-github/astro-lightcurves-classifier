@@ -4,6 +4,8 @@ import lchandler.C_ as C_lchandler
 ###################################################################################################################################################
 
 EPS = 1e-5
+ALPHABET = 'abcdefghi'
+RANDOM_STATE = 0
 
 ### loss
 REC_LOSS_EPS = 1
@@ -16,9 +18,5 @@ DEFAULT_DAYS_N = 100
 DEFAULT_DAYS_N_AN = 50 # 5 50 100
 DEFAULT_MIN_DAY = 2.
 
-### plots
-DEFAULT_FIGSIZE_BOX = (10,10)
-DEFAULT_FIGSIZE_REC = (10,3)
-PLOT_FIGZISE_CM = (7,5)
-PLOT_FIGZISE_RECT = (15,7)
-FONTSIZE = 14
+### DICTS
+COLOR_DICT = C_lchandler.COLOR_DICT

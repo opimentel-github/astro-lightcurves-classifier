@@ -3,26 +3,26 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-import fuzzytools.files as fcfiles
-import fuzzytools.strings as strings
-from fuzzytools.matplotlib.lines import fill_beetween
+import fuzzytools.files as ftfiles
+import fuzzytools.matplotlib.lines as lines
 from fuzzytools.matplotlib.lims import AxisLims
+from matplotlib import cm
 import matplotlib.pyplot as plt
 from fuzzytools.datascience.xerror import XError
 from . import utils as utils
-from matplotlib import cm
 
-PERCENTILE_PLOT = 95
-RECT_PLOT_2X1 = (16, 8)
-SHADOW_ALPHA = 0.25
 RANDOM_STATE = 0
+PERCENTILE_PLOT = 95
+SHADOW_ALPHA = .25
+FIGSIZE_2X1 = (16, 8)
+ALPHABET = 'abcdefgh'
 
 ###################################################################################################################################################
 
 def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 	target_class=None,
 	baselines_dict={},
-	figsize=RECT_PLOT_2X1,
+	figsize=FIGSIZE_2X1,
 	train_mode='fine-tuning',
 	percentile=PERCENTILE_PLOT,
 	shadow_alpha=SHADOW_ALPHA,
@@ -37,7 +37,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			color_dict = utils.get_color_dict(ps_model_names[kax])
 			for kmn,model_name in enumerate(ps_model_names[kax]):
 				load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
-				files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name,
+				files, files_ids = ftfiles.gather_files_by_kfold(load_roodir, kf, lcset_name,
 					fext='d',
 					disbalanced_kf_mode='oversampling', # error oversampling
 					random_state=RANDOM_STATE,
@@ -57,9 +57,10 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 					metric_curves = [f()['days_class_metrics_cdf'][target_class][metric_name.replace('b-', '')].values for f in files] 
 				xe_metric_curve_avg = XError(np.mean(np.concatenate([metric_curve[None] for metric_curve in metric_curves], axis=0), axis=-1))
 
-				label = f'{utils.get_fmodel_name(model_name)} | AUC={xe_metric_curve_avg}'
+				model_label = utils.get_fmodel_name(model_name)
+				label = f'{model_label} | AUC={xe_metric_curve_avg}'
 				color = color_dict[utils.get_fmodel_name(model_name)]
-				fill_beetween(ax, [days for metric_curve in metric_curves], [metric_curve for metric_curve in metric_curves],
+				lines.fill_beetween(ax, [days for _ in metric_curves], metric_curves,
 					fill_kwargs={'color':color, 'alpha':shadow_alpha, 'lw':0,},
 					median_kwargs={'color':color, 'alpha':1,},
 					percentile=percentile,
@@ -70,10 +71,10 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 
 			mn = metric_name if dmetrics[metric_name]['mn'] is None else dmetrics[metric_name]['mn']
 			mn = mn if target_class is None else mn.replace('b-', f'{target_class}-')
-			title = ''
-			title += f'{mn} v/s days'+'\n'
-			title += f'train-mode={train_mode} - survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
-			fig.suptitle(title[:-1], va='bottom')
+			suptitle = ''
+			suptitle += f'{mn} v/s days [{train_mode}]'+'\n'
+			suptitle += f'set={survey} [{lcset_name.replace(".@", "")}]'+'\n'
+			fig.suptitle(suptitle[:-1], va='bottom')
 
 		for kax,ax in enumerate(axs):
 			if f'{kf}@{lcset_name}' in baselines_dict.keys():

@@ -41,14 +41,15 @@ def get_fmodel_name(model_name):
 	heads = mn_dict.get('heads', None)
 
 	model_name = []
-	model_name += [mdl]
-	model_name += [f'w/ {b}' if not b is None else '']
-	model_name += [f'w/ {cell}' if not cell is None else '']
-	model_name += [f'w/ M={int(m)//2}' if not m is None else ''] # fixme
-	model_name += [f'w/ heads={heads}' if not heads is None else '']
-	model_name += [f'w/ k={kernel_size}' if not kernel_size is None else '']
-	model_name += [f'w/ r={time_noise_window}' if not time_noise_window is None else '']
-	return ' '.join(model_name)
+	# model_name += [f'{b}' if not b is None else '']
+	model_name += [f'cell={cell}'] if not cell is None else []
+	model_name += [f'M={int(m)//2}' if not m is None else '']
+	model_name += [f'r={time_noise_window}' if not time_noise_window is None else '']
+	model_name += [f'heads={heads}' if not heads is None else '']
+	# model_name += [f'k={kernel_size}' if not kernel_size is None else '']
+	mdl_desc = ', '.join(model_name)
+	txt = f'{mdl}({mdl_desc})'
+	return txt
 
 ###################################################################################################################################################
 

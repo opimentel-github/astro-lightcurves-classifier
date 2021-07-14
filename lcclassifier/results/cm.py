@@ -3,18 +3,18 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-import fuzzytools.files as fcfiles
+import fuzzytools.files as ftfiles
 import fuzzytools.strings as strings
-from fuzzytools.cuteplots.lines import fill_beetween
 import matplotlib.pyplot as plt
 from fuzzytools.datascience.xerror import XError
 from . import utils as utils
 from matplotlib import cm
 from fuzzytools.cuteplots.cm_plots import plot_custom_confusion_matrix
-from fuzzytools.cuteplots.animations import PlotAnimation
+from fuzzytools.cuteplots.animators import PlotAnimator
 from fuzzytools.progress_bars import ProgressBar
 
 CM_FIGSIZE = (6,5)
+RANDOM_STATE = 0
 
 ###################################################################################################################################################
 
@@ -27,7 +27,11 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 	):
 	for kmn,model_name in enumerate(model_names):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
-		files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
+		files, files_ids = ftfiles.gather_files_by_kfold(load_roodir, kf, lcset_name,
+			fext='d',
+			disbalanced_kf_mode='oversampling', # error oversampling
+			random_state=RANDOM_STATE,
+			)
 		print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
 		if len(files)==0:
 			continue
@@ -38,7 +42,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 		is_parallel = 'Parallel' in model_name
 		days = files[0]()['days']
 
-		plot_animation = PlotAnimation(animation_duration,
+		plot_animation = PlotAnimator(animation_duration,
 			is_dummy=not export_animation,
 			#save_init_frame=True,
 			save_end_frame=True,

@@ -3,7 +3,7 @@ from __future__ import division
 from . import C_
 
 import numpy as np
-import fuzzytools.files as fcfiles
+import fuzzytools.files as ftfiles
 import fuzzytools.strings as strings
 from fuzzytools.matplotlib.lines import fill_beetween
 import matplotlib.pyplot as plt
@@ -31,6 +31,8 @@ GUIDE_CURVE_DICT = {
 	'prc':[1,0],
 	}
 
+RANDOM_STATE = 0
+
 ################################################################################################################
 
 def plot_ocurve_classes(model_names, target_classes, rootdir, cfilename, kf, lcset_name, target_day,
@@ -50,7 +52,11 @@ def plot_ocurve_classes(model_names, target_classes, rootdir, cfilename, kf, lcs
 			color_dict = utils.get_color_dict(ps_model_names[kax])
 			for kmn,model_name in enumerate(ps_model_names[kax]):
 				load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
-				files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
+				files, files_ids = ftfiles.gather_files_by_kfold(load_roodir, kf, lcset_name,
+					fext='d',
+					disbalanced_kf_mode='oversampling', # error oversampling
+					random_state=RANDOM_STATE,
+					)
 				print(f'{model_name} {files_ids}({len(files_ids)}#)')
 				if len(files)==0:
 					continue
@@ -113,7 +119,11 @@ def plot_ocurve_models(rootdir, cfilename, kf, lcset_name, model_names, target_c
 		color_dict = utils.get_color_dict(ps_model_names[kax])
 		for kmn,model_name in enumerate(ps_model_names[kax]):
 			load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
-			files, files_ids = fcfiles.gather_files_by_kfold(load_roodir, kf, lcset_name, fext='d')
+			files, files_ids = ftfiles.gather_files_by_kfold(load_roodir, kf, lcset_name,
+				fext='d',
+				disbalanced_kf_mode='oversampling', # error oversampling
+				random_state=RANDOM_STATE,
+				)
 			print(f'{model_name} {files_ids}({len(files_ids)}#)')
 			if len(files)==0:
 				continue

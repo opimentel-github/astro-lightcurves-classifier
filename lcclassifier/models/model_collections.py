@@ -105,6 +105,23 @@ class ModelCollections():
 
 ###################################################################################################################################################
 
+	def p_attn_model(self):
+		gs = GridSeacher({
+			'mdl_kwargs':{
+				'C':mbls.ParallelTimeSelfAttn,
+				'embd_dims':self.gd_embd_dims,
+				'layers':self.gd_layers,
+				'dropout':self.dropout_d,
+
+				'fourier_dims':GDIter(1),
+				'te_features':GDIter(16),
+				'kernel_size':GDIter(1),
+				'heads':GDIter(4),
+				'time_noise_window':GDIter('6*24**-1'),
+			},
+		})
+		self.add_gs(gs)
+
 	def p_attn_models_te(self):
 		gs = GridSeacher({
 			'mdl_kwargs':{

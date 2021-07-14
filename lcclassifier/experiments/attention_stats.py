@@ -62,7 +62,7 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 			#p_rerror = tdict[f'target/rerror.{b}'] # (b,t,1)
 			#p_rx = tdict[f'target/recx.{b}'] # (b,t,1)
 
-			print(tdict.keys())
+			# print(tdict.keys())
 			uses_attn = any([f'attn_scores' in k for k in tdict.keys()])
 			if not uses_attn:
 				return
@@ -82,7 +82,7 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 				p_onehot_k = tensor_to_numpy(p_onehot[k]) # (b,t) > (t)
 				b_len = p_onehot_k.sum()
 				assert b_len<=len(lcobjb), f'{b_len}<={len(lcobjb)}'
-				bar(f'{lcobj_name} - b_len={b_len}')
+				bar(f'b={b} - lcobj_name={lcobj_name} - b_len={b_len}')
 
 				if b_len<=dj:
 					continue

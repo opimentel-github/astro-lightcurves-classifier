@@ -2,17 +2,56 @@ from __future__ import print_function
 from __future__ import division
 from . import C_
 
+import numpy as np
+import fuzzytools.files as ftfiles
+import fuzzytools.strings as strings
+from matplotlib import cm
+import matplotlib.pyplot as plt
+from copy import copy, deepcopy
+import fuzzytools.matplotlib.ax_styles as ax_styles
+from . import utils as utils
+
+RANDOM_STATE = C_.RANDOM_STATE
+PERCENTILE_PLOT = 95
+SHADOW_ALPHA = .25
+FIGSIZE = (20, 10)
+ALPHABET = C_.ALPHABET
+
+###################################################################################################################################################
+
+def get_fourier(t, weights, te_periods, te_phases):
+	x = np.zeros_like(t)
+	for kw,w in enumerate(weights):
+		x += w*np.sin(2*np.pi*t/te_periods[kw]+te_phases[kw])
+	return x
+
+def get_diff(x, k):
+	assert len(x.shape)==1
+	new_x = copy(x)
+	for _ in range(0, k):
+		new_x = np.diff(new_x)
+		new_x = np.concatenate([[new_x[0]], new_x], axis=0)
+	return new_x
+
 ###################################################################################################################################################
 
 def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 	train_mode='pre-training',
-	layers=3,
-	figsize=(12,10),
+	layers=1,
+	figsize=FIGSIZE,
 	n=1e3,
+	percentile=PERCENTILE_PLOT,
+	shadow_alpha=SHADOW_ALPHA,
 	):
 	for kmn,model_name in enumerate(model_names):
-		load_roodir = f'{rootdir}/{model_name}/{train_mode}/temporal_encoding/{cfilename}/{kf}@{lcset_name}'
-		files, files_ids = fcfiles.gather_files_by_id(load_roodir, fext='d')
+		load_roodir = f'{rootdir}/{model_name}/{train_mode}/temporal_encoding/{cfilename}'
+		if not ftfiles.path_exists(load_roodir):
+			continue
+		files, files_ids = ftfiles.gather_files_by_kfold(load_roodir, kf, lcset_name,
+			fext='d',
+			disbalanced_kf_mode='ignore', # error oversampling ignore
+			random_state=RANDOM_STATE,
+			)
 		print(f'{model_name} {files_ids}({len(files_ids)}#)')
 		if len(files)==0:
 			continue
@@ -23,67 +62,79 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 		mn_dict = strings.get_dict_from_string(model_name)
 		mdl = mn_dict['mdl']
 		is_parallel = 'Parallel' in mdl
+		if not is_parallel:
+			continue
+
 		days = files[0]()['days']
-		#days = np.linspace(days[0], days[-1], int(n))
-		#days = np.linspace(0, 40, int(n))
+		days = np.linspace(days[0], days[-1], int(n))
 
-		def get_fourier(t, weights, te_periods, te_phases):
-			x = np.zeros_like(t)
-			for kw,w in enumerate(weights):
-				x += w*np.sin(2*np.pi*t/te_periods[kw]+te_phases[kw])
-			return x
+		global_median_curves_d = {}
+		fig, axs = plt.subplots(2, len(band_names), figsize=figsize)
+		for kfile,file in enumerate(files):
+			for kb,b in enumerate(band_names):
+				d = file()['temporal_encoding_info']['encoder'][f'ml_attn.{b}']['te_film']
+				weight = d['weight'] # (f,2m)
+				alpha_weights, beta_weights = np.split(weight.T, 2, axis=-1) # (f,2m)>(2m,f/2),(2m,f/2)
+				scales = []
+				biases = []
+				for kfu in range(0, alpha_weights.shape[-1]):
+					te_ws = d['te_ws']
+					te_periods = d['te_periods']
+					te_phases = d['te_phases']
+					alpha = get_fourier(days, alpha_weights[:,kfu], te_periods, te_phases)
+					dalpha = get_diff(alpha, 1)**2
+					beta = get_fourier(days, beta_weights[:,kfu], te_periods, te_phases)
+					dbeta = get_diff(beta, 1)**2
+					scales += [dalpha]
+					biases += [dbeta]
 
-		###
-		b = 'r'
-		fig, axs = plt.subplots(layers, 1, figsize=figsize)
-		cmap = cm.get_cmap('viridis', 100)
+				d = {
+					'scale':{'curve':scales, 'c':'r'},
+					'bias':{'curve':biases, 'c':'g'},
+					}
+				for kax,curve_name in enumerate(['scale', 'bias']):
+					ax = axs[kax,kb]
+					curves = d[curve_name]['curve']
+					c = 'k'
+					median_curve = np.median(np.concatenate([curve[None]*1e6 for curve in curves], axis=0), axis=0)
+					if not f'{kax}/{kb}' in global_median_curves_d.keys():
+						global_median_curves_d[f'{kax}/{kb}'] = []
+					global_median_curves_d[f'{kax}/{kb}'] += [median_curve]
+					ax.plot(days, median_curve,
+						c=c,
+						alpha=1,
+						lw=.5,
+						)
+					ax.plot([None], [None], c=c, label=f'variation power continuous-time function' if kfile==0 else None)
+					ax.legend(loc='upper right')
+					ax.grid(alpha=0.5)
+					ax.set_xlim((days[0], days[-1]))
+					ax.set_title('$\\bf{('+f'{ALPHABET[kb]}.{kax}'+')}$ '+f'variation power for {curve_name}; band={b}')
+					ax_styles.set_color_borders(ax, C_.COLOR_DICT[b])
+					if kb==0:
+						ax.set_ylabel(f'variation power')
+					else:
+						pass
+					if kax==0:
+						ax.set_xticklabels([])
+					else:
+						ax.set_xlabel(f'time [days]')
+			model_label = utils.get_fmodel_name(model_name)
+			suptitle = ''
+			suptitle = f'{model_label}'+'\n'
+			# suptitle += f'set={survey} [{lcset_name.replace(".@", "")}]'+'\n'
+			fig.suptitle(suptitle[:-1], va='bottom')
 
-		for layer in range(0, layers):
-			ax = axs[layer]
-			#for kfile,file in enumerate(files):
-			kfile = 1
-			d = files[kfile]()['temporal_encoding_info']['encoder'][f'ml_attn.{b}' if is_parallel else f'ml_attn']['te_film'][layer]
-			weight = d['weight']
-			alpha_weights, beta_weights = np.split(weight.T, 2, axis=-1)
-			#kfu = 1
-			dalphas = []
-			alphas = []
-			dbetas = []
-			betas = []
-			for kfu in range(0, len(weight)//2):
-				te_ws = d['te_ws']
-				te_periods = d['te_periods']
-				#print(te_periods)
-				te_phases = d['te_phases']
-				#print(alpha_weight.shape, beta_weight.shape, te_ws.shape, te_phases.shape)
+		for k in global_median_curves_d.keys():
+			kax,kb = k.split('/')
+			median_curves = global_median_curves_d[k]
+			ax = axs[int(kax),int(kb)]
+			ax.plot(days, np.median(np.concatenate([median_curve[None] for median_curve in median_curves], axis=0), axis=0), '-',
+				# c=['r', 'g'][int(kax)],
+				c='r',
+				label=f'median variation power continuous-time function',
+				)
+			ax.legend(loc='upper right')
 
-				alpha = get_fourier(days, alpha_weights[:,kfu], te_periods, te_phases)
-				alphas += [(alpha[None]*1e0)**2] # fixme luego usar (alpha+1)
-				dalphas += [(np.diff(alpha, prepend=alpha[0])[None]*1e0)**2]
-
-				beta = get_fourier(days, beta_weights[:,kfu], te_periods, te_phases)
-				betas += [(beta[None]*1e0)**2]
-				dbetas += [(np.diff(beta, prepend=beta[0])[None]*1e0)**2]
-				#ax.plot(days, alpha, 'r', lw=1, label=f'scale learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
-				#ax.plot(days, beta, 'g', lw=1, label='bias learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
-				ax.grid(alpha=0.5)
-				ax.legend()
-				label = f'encoder-layer={layer} - band={b}' if is_parallel else f'encoder-layer={layer}'
-				ax.set_ylabel(label)
-				#ax.set_yticklabels([])
-				#ax.set_xlim([0,1000])
-
-			ax.plot(days, np.concatenate(alphas, axis=0).mean(axis=0), '-r', lw=1, label=f'scale learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
-			ax.plot(days, np.concatenate(betas, axis=0).mean(axis=0), '-g', lw=1, label='bias learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
-			ax.plot(days, np.concatenate(dalphas, axis=0).mean(axis=0), '--r', lw=1, label=f'scale learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
-			ax.plot(days, np.concatenate(dbetas, axis=0).mean(axis=0), '--g', lw=1, label='bias learned curves' if kfu==0 else None)#, c=cmap(k/len(te_ws)))
-			ax.set_xlabel('time [days]')
-
-		_label = strings.get_string_from_dict({k:mn_dict[k] for k in mn_dict.keys() if k in label_keys}, key_key_separator=' - ')
-		label = f'{mdl} ({_label})'
-		title = ''
-		title += f'{label}'+'\n'
-		title += f'survey={survey} [{kf}@{lcset_name}] - bands={"".join(band_names)}'+'\n'
-		title += f'train-mode={train_mode}'+'\n'
-		axs[0].set_title(title[:-1])
+		fig.tight_layout()
 		plt.show()
