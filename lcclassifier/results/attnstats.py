@@ -26,7 +26,7 @@ def plot_slope_distance_attnstats(rootdir, cfilename, kf, lcset_name, model_name
 	bins_yrange=[None, None],
 	cmap_name='inferno', # plasma viridis inferno
 	dj=3,
-	distance_mode='mean',
+	distance_mode='mean', # local mean median 
 	):
 	for kmn,model_name in enumerate(model_names):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/attn_stats/{cfilename}'
@@ -59,7 +59,6 @@ def plot_slope_distance_attnstats(rootdir, cfilename, kf, lcset_name, model_name
 			xy_attn = []
 			attn_scores_collection = flat_list([f()['attn_scores_collection'][b] for f in files])
 			for d in attn_scores_collection:
-				#print(d.keys())
 				xy_marginal += [[d[x_key], d[y_key]]]
 				if d['attn_scores_min_max_k.j']>=attn_th and d['b_len']>=len_th and d['c'] in target_class_names:
 					xy_attn += [[d[x_key], d[y_key]]]

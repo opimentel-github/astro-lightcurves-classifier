@@ -18,6 +18,7 @@ from umap import UMAP
 from fuzzytools.datascience.dim_reductors import DimReductor
 
 DEFAULT_DAYS_N = C_.DEFAULT_DAYS_N
+RANDOM_STATE = 0
 
 ###################################################################################################################################################
 
@@ -26,7 +27,7 @@ def save_dim_reductions(train_handler, data_loader, save_rootdir,
 	target_y_key='target/y',
 	pred_y_key='model/y',
 	days_n:int=DEFAULT_DAYS_N,
-	random_state=0,
+	random_state=RANDOM_STATE,
 	**kwargs):
 	train_handler.load_model() # important, refresh to best model
 	train_handler.model.eval() # important, model eval mode

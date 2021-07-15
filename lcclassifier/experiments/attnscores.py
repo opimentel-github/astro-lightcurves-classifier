@@ -107,7 +107,7 @@ def _save_attnscores_animation(train_handler, data_loader, save_rootdir, experim
 				if k==0:
 					title += f'model attention scores mapping'+'\n'
 					title += f'set={dataset.survey} [{dataset.lcset_name.replace(".@", "")}]'+'\n'
-				title += ')}$'+f'{bf_alphabet_count(k)} lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
+				title += f'{bf_alphabet_count(k)} lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 				ax.set_title(title[:-1])
 				ax.set_ylabel('observation [flux]')
 				ax.legend(loc='upper right')
@@ -122,7 +122,7 @@ def _save_attnscores_animation(train_handler, data_loader, save_rootdir, experim
 			plot_animator.append(fig)
 
 	### save file
-	image_save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}~exp_id={experiment_id}.mp4' # gif mp4
+	image_save_filedir = f'{save_rootdir}/{dataset.lcset_name}/id={train_handler.id}~exp_id={experiment_id}.gif' # gif mp4
 	plot_animator.save(image_save_filedir, reverse=True)
 	dataset.reset_max_day() # very important!!
 	dataset.calcule_precomputed()

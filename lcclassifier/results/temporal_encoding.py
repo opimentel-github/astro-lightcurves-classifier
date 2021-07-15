@@ -10,12 +10,18 @@ import matplotlib.pyplot as plt
 from copy import copy, deepcopy
 import fuzzytools.matplotlib.ax_styles as ax_styles
 from . import utils as utils
+from fuzzytools.strings import bf_alphabet_count
 
 RANDOM_STATE = C_.RANDOM_STATE
 PERCENTILE_PLOT = 95
 SHADOW_ALPHA = .25
 FIGSIZE = (20, 10)
-ALPHABET = C_.ALPHABET
+
+### hardcoded
+EMPIRICAL_TMAXS = {
+	'r':13.033,
+	'g':10.996,
+	}
 
 ###################################################################################################################################################
 
@@ -97,9 +103,9 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 					curves = d[curve_name]['curve']
 					c = 'k'
 					median_curve = np.median(np.concatenate([curve[None]*1e6 for curve in curves], axis=0), axis=0)
-					if not f'{kax}/{kb}' in global_median_curves_d.keys():
-						global_median_curves_d[f'{kax}/{kb}'] = []
-					global_median_curves_d[f'{kax}/{kb}'] += [median_curve]
+					if not f'{kax}/{kb}/{b}' in global_median_curves_d.keys():
+						global_median_curves_d[f'{kax}/{kb}/{b}'] = []
+					global_median_curves_d[f'{kax}/{kb}/{b}'] += [median_curve]
 					ax.plot(days, median_curve,
 						c=c,
 						alpha=1,
@@ -109,10 +115,10 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 					ax.legend(loc='upper right')
 					ax.grid(alpha=0.5)
 					ax.set_xlim((days[0], days[-1]))
-					ax.set_title('$\\bf{('+f'{ALPHABET[kb]}.{kax}'+')}$ '+f'variation power for {curve_name}; band={b}')
+					ax.set_title(f'{bf_alphabet_count(kb, kax)} variation power for {curve_name}; band={b}')
 					ax_styles.set_color_borders(ax, C_.COLOR_DICT[b])
 					if kb==0:
-						ax.set_ylabel(f'variation power')
+						ax.set_ylabel(f'variation power [M]')
 					else:
 						pass
 					if kax==0:
@@ -126,7 +132,7 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 			fig.suptitle(suptitle[:-1], va='bottom')
 
 		for k in global_median_curves_d.keys():
-			kax,kb = k.split('/')
+			kax,kb,b = k.split('/')
 			median_curves = global_median_curves_d[k]
 			ax = axs[int(kax),int(kb)]
 			ax.plot(days, np.median(np.concatenate([median_curve[None] for median_curve in median_curves], axis=0), axis=0), '-',
@@ -134,6 +140,8 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 				c='r',
 				label=f'median variation power continuous-time function',
 				)
+
+			ax.axvline(EMPIRICAL_TMAXS[b], linestyle='--', c='k', label='empirical median SNe peak-time')
 			ax.legend(loc='upper right')
 
 		fig.tight_layout()

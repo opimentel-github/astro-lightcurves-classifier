@@ -86,4 +86,4 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 
 		bar.done()
 		plt.show()
-		plot_animation.save(f'../temp/{model_name}.mp4')
+		plot_animation.save(f'../temp/{model_name}.gif') # gif mp4
