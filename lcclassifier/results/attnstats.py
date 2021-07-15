@@ -9,14 +9,14 @@ import matplotlib.pyplot as plt
 from . import utils as utils
 from fuzzytools.lists import flat_list
 import fuzzytools.matplotlib.ax_styles as ax_styles
+from fuzzytools.strings import bf_alphabet_count
 
 RANDOM_STATE = 0
 FIGSIZE = (16,10)
-ALPHABET = C_.ALPHABET
 
 ###################################################################################################################################################
 
-def plot_attention_stats(rootdir, cfilename, kf, lcset_name, model_names,
+def plot_slope_distance_attnstats(rootdir, cfilename, kf, lcset_name, model_names,
 	train_mode='pre-training',
 	figsize=FIGSIZE,
 	attn_th=0.5,
@@ -25,6 +25,8 @@ def plot_attention_stats(rootdir, cfilename, kf, lcset_name, model_names,
 	bins_xrange=[None, None],
 	bins_yrange=[None, None],
 	cmap_name='inferno', # plasma viridis inferno
+	dj=3,
+	distance_mode='mean',
 	):
 	for kmn,model_name in enumerate(model_names):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/attn_stats/{cfilename}'
@@ -44,8 +46,12 @@ def plot_attention_stats(rootdir, cfilename, kf, lcset_name, model_names,
 		#days = files[0]()['days']
 
 		target_class_names = class_names
-		x_key = 'days_from_peak1.j'
-		y_key = 'linear_trend_m.j'
+		x_key = f'peak_distance.j~dj={dj}~mode={distance_mode}'
+		y_key = f'local_slope_m.j~dj={dj}'
+		label_dict = {
+			x_key:f'peak-distance [days]',
+			y_key:f'local-slope using $\\Delta j={dj}$',
+			}
 
 		fig, axs = plt.subplots(2, len(band_names), figsize=figsize)
 		for kb,b in enumerate(band_names):
@@ -84,7 +90,7 @@ def plot_attention_stats(rootdir, cfilename, kf, lcset_name, model_names,
 				ax.axvline(0, linewidth=.5, color='w')
 				ax.axhline(0, linewidth=.5, color='w')
 				title = ''
-				title += '$\\bf{('+f'{ALPHABET[kb]}.{kax}'+')}$ '+f'{d[xy_name]["title"]}; band={b}'+'\n'
+				title += f'{bf_alphabet_count(kb, kax)} {d[xy_name]["title"]}; band={b}'+'\n'
 				ax.set_title(title[:-1])
 
 				txt_y = yedges[0]
@@ -92,10 +98,6 @@ def plot_attention_stats(rootdir, cfilename, kf, lcset_name, model_names,
 				ax.text(0, txt_y, ' > post SNe-peak', fontsize=12, c='w', ha='left', va='bottom')
 				ax_styles.set_color_borders(ax, C_.COLOR_DICT[b])
 
-				label_dict = {
-					'linear_trend_m.j':'local-slope using $\\Delta j=3$',
-					'days_from_peak1.j':'peak-distance [days]',
-				}
 				xlabel = label_dict[x_key]
 				ylabel = label_dict[y_key]
 				if kb==0:

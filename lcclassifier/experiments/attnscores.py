@@ -13,13 +13,13 @@ import fuzzytorch.models.seq_utils as seq_utils
 from lchandler import C_ as C_lchandler
 from lchandler.plots.lc import plot_lightcurve
 import random
+from fuzzytools.strings import bf_alphabet_count
 
-ALPHABET = C_.ALPHABET
 FIGSIZE = (10,10)
 
 ###################################################################################################################################################
 
-def save_attn_scores_animation(train_handler, data_loader, save_rootdir,
+def save_attnscores_animation(train_handler, data_loader, save_rootdir,
 	m:int=2,
 	figsize:tuple=FIGSIZE,
 	nc:int=1,
@@ -28,14 +28,14 @@ def save_attn_scores_animation(train_handler, data_loader, save_rootdir,
 	for experiment_id in range(0, m):
 		random.seed(experiment_id)
 		np.random.seed(experiment_id)
-		r = _save_attn_scores_animation(train_handler, data_loader, save_rootdir, str(experiment_id),
+		r = _save_attnscores_animation(train_handler, data_loader, save_rootdir, str(experiment_id),
 			figsize,
 			nc,
 			**kwargs)
 		results.append(r)
 	return results
 
-def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experiment_id,
+def _save_attnscores_animation(train_handler, data_loader, save_rootdir, experiment_id,
 	figsize:tuple=FIGSIZE,
 	nc:int=1,
 	alpha=0.333,
@@ -107,7 +107,7 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 				if k==0:
 					title += f'model attention scores mapping'+'\n'
 					title += f'set={dataset.survey} [{dataset.lcset_name.replace(".@", "")}]'+'\n'
-				title += '$\\bf{('+f'{ALPHABET[k]}'+')}$'+f' lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
+				title += ')}$'+f'{bf_alphabet_count(k)} lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 				ax.set_title(title[:-1])
 				ax.set_ylabel('observation [flux]')
 				ax.legend(loc='upper right')

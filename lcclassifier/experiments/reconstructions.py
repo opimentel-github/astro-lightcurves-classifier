@@ -11,8 +11,8 @@ import fuzzytools.prints as prints
 from fuzzytools.cuteplots.utils import save_fig
 import matplotlib.pyplot as plt
 import random
+from fuzzytools.strings import bf_alphabet_count
 
-ALPHABET = C_.ALPHABET
 FIGSIZE = (10,10)
 
 ###################################################################################################################################################
@@ -71,7 +71,7 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 			if k==0:
 				title += f'multi-band light curve reconstructions'+'\n'
 				title += f'set={dataset.survey} [{dataset.lcset_name.replace(".@", "")}]'+'\n'
-			title += '$\\bf{('+f'{ALPHABET[k]}'+')}$'+f' lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
+			title += f'{bf_alphabet_count(k)} lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 			ax.set_title(title[:-1])
 			ax.set_ylabel('observation [flux]')
 			ax.legend(loc='upper right')

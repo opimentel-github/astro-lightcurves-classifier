@@ -18,8 +18,16 @@ from lchandler.plots.lc import plot_lightcurve
 
 ###################################################################################################################################################
 
-def linear_trend_f(time, m, n):
-	return time*m+n
+def get_local_slope(days, obs, j, dj,
+	p0=[0,0],
+	):
+	def local_slope_f(time, m, n):
+		return time*m+n
+	sub_days = days[max(0, j-dj):j] # (dj)
+	sub_obs = obs[max(0, j-dj):j] # (dj)
+	popt, pcov = curve_fit(local_slope_f, sub_days, sub_obs, p0=p0)
+	local_slope_m, local_slope_n = popt
+	return local_slope_m, local_slope_n, sub_days, sub_obs
 
 def min_max_norm(x,
 	eps:float=C_.EPS,
@@ -32,8 +40,9 @@ def min_max_norm(x,
 
 ###################################################################################################################################################
 
-def save_attention_statistics(train_handler, data_loader, save_rootdir,
+def save_attnstats(train_handler, data_loader, save_rootdir,
 	eps:float=C_.EPS,
+	djs=[2,3],
 	**kwargs):
 	train_handler.load_model() # important, refresh to best model
 	train_handler.model.eval() # important, model eval mode
@@ -43,7 +52,6 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 	if not is_parallel:
 		return
 
-	dj = 3
 	attn_scores_collection = {b:[] for kb,b in enumerate(dataset.band_names)}
 	with torch.no_grad():
 		tdicts = []
@@ -84,7 +92,7 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 				assert b_len<=len(lcobjb), f'{b_len}<={len(lcobjb)}'
 				bar(f'b={b} - lcobj_name={lcobj_name} - b_len={b_len}')
 
-				if b_len<=dj:
+				if b_len<=min(djs):
 					continue
 
 				attn_scores_k = tensor_to_numpy(attn_scores[k,:b_len,0]) # (b,qt,1)>(t)
@@ -98,36 +106,34 @@ def save_attention_statistics(train_handler, data_loader, save_rootdir,
 				obs_min_max = min_max_norm(obs) # (t)
 				obse_min_max = min_max_norm(obse) # (t)
 				
-				for j in range(dj, b_len): # dj,dj+1,...,b_len-1
-					#print(days[j-dj:j])
-					linear_trend_days = days[j-dj:j] # (dj)
-					linear_trend_obs = obs[j-dj:j] # (dj)
-					popt, pcov = curve_fit(linear_trend_f, linear_trend_days, linear_trend_obs, p0=[0,0])
-					linear_trend_m, linear_trend_n = popt
-
+				for j in range(min(djs), b_len): # dj,dj+1,...,b_len-1
 					r = {
 						#'lcobj_name':lcobj_name,
-						'c':dataset.class_names[lcobj.y],
-						'b_len':b_len,
-						'peak_day':peak_day,
-						'j':j,
+						f'c':dataset.class_names[lcobj.y],
+						f'b_len':b_len,
+						f'peak_day':peak_day,
+						f'j':j,
 						
-						'attn_scores_k.j':attn_scores_k[j],
-						'attn_scores_min_max_k.j':attn_scores_min_max_k[j],
+						f'attn_scores_k.j':attn_scores_k[j],
+						f'attn_scores_min_max_k.j':attn_scores_min_max_k[j],
 						
-						'days.j':days[j],
-						'days_from_peak1.j':linear_trend_days.mean()-peak_day,
-						'days_from_peak2.j':days[j]-peak_day,
-						'linear_trend_m.j':linear_trend_m,
-						'linear_trend_n.j':linear_trend_n,
+						f'days.j':days[j],
 
-						'obs.j':obs[j],
-						'obs_min_max.j':obs_min_max[j],
+						f'obs.j':obs[j],
+						f'obs_min_max.j':obs_min_max[j],
 
-						'obse.j':obse[j],
-						'obse_min_max.j':obse_min_max[j],
-					}
-					#print(r)
+						f'obse.j':obse[j],
+						f'obse_min_max.j':obse_min_max[j],
+						}
+					for dj in djs:
+						local_slope_m, local_slope_n, sub_days, sub_obs = get_local_slope(days, obs, j, dj)
+						r.update({
+							f'local_slope_m.j~dj={dj}':local_slope_m,
+							f'local_slope_n.j~dj={dj}':local_slope_n,
+							f'peak_distance.j~dj={dj}~mode=local':days[j]-peak_day,
+							f'peak_distance.j~dj={dj}~mode=mean':np.mean(sub_days)-peak_day,
+							f'peak_distance.j~dj={dj}~mode=median':np.median(sub_days)-peak_day,
+							})
 					attn_scores_collection[b] += [r]
 
 	bar.done()

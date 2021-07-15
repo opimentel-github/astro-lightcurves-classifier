@@ -23,7 +23,7 @@ class ModelCollections():
 		self.gd_embd_dims = GDIter(d*bands)
 		self.gd_layers = GDIter(1) # 1 2 3
 
-		p = 0/100
+		p = 0/100 # 0 1
 		self.dropout_d = {
 			'p':p,
 			'r':p,
