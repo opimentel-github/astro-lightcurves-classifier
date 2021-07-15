@@ -69,11 +69,11 @@ def _save_reconstructions(train_handler, data_loader, save_rootdir, experiment_i
 
 			title = ''
 			if k==0:
-				title += f'model light curve reconstructions'+'\n'
+				title += f'multi-band light curve reconstructions'+'\n'
 				title += f'set={dataset.survey} [{dataset.lcset_name.replace(".@", "")}]'+'\n'
-			title += '$\\bf{'+ALPHABET[k]+'}$'+f' lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
+			title += '$\\bf{('+f'{ALPHABET[k]}'+')}$'+f' lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 			ax.set_title(title[:-1])
-			ax.set_ylabel('observations [flux]')
+			ax.set_ylabel('observation [flux]')
 			ax.legend(loc='upper right')
 			ax.grid(alpha=0.5)
 

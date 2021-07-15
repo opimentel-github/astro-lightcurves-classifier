@@ -14,6 +14,7 @@ from lchandler import C_ as C_lchandler
 from lchandler.plots.lc import plot_lightcurve
 import random
 
+ALPHABET = C_.ALPHABET
 FIGSIZE = (10,10)
 
 ###################################################################################################################################################
@@ -106,9 +107,9 @@ def _save_attn_scores_animation(train_handler, data_loader, save_rootdir, experi
 				if k==0:
 					title += f'model attention scores mapping'+'\n'
 					title += f'set={dataset.survey} [{dataset.lcset_name.replace(".@", "")}]'+'\n'
-				title += '$\\bf{'+ALPHABET[k]+'}$'+f' lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
+				title += '$\\bf{('+f'{ALPHABET[k]}'+')}$'+f' lcobj={lcobj_names[k]} [{dataset.class_names[lcobj.y]}]'+'\n'
 				ax.set_title(title[:-1])
-				ax.set_ylabel('observations [flux]')
+				ax.set_ylabel('observation [flux]')
 				ax.legend(loc='upper right')
 				ax.grid(alpha=0.5)
 				xlims[lcobj_name] = ax.get_xlim() if xlims[lcobj_name] is None else xlims[lcobj_name]

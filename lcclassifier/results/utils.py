@@ -47,7 +47,7 @@ def get_fmodel_name(model_name):
 	model_name += [f'r={time_noise_window}' if not time_noise_window is None else '']
 	model_name += [f'heads={heads}' if not heads is None else '']
 	# model_name += [f'k={kernel_size}' if not kernel_size is None else '']
-	mdl_desc = ', '.join(model_name)
+	mdl_desc = '; '.join(model_name)
 	txt = f'{mdl}({mdl_desc})'
 	return txt
 
