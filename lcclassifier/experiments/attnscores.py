@@ -16,6 +16,7 @@ import random
 from fuzzytools.strings import bf_alphabet_count
 
 FIGSIZE = (10,10)
+DEFAULT_DAYS_N_AN = C_.DEFAULT_DAYS_N_AN
 
 ###################################################################################################################################################
 
@@ -39,7 +40,7 @@ def _save_attnscores_animation(train_handler, data_loader, save_rootdir, experim
 	figsize:tuple=FIGSIZE,
 	nc:int=1,
 	alpha=0.333,
-	days_n:int=C_.DEFAULT_DAYS_N_AN,
+	days_n:int=DEFAULT_DAYS_N_AN,
 	animation_duration=10,
 	**kwargs):
 	train_handler.load_model() # important, refresh to best model
@@ -56,7 +57,7 @@ def _save_attnscores_animation(train_handler, data_loader, save_rootdir, experim
 		lcobj_names = dataset.get_random_stratified_lcobj_names(nc)
 		xlims = {lcobj_name:None for lcobj_name in lcobj_names}
 		ylims = {lcobj_name:None for lcobj_name in lcobj_names}
-		for day in days[::-1]: # along days
+		for kday,day in enumerate(days[::-1]): # along days
 			dataset.set_max_day(day)
 			dataset.calcule_precomputed()
 
@@ -80,10 +81,6 @@ def _save_attnscores_animation(train_handler, data_loader, save_rootdir, experim
 				for kb,b in enumerate(dataset.band_names):
 					lcobjb = lcobj.get_b(b)
 					plot_lightcurve(ax, lcobj, b, label=f'{b} obs', max_day=day)
-					if kb==0:
-						lcobj_max_day = max([lcobj.get_b(_b).days[-1] for _b in dataset.band_names if len(lcobj.get_b(_b))>0])
-						threshold_day = min([day, lcobj_max_day])
-						ax.axvline(threshold_day, linestyle='--', c='k', label=f'threshold day {threshold_day:.3f}')
 
 					### attn scores
 					p_onehot = tdict[f'input/onehot.{b}'][...,0] # (b,t)
@@ -102,6 +99,10 @@ def _save_attnscores_animation(train_handler, data_loader, save_rootdir, experim
 						markersize = max_makersize*p+min_makersize*(1-p)
 						ax.plot(lcobjb.days[i], lcobjb.obs[i], 'o', markersize=markersize, markeredgewidth=0, c=c, alpha=alpha)
 					ax.plot([None], [None], 'o', markeredgewidth=0, c=c, label=f'{b} attention scores', alpha=alpha)
+
+				### vertical line
+				if kday>0:
+					ax.axvline(day, linestyle='--', c='k', label=f'threshold-day={day:.3f}')
 
 				title = ''
 				if k==0:

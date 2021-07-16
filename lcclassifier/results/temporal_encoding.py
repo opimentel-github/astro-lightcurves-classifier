@@ -88,9 +88,9 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 					te_periods = d['te_periods']
 					te_phases = d['te_phases']
 					alpha = get_fourier(days, alpha_weights[:,kfu], te_periods, te_phases)
-					dalpha = get_diff(alpha, 1)**2
+					dalpha = (get_diff(alpha, 1)**2)*1e6
 					beta = get_fourier(days, beta_weights[:,kfu], te_periods, te_phases)
-					dbeta = get_diff(beta, 1)**2
+					dbeta = (get_diff(beta, 1)**2)*1e6
 					scales += [dalpha]
 					biases += [dbeta]
 
@@ -102,7 +102,7 @@ def plot_temporal_encoding(rootdir, cfilename, kf, lcset_name, model_names,
 					ax = axs[kax,kb]
 					curves = d[curve_name]['curve']
 					c = 'k'
-					median_curve = np.median(np.concatenate([curve[None]*1e6 for curve in curves], axis=0), axis=0)
+					median_curve = np.median(np.concatenate([curve[None]for curve in curves], axis=0), axis=0)
 					if not f'{kax}/{kb}/{b}' in global_median_curves_d.keys():
 						global_median_curves_d[f'{kax}/{kb}/{b}'] = []
 					global_median_curves_d[f'{kax}/{kb}/{b}'] += [median_curve]

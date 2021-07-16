@@ -19,6 +19,7 @@ from fuzzytools.datascience.dim_reductors import DimReductor
 
 DEFAULT_DAYS_N = C_.DEFAULT_DAYS_N
 RANDOM_STATE = 0
+DEFAULT_MIN_DAY = C_.DEFAULT_MIN_DAY
 
 ###################################################################################################################################################
 
@@ -36,7 +37,7 @@ def save_dim_reductions(train_handler, data_loader, save_rootdir,
 	dataset.reset_max_day() # always reset max day
 	days_embeddings = {}
 	days_y_true = {}
-	days = np.linspace(C_.DEFAULT_MIN_DAY, dataset.max_day, days_n)#[::-1]
+	days = np.linspace(DEFAULT_MIN_DAY, dataset.max_day, days_n)#[::-1]
 	bar = ProgressBar(len(days))
 	with torch.no_grad():
 		for day in days:
@@ -67,7 +68,7 @@ def save_dim_reductions(train_handler, data_loader, save_rootdir,
 			### embeddings
 			encz_last = tdict[f'model/encz_last']
 			days_embeddings[day] = tensor_to_numpy(encz_last)
-			bar(f'day={day:.3f}/{days[-1]:.3f}')
+			bar(f'day={day:.3f}/{days[-1]:.3f}; {days_embeddings[day][:5,0]}')
 	bar.done()
 
 	### train map
@@ -75,15 +76,20 @@ def save_dim_reductions(train_handler, data_loader, save_rootdir,
 	reduction_map = UMAP(
 		n_components=2,
 		metric='euclidean',
-		n_neighbors=int(10),
-		min_dist=.1,
+		n_neighbors=10, # 5 10 20 50
+		min_dist=.01, # .01 .1 .2 .5 .9
 		random_state=random_state,
 		transform_seed=random_state,
+		# verbose=1,
 		)
 	dim_reductor = DimReductor(scaler, reduction_map,
-		inter_pca_dims=10,
+		inter_pca_dims=16,
 		)
-	dim_reductor.fit([days_embeddings[day] for day in days])
+	x = np.concatenate([days_embeddings[day] for day in days], axis=0)
+	dim_reductor.fit(x,
+		drop_duplicates=True,
+		# normal_std=1e-5,
+		)
 
 	### compute maps
 	days_dim_reductions = {}
@@ -92,7 +98,7 @@ def save_dim_reductions(train_handler, data_loader, save_rootdir,
 		x = days_embeddings[day]
 		new_x = dim_reductor.transform(x)
 		days_dim_reductions[day] = new_x
-		bar(f'day={day:.3f}/{days[-1]:.3f} - x.shape={x.shape} - new_x.shape={new_x.shape}')
+		bar(f'day={day:.3f}/{days[-1]:.3f}; x.shape={x.shape}; new_x.shape={new_x.shape}')
 	bar.done()
 
 	results = {

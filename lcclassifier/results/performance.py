@@ -10,12 +10,12 @@ from matplotlib import cm
 import matplotlib.pyplot as plt
 from fuzzytools.datascience.xerror import XError
 from . import utils as utils
+from fuzzytools.strings import bf_alphabet_count
 
 RANDOM_STATE = 0
 PERCENTILE_PLOT = 95
 SHADOW_ALPHA = .25
 FIGSIZE_2X1 = (16, 8)
-ALPHABET = 'abcdefgh'
 
 ###################################################################################################################################################
 
@@ -84,10 +84,10 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			ax.set_xlabel('time [days]')
 			if kax==0:
 				ax.set_ylabel(mn)
-				ax.set_title('(a) parallel models')
+				ax.set_title(f'{bf_alphabet_count(0)} parallel models')
 			else:
 				ax.set_yticklabels([])
-				ax.set_title('(b) serial models')
+				ax.set_title(f'{bf_alphabet_count(1)} serial models')
 
 			axis_lims.set_ax_axis_lims(ax)
 			ax.grid(alpha=0.5)
