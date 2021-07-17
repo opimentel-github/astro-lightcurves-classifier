@@ -97,10 +97,13 @@ def save_attnstats(train_handler, data_loader, save_rootdir,
 
 				attn_scores_k = tensor_to_numpy(attn_scores[k,:b_len,0]) # (b,qt,1)>(t)
 				attn_scores_min_max_k = tensor_to_numpy(attn_scores_min_max[k,:b_len,0]) # (b,qt,1)>(t)
+				attn_entropy = tensor_to_numpy(torch.sum(-attn_scores[k,:b_len,0]*torch.log(attn_scores[k,:b_len,0]+1e-10), dim=0)) # (t)>()
+				# print(f'attn_scores_k={attn_scores_k}; attn_entropy={attn_entropy}')
 
 				days = lcobjb.days[:b_len] # (t)
 				obs = lcobjb.obs[:b_len] # (t)
 				obse = lcobjb.obse[:b_len] # (t)
+				snr = lcobjb.get_snr(max_len=b_len)
 				peak_day = days[np.argmax(obs)]
 
 				obs_min_max = min_max_norm(obs) # (t)
@@ -110,18 +113,17 @@ def save_attnstats(train_handler, data_loader, save_rootdir,
 					r = {
 						#'lcobj_name':lcobj_name,
 						f'c':dataset.class_names[lcobj.y],
-						f'b_len':b_len,
+						f'len':b_len,
 						f'peak_day':peak_day,
+						f'attn_entropy':attn_entropy,
+						f'snr':snr,
+
 						f'j':j,
-						
 						f'attn_scores_k.j':attn_scores_k[j],
 						f'attn_scores_min_max_k.j':attn_scores_min_max_k[j],
-						
 						f'days.j':days[j],
-
 						f'obs.j':obs[j],
 						f'obs_min_max.j':obs_min_max[j],
-
 						f'obse.j':obse[j],
 						f'obse_min_max.j':obse_min_max[j],
 						}

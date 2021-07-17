@@ -255,7 +255,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	extra_model_name_dict.update(get_dict_from_string(main_args.extra_model_name))
 	pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors,
 		id=main_args.mid,
-		epochs_max=100, # 50 100 150 200 # limit this as the pre-training is very time consuming
+		epochs_max=150, # 50 100 150 200 # limit this as the pre-training is very time consuming
 		extra_model_name_dict=extra_model_name_dict,
 		)
 	complete_model_name = pt_model_train_handler.get_complete_model_name()
@@ -305,15 +305,15 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	# save_attnscores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
 	# save_attnscores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
 	# save_attnscores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-	# save_attnstats(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
-	# save_attnstats(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
+	save_attnstats(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
+	save_attnstats(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
 
 	### experiments
 	pt_exp_kwargs = {
 		'm':20,
 		'target_is_onehot':False,
 		}
-	save_dim_reductions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/dim_reductions/{cfilename}', **pt_exp_kwargs)
+	# save_dim_reductions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/dim_reductions/{cfilename}', **pt_exp_kwargs)
 	save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
 	# save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
 	# save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
