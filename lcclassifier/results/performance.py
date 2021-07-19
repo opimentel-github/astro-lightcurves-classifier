@@ -72,7 +72,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			mn = metric_name if dmetrics[metric_name]['mn'] is None else dmetrics[metric_name]['mn']
 			mn = mn if target_class is None else mn.replace('b-', f'{target_class}-')
 			suptitle = ''
-			suptitle += f'{mn} v/s days [{train_mode}]'+'\n'
+			suptitle += f'{mn} v/s days using moving th-day'+'\n'
 			suptitle += f'set={survey} [{lcset_name.replace(".@", "")}]'+'\n'
 			fig.suptitle(suptitle[:-1], va='bottom')
 
@@ -84,10 +84,10 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 			ax.set_xlabel('time [days]')
 			if kax==0:
 				ax.set_ylabel(mn)
-				ax.set_title(f'{bf_alphabet_count(0)} parallel models')
+				ax.set_title(f'{bf_alphabet_count(0)} Parallel models')
 			else:
 				ax.set_yticklabels([])
-				ax.set_title(f'{bf_alphabet_count(1)} serial models')
+				ax.set_title(f'{bf_alphabet_count(1)} Serial models')
 
 			axis_lims.set_ax_axis_lims(ax)
 			ax.grid(alpha=0.5)

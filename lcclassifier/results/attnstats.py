@@ -13,6 +13,8 @@ from fuzzytools.strings import bf_alphabet_count
 
 RANDOM_STATE = 0
 FIGSIZE = (16,10)
+LEN_TH = 5
+CLASSES_STYLES = C_.CLASSES_STYLES
 
 ###################################################################################################################################################
 
@@ -20,7 +22,7 @@ def plot_slope_distance_attnstats(rootdir, cfilename, kf, lcset_name, model_name
 	train_mode='pre-training',
 	figsize=FIGSIZE,
 	attn_th=0.5,
-	len_th=5,
+	len_th=LEN_TH,
 	n_bins=50,
 	bins_xrange=[None, None],
 	bins_yrange=[None, None],
@@ -29,7 +31,7 @@ def plot_slope_distance_attnstats(rootdir, cfilename, kf, lcset_name, model_name
 	distance_mode='mean', # local mean median 
 	):
 	for kmn,model_name in enumerate(model_names):
-		load_roodir = f'{rootdir}/{model_name}/{train_mode}/attn_stats/{cfilename}'
+		load_roodir = f'{rootdir}/{model_name}/{train_mode}/attnstats/{cfilename}'
 		if not ftfiles.path_exists(load_roodir):
 			continue
 		files, files_ids = ftfiles.gather_files_by_kfold(load_roodir, kf, lcset_name,
@@ -117,3 +119,59 @@ def plot_slope_distance_attnstats(rootdir, cfilename, kf, lcset_name, model_name
 
 		fig.tight_layout()
 		plt.show()
+
+def plot_attnentropy(rootdir, cfilename, kf, lcset_name, model_names,
+	train_mode='pre-training',
+	figsize=FIGSIZE,
+	len_th=LEN_TH,
+	):
+	for kmn,model_name in enumerate(model_names):
+		load_roodir = f'{rootdir}/{model_name}/{train_mode}/attnstats/{cfilename}'
+		if not ftfiles.path_exists(load_roodir):
+			continue
+		files, files_ids = ftfiles.gather_files_by_kfold(load_roodir, kf, lcset_name,
+			fext='d',
+			disbalanced_kf_mode='ignore', # error oversampling ignore
+			random_state=RANDOM_STATE,
+			)
+		print(f'{model_name} {files_ids}({len(files_ids)}#)')
+		assert len(files)>0
+
+		survey = files[0]()['survey']
+		band_names = files[0]()['band_names']
+		class_names = files[0]()['class_names']
+		#days = files[0]()['days']
+
+		fig, axs = plt.subplots(1, len(band_names), figsize=figsize)
+		entropy_d = {b:{c:[] for c in class_names} for b in band_names}
+		for kb,b in enumerate(band_names):
+			ax = axs[kb]
+			norm_attnentropys = []
+			snrs = []
+			max_obs = []
+			attn_scores_collection = flat_list([f()['attn_scores_collection'][b] for f in files])
+			for kfile,file in enumerate(files):
+				attn_scores_collection = file()['attn_scores_collection'][b]
+				for k,d in enumerate(attn_scores_collection):
+					c = d['c']
+					b_len = d['b_len']
+					if b_len<len_th:
+						continue
+					attnentropy_h = d['attn_entropy_h']
+					snr = d['snr']
+					max_obs = d['max_obs']
+					peak_day = d['peak_day']
+					entropy_d[b][c] += [h/np.log(b_len) for h in attnentropy_h]
+					ax.plot([np.mean(attnentropy_h/np.log(b_len))], [snr],
+						c='k',
+						#c=CLASSES_STYLES[c]['c'],
+						marker=CLASSES_STYLES[c]['marker'],
+						markersize=2,
+						alpha=.5,
+						)
+					# ax.plot([np.log(norm_attnentropy+1e-10)], [snr], 'o', c='k', markersize=1, alpha=.25)
+					ax.set_xlabel('$H(X)/\\log(L)$')
+					ax.set_ylabel('???')
+		fig.tight_layout()
+		plt.show()
+		return entropy_d

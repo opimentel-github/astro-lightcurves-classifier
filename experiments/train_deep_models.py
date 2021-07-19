@@ -24,7 +24,7 @@ parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--only_perform_exps',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=1)
-parser.add_argument('--num_workers',  type=int, default=12)
+parser.add_argument('--num_workers',  type=int, default=8)
 parser.add_argument('--pin_memory',  type=int, default=1) # 0 1
 parser.add_argument('--pt_balanced_metrics',  type=int, default=1)
 parser.add_argument('--ft_balanced_metrics',  type=int, default=1)
@@ -255,7 +255,7 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 	extra_model_name_dict.update(get_dict_from_string(main_args.extra_model_name))
 	pt_model_train_handler = ModelTrainHandler(model, pt_loss_monitors,
 		id=main_args.mid,
-		epochs_max=150, # 50 100 150 200 # limit this as the pre-training is very time consuming
+		epochs_max=200, # 50 100 150 200 # limit this as the pre-training is very time consuming
 		extra_model_name_dict=extra_model_name_dict,
 		)
 	complete_model_name = pt_model_train_handler.get_complete_model_name()
@@ -301,12 +301,12 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		'm':3,
 		}
 	# save_temporal_encoding(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/temporal_encoding/{cfilename}', **pt_exp_kwargs)
-	# save_attnscores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-	# save_attnscores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs) # sanity check
-	# save_attnscores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-	# save_attnscores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_scores/{cfilename}', **pt_exp_kwargs)
-	save_attnstats(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
-	save_attnstats(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attn_stats/{cfilename}', **pt_exp_kwargs)
+	# save_attnscores_animation(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attnscores/{cfilename}', **pt_exp_kwargs) # sanity check / slow
+	# save_attnscores_animation(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/attnscores/{cfilename}', **pt_exp_kwargs) # sanity check
+	# save_attnscores_animation(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/attnscores/{cfilename}', **pt_exp_kwargs)
+	# save_attnscores_animation(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attnscores/{cfilename}', **pt_exp_kwargs)
+	# save_attnstats(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/attnstats/{cfilename}', **pt_exp_kwargs)
+	# save_attnstats(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/attnstats/{cfilename}', **pt_exp_kwargs)
 
 	### experiments
 	pt_exp_kwargs = {
@@ -315,8 +315,8 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		}
 	# save_dim_reductions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/dim_reductions/{cfilename}', **pt_exp_kwargs)
 	save_reconstructions(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check / slow
-	# save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
-	# save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
+	save_reconstructions(pt_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs) # sanity check
+	save_reconstructions(pt_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
 	save_reconstructions(pt_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/reconstruction/{cfilename}', **pt_exp_kwargs)
 	save_model_info(pt_model_train_handler, s_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **pt_exp_kwargs) # crash when bypassing autoencoder
 	
@@ -442,5 +442,4 @@ for mp_grid in mp_grids: # MODEL CONFIGS
 		#save_performance(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs) # sanity check
 		save_performance(ft_model_train_handler, r_val_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
 		save_performance(ft_model_train_handler, r_test_loader, f'../save/{complete_model_name}/{train_mode}/performance/{cfilename}', **ft_exp_kwargs)
-
 		save_model_info(ft_model_train_handler, r_train_loader, f'../save/{complete_model_name}/{train_mode}/model_info/{cfilename}', **ft_exp_kwargs)

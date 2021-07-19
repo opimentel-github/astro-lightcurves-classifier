@@ -77,9 +77,8 @@ def save_attnstats(train_handler, data_loader, save_rootdir,
 
 			### attn scores
 			attn_scores = tdict[f'model/attn_scores/encz.{b}'] # (b,h,qt)
-			attn_scores = attn_scores.mean(dim=1)[...,None] # (b,h,qt)>(b,qt,1) # mean along heads 
-			#print('attn_scores',attn_scores.shape)
-			attn_scores_min_max = seq_utils.seq_min_max_norm(attn_scores, p_onehot) # (b,qt,1)
+			attn_scores_mean = attn_scores.mean(dim=1)[...,None] # (b,h,qt)>(b,qt,1) # mean along heads. it is not a distributions as it can sum!=1
+			attn_scores_min_max = seq_utils.seq_min_max_norm(attn_scores_mean, p_onehot) # (b,qt,1)
 
 			### stats
 			lcobj_names = dataset.get_lcobj_names()
@@ -90,34 +89,31 @@ def save_attnstats(train_handler, data_loader, save_rootdir,
 				p_onehot_k = tensor_to_numpy(p_onehot[k]) # (b,t) > (t)
 				b_len = p_onehot_k.sum()
 				assert b_len<=len(lcobjb), f'{b_len}<={len(lcobjb)}'
-				bar(f'b={b} - lcobj_name={lcobj_name} - b_len={b_len}')
 
 				if b_len<=min(djs):
 					continue
 
-				attn_scores_k = tensor_to_numpy(attn_scores[k,:b_len,0]) # (b,qt,1)>(t)
+				attn_scores_k = tensor_to_numpy(attn_scores_mean[k,:b_len,0]) # (b,qt,1)>(t)
 				attn_scores_min_max_k = tensor_to_numpy(attn_scores_min_max[k,:b_len,0]) # (b,qt,1)>(t)
-				attn_entropy = tensor_to_numpy(torch.sum(-attn_scores[k,:b_len,0]*torch.log(attn_scores[k,:b_len,0]+1e-10), dim=0)) # (t)>()
-				# print(f'attn_scores_k={attn_scores_k}; attn_entropy={attn_entropy}')
+				attn_entropy_h = tensor_to_numpy(torch.sum(-attn_scores[k,:,:b_len]*torch.log(attn_scores[k,:,:b_len]+1e-10), dim=1)) # (b,h,qt)>(h)
+				attn_scores_mean_distr = torch.softmax(attn_scores_mean[k,:b_len,0], dim=0) # (b,qt,1)>(qt)
+				attn_entropy = tensor_to_numpy(torch.sum(-attn_scores_mean_distr*torch.log(attn_scores_mean_distr+1e-10), dim=0)) # (qt)>()
 
 				days = lcobjb.days[:b_len] # (t)
 				obs = lcobjb.obs[:b_len] # (t)
 				obse = lcobjb.obse[:b_len] # (t)
 				snr = lcobjb.get_snr(max_len=b_len)
+				max_obs = np.max(obs)
 				peak_day = days[np.argmax(obs)]
+				duration = days[-1]-days[0]
 
 				obs_min_max = min_max_norm(obs) # (t)
 				obse_min_max = min_max_norm(obse) # (t)
 				
+				bar(f'b={b}; lcobj_name={lcobj_name}; b_len={b_len}; attn_entropy_h={attn_entropy_h}; attn_entropy={attn_entropy}; snr={snr}; max_obs={max_obs}')
+				lc_features = []
 				for j in range(min(djs), b_len): # dj,dj+1,...,b_len-1
-					r = {
-						#'lcobj_name':lcobj_name,
-						f'c':dataset.class_names[lcobj.y],
-						f'len':b_len,
-						f'peak_day':peak_day,
-						f'attn_entropy':attn_entropy,
-						f'snr':snr,
-
+					j_features = {
 						f'j':j,
 						f'attn_scores_k.j':attn_scores_k[j],
 						f'attn_scores_min_max_k.j':attn_scores_min_max_k[j],
@@ -129,15 +125,27 @@ def save_attnstats(train_handler, data_loader, save_rootdir,
 						}
 					for dj in djs:
 						local_slope_m, local_slope_n, sub_days, sub_obs = get_local_slope(days, obs, j, dj)
-						r.update({
+						j_features.update({
 							f'local_slope_m.j~dj={dj}':local_slope_m,
 							f'local_slope_n.j~dj={dj}':local_slope_n,
 							f'peak_distance.j~dj={dj}~mode=local':days[j]-peak_day,
 							f'peak_distance.j~dj={dj}~mode=mean':np.mean(sub_days)-peak_day,
 							f'peak_distance.j~dj={dj}~mode=median':np.median(sub_days)-peak_day,
 							})
-					attn_scores_collection[b] += [r]
+					lc_features += [j_features]
 
+				attn_scores_collection[b] += [{
+					#'lcobj_name':lcobj_name,
+					f'c':dataset.class_names[lcobj.y],
+					f'b_len':b_len,
+					f'peak_day':peak_day,
+					f'duration':duration,
+					f'attn_entropy_h':attn_entropy_h,
+					f'attn_entropy':attn_entropy,
+					f'snr':snr,
+					f'max_obs':max_obs,
+					f'lc_features':lc_features,
+					}]
 	bar.done()
 	results = {
 		'model_name':train_handler.model.get_name(),
@@ -146,7 +154,6 @@ def save_attnstats(train_handler, data_loader, save_rootdir,
 		'class_names':dataset.class_names,
 
 		'max_day':dataset.max_day,
-		'dj':dj,
 		'attn_scores_collection':attn_scores_collection,
 	}
 

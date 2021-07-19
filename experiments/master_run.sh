@@ -5,7 +5,7 @@ clear
 # mc_gpu="--mc p_rnn_models --gpu 0 --precompute_only 1"
 
 ### parallel
-mc_gpu="--mc p_attn_model --gpu 0"
+# mc_gpu="--mc p_attn_model --gpu 0"
 # mc_gpu="--mc p_attn_models_te --gpu 0"
 # mc_gpu="--mc p_attn_models_noise --gpu 0"
 # mc_gpu="--mc p_attn_models_heads --gpu 0"
@@ -13,7 +13,7 @@ mc_gpu="--mc p_attn_model --gpu 0"
 # mc_gpu="--mc p_rnn_models --gpu 3"
 
 ### serial
-# mc_gpu="--mc s_attn_model --gpu 0"
+mc_gpu="--mc s_attn_model --gpu 0"
 # mc_gpu="--mc s_attn_models_te --gpu 3"
 # mc_gpu="--mc s_attn_models_noise --gpu 3"
 # mc_gpu="--mc s_attn_models_heads --gpu 3"
@@ -21,9 +21,9 @@ mc_gpu="--mc p_attn_model --gpu 0"
 # mc_gpu="--mc s_rnn_models --gpu 0"
 
 b=129
-classifier_mids=3
+classifier_mids=2
 
-only_perform_exps=1
+only_perform_exps=0
 bypass_autoencoder=0
 
 pt_balanced_metrics=1

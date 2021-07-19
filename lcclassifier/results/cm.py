@@ -32,7 +32,7 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			disbalanced_kf_mode='oversampling', # error oversampling
 			random_state=RANDOM_STATE,
 			)
-		print(f'ids={files_ids}(n={len(files_ids)}#) - model={model_name}')
+		print(f'ids={files_ids}(n={len(files_ids)}#); model={model_name}')
 		if len(files)==0:
 			continue
 
@@ -64,8 +64,9 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			title = ''
 			title += f'{utils.get_fmodel_name(model_name)}'+'\n'
 			#title += f'survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
-			#title += f'train-mode={train_mode} - eval-set={kf}@{lcset_name}'+'\n'
-			title += f'b-recall={brecall_xe} - b-f1score={bf1score_xe}'+'\n'
+			#title += f'train-mode={train_mode}; eval-set={kf}@{lcset_name}'+'\n'
+			title += f'b-recall={brecall_xe}; b-f1score={bf1score_xe}'+'\n'
+			title += f'th-day={target_day:.3f}'+'\n'
 			#title += f'b-p/r={bprecision_xe} / {brecall_xe}'+'\n'
 			#title += f'b-f1score={bf1score_xe}'+'\n'
 			if export_animation:
