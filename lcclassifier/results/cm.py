@@ -13,17 +13,19 @@ from fuzzytools.cuteplots.cm_plots import plot_custom_confusion_matrix
 from fuzzytools.cuteplots.animators import PlotAnimator
 from fuzzytools.progress_bars import ProgressBar
 
-CM_FIGSIZE = (6,5)
+FIGSIZE = (6,5)
 RANDOM_STATE = 0
+PERCENTILE = 75
 
 ###################################################################################################################################################
 
 def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
-	figsize=CM_FIGSIZE,
+	figsize=FIGSIZE,
 	train_mode='fine-tuning',
 	export_animation=False,
 	animation_duration=12,
 	new_order_classes=['SNIa', 'SNIbc', 'SNII-b-n', 'SLSN'],
+	percentile=PERCENTILE,
 	):
 	for kmn,model_name in enumerate(model_names):
 		load_roodir = f'{rootdir}/{model_name}/{train_mode}/performance/{cfilename}'
@@ -66,22 +68,22 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			#title += f'survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
 			#title += f'train-mode={train_mode}; eval-set={kf}@{lcset_name}'+'\n'
 			title += f'b-recall={brecall_xe}; b-f1score={bf1score_xe}'+'\n'
-			title += f'th-day={target_day:.3f}'+'\n'
+			title += f'th-day={target_day:.3f} [days]'+'\n'
 			#title += f'b-p/r={bprecision_xe} / {brecall_xe}'+'\n'
 			#title += f'b-f1score={bf1score_xe}'+'\n'
 			if export_animation:
 				#title += str(bar)+'\n'
 				title += f'target_day={target_day:.3f}/{days[-1]:.3f} [days]'+'\n'
 				pass
-			cm_kwargs = {
-				#'fig':fig,
-				#'ax':ax,
-				'title':title[:-1],
-				'figsize':figsize,
-				'new_order_classes':new_order_classes,
-				}
 			cms = np.concatenate([f()['days_cm'][target_day][None] for f in files], axis=0)
-			fig, ax, cm_norm = plot_custom_confusion_matrix(cms, class_names, **cm_kwargs)
+			fig, ax, cm_norm = plot_custom_confusion_matrix(cms, class_names,
+				#fig=fig,
+				#ax=ax,
+				title=title[:-1],
+				figsize=figsize,
+				new_order_classes=new_order_classes,
+				percentile=percentile,
+				)
 			uses_close_fig = kd<len(days)-1
 			plot_animation.append(fig, uses_close_fig)
 

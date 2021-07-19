@@ -24,7 +24,7 @@ parser.add_argument('--invert_mpg',  type=int, default=0) # 0 1
 parser.add_argument('--only_perform_exps',  type=int, default=0) # 0 1
 parser.add_argument('--extra_model_name',  type=str, default='')
 parser.add_argument('--classifier_mids',  type=int, default=1)
-parser.add_argument('--num_workers',  type=int, default=8)
+parser.add_argument('--num_workers',  type=int, default=12) # 12
 parser.add_argument('--pin_memory',  type=int, default=1) # 0 1
 parser.add_argument('--pt_balanced_metrics',  type=int, default=1)
 parser.add_argument('--ft_balanced_metrics',  type=int, default=1)

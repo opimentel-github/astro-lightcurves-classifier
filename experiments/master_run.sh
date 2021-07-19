@@ -35,11 +35,10 @@ extras="--batch_size $b --only_perform_exps $only_perform_exps --classifier_mids
 # for mid in 7000; do
 for mid in {1000..1004}; do
 	for kf in {0..4}; do
-	# for kf in 1 2 3 4; do
-		mid_kf="--mid $mid --kf $kf"
-		script="python train_deep_models.py $mc_gpu $mid_kf $extras"
+		script="python train_deep_models.py --mid $mid --kf $kf $mc_gpu $extras"
 		echo "$script"; eval "$script"
 	done
 done
+
 mins=$((SECONDS/60))
 echo echo "Time Elapsed : ${mins} minutes"
