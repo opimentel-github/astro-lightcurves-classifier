@@ -42,7 +42,7 @@ def plot_metric(rootdir, cfilename, kf, lcset_name, model_names, dmetrics,
 					disbalanced_kf_mode='oversampling', # error oversampling
 					random_state=RANDOM_STATE,
 					)
-				print(f'{model_name} {files_ids}({len(files_ids)}#); model={model_name}')
+				print(f'{files_ids}({len(files_ids)}#); model={model_name}')
 				if len(files)==0:
 					continue
 

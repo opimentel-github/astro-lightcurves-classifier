@@ -50,13 +50,13 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			save_end_frame=True,
 			)
 
-		target_days = days if export_animation else [days[-1]]
-		bar = ProgressBar(len(target_days), bar_format='{l_bar}{bar}{postfix}')
-		for kd,target_day in enumerate(target_days):
-			bar(f'{target_day:.1f}/{target_days[-1]:.1f} [days]')
+		th_days = days if export_animation else [days[-1]]
+		bar = ProgressBar(len(th_days), bar_format='{l_bar}{bar}{postfix}')
+		for kd,th_day in enumerate(th_days):
+			bar(f'th_day={th_day:.3f} [days]')
 			xe_dict = {}
 			for metric_name in ['b-precision', 'b-recall', 'b-f1score']:
-				xe_metric = XError([f()['days_class_metrics_df'].loc[f()['days_class_metrics_df']['_day']==target_day][metric_name].item() for f in files])
+				xe_metric = XError([f()['days_class_metrics_df'].loc[f()['days_class_metrics_df']['_day']==th_day][metric_name].item() for f in files])
 				xe_dict[metric_name] = xe_metric
 
 			bprecision_xe = xe_dict['b-precision']
@@ -68,14 +68,10 @@ def plot_cm(rootdir, cfilename, kf, lcset_name, model_names,
 			#title += f'survey={survey}-{"".join(band_names)} [{kf}@{lcset_name}]'+'\n'
 			#title += f'train-mode={train_mode}; eval-set={kf}@{lcset_name}'+'\n'
 			title += f'b-recall={brecall_xe}; b-f1score={bf1score_xe}'+'\n'
-			title += f'th-day={target_day:.3f} [days]'+'\n'
+			title += f'th-day={th_day:.3f} [days]'+'\n'
 			#title += f'b-p/r={bprecision_xe} / {brecall_xe}'+'\n'
 			#title += f'b-f1score={bf1score_xe}'+'\n'
-			if export_animation:
-				#title += str(bar)+'\n'
-				title += f'target_day={target_day:.3f}/{days[-1]:.3f} [days]'+'\n'
-				pass
-			cms = np.concatenate([f()['days_cm'][target_day][None] for f in files], axis=0)
+			cms = np.concatenate([f()['days_cm'][th_day][None] for f in files], axis=0)
 			fig, ax, cm_norm = plot_custom_confusion_matrix(cms, class_names,
 				#fig=fig,
 				#ax=ax,
